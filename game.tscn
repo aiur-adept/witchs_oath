@@ -32,119 +32,152 @@ theme_override_constants/margin_top = 16
 theme_override_constants/margin_right = 20
 theme_override_constants/margin_bottom = 16
 
-[node name="VBox" type="VBoxContainer" parent="Margin"]
+[node name="RootRow" type="HBoxContainer" parent="Margin"]
 layout_mode = 2
-theme_override_constants/separation = 10
+theme_override_constants/separation = 18
 
-[node name="StatusLabel" type="Label" parent="Margin/VBox"]
+[node name="LogCol" type="VBoxContainer" parent="Margin/RootRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 0.2
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="StatusLabel" type="Label" parent="Margin/RootRow/LogCol"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Loading…"
 
-[node name="StatsRow" type="HBoxContainer" parent="Margin/VBox"]
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="YouStatsPanel" type="PanelContainer" parent="Margin/VBox/StatsRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="YouStatsLabel" type="Label" parent="Margin/VBox/StatsRow/YouStatsPanel"]
+[node name="LogLabel" type="RichTextLabel" parent="Margin/RootRow/LogCol"]
 unique_name_in_owner = true
-layout_mode = 2
-text = "You\nPower: 0\nHand: 0\nDeck: 0"
-
-[node name="OppStatsPanel" type="PanelContainer" parent="Margin/VBox/StatsRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="OppStatsLabel" type="Label" parent="Margin/VBox/StatsRow/OppStatsPanel"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Opponent\nPower: 0\nHand: 0\nDeck: 0"
-
-[node name="SacrificeRow" type="HBoxContainer" parent="Margin/VBox"]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="SacrificeHint" type="Label" parent="Margin/VBox/SacrificeRow"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_horizontal = 3
-text = ""
-
-[node name="SacrificeConfirmButton" type="Button" parent="Margin/VBox/SacrificeRow"]
-unique_name_in_owner = true
-layout_mode = 2
-disabled = true
-text = "Confirm sacrifice"
-
-[node name="SacrificeCancelButton" type="Button" parent="Margin/VBox/SacrificeRow"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Cancel"
-
-[node name="FieldsRow" type="HBoxContainer" parent="Margin/VBox"]
-layout_mode = 2
-size_flags_vertical = 0
-theme_override_constants/separation = 28
-
-[node name="YourFieldCol" type="VBoxContainer" parent="Margin/VBox/FieldsRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 8
-
-[node name="YourFieldTitle" type="Label" parent="Margin/VBox/FieldsRow/YourFieldCol"]
-layout_mode = 2
-text = "Your field"
-
-[node name="FieldYouCards" type="HBoxContainer" parent="Margin/VBox/FieldsRow/YourFieldCol"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_vertical = 0
-theme_override_constants/separation = 10
-
-[node name="OppFieldCol" type="VBoxContainer" parent="Margin/VBox/FieldsRow"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 8
-
-[node name="OppFieldTitle" type="Label" parent="Margin/VBox/FieldsRow/OppFieldCol"]
-layout_mode = 2
-text = "Opponent field"
-
-[node name="FieldOppCards" type="HBoxContainer" parent="Margin/VBox/FieldsRow/OppFieldCol"]
-unique_name_in_owner = true
-layout_mode = 2
-size_flags_vertical = 0
-theme_override_constants/separation = 10
-
-[node name="LogLabel" type="RichTextLabel" parent="Margin/VBox"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 120)
+custom_minimum_size = Vector2(280, 0)
 layout_mode = 2
 size_flags_vertical = 3
 bbcode_enabled = false
 scroll_active = true
 
-[node name="HandRow" type="HBoxContainer" parent="Margin/VBox"]
+[node name="BoardCol" type="VBoxContainer" parent="Margin/RootRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 0.8
+size_flags_vertical = 3
+theme_override_constants/separation = 10
+
+[node name="StatsRow" type="HBoxContainer" parent="Margin/RootRow/BoardCol"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="YouStatsPanel" type="PanelContainer" parent="Margin/RootRow/BoardCol/StatsRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="YouStatsLabel" type="Label" parent="Margin/RootRow/BoardCol/StatsRow/YouStatsPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "You\nPower: 0\nHand: 0\nDeck: 0"
+
+[node name="OppStatsPanel" type="PanelContainer" parent="Margin/RootRow/BoardCol/StatsRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="OppStatsLabel" type="Label" parent="Margin/RootRow/BoardCol/StatsRow/OppStatsPanel"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Opponent\nPower: 0\nHand: 0\nDeck: 0"
+
+[node name="SacrificeRow" type="HBoxContainer" parent="Margin/RootRow/BoardCol"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="SacrificeHint" type="Label" parent="Margin/RootRow/BoardCol/SacrificeRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = ""
+
+[node name="SacrificeConfirmButton" type="Button" parent="Margin/RootRow/BoardCol/SacrificeRow"]
+unique_name_in_owner = true
+layout_mode = 2
+disabled = true
+text = "Confirm sacrifice"
+
+[node name="SacrificeCancelButton" type="Button" parent="Margin/RootRow/BoardCol/SacrificeRow"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Cancel"
+
+[node name="OpponentArea" type="VBoxContainer" parent="Margin/RootRow/BoardCol"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="OppFieldTitle" type="Label" parent="Margin/RootRow/BoardCol/OpponentArea"]
+layout_mode = 2
+text = "Opponent field"
+
+[node name="FieldOppCards" type="HBoxContainer" parent="Margin/RootRow/BoardCol/OpponentArea"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 0
+theme_override_constants/separation = 10
+
+[node name="Spacer" type="Control" parent="Margin/RootRow/BoardCol"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="PlayerArea" type="VBoxContainer" parent="Margin/RootRow/BoardCol"]
+layout_mode = 2
+size_flags_vertical = 1
+theme_override_constants/separation = 8
+
+[node name="YourFieldTitle" type="Label" parent="Margin/RootRow/BoardCol/PlayerArea"]
+layout_mode = 2
+text = "Your field"
+
+[node name="FieldYouCards" type="HBoxContainer" parent="Margin/RootRow/BoardCol/PlayerArea"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 0
+theme_override_constants/separation = 10
+
+[node name="HandRow" type="HBoxContainer" parent="Margin/RootRow/BoardCol/PlayerArea"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 8
 theme_override_constants/separation = 6
 
-[node name="ButtonsRow" type="HBoxContainer" parent="Margin/VBox"]
+[node name="ButtonsRow" type="HBoxContainer" parent="Margin/RootRow/BoardCol"]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="DiscardDrawButton" type="Button" parent="Margin/VBox/ButtonsRow"]
+[node name="DiscardDrawButton" type="Button" parent="Margin/RootRow/BoardCol/ButtonsRow"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Discard for draw (once)"
 
-[node name="EndTurnButton" type="Button" parent="Margin/VBox/ButtonsRow"]
+[node name="EndTurnButton" type="Button" parent="Margin/RootRow/BoardCol/ButtonsRow"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "End turn"
+
+[node name="QuitToMenuButton" type="Button" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 6
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 20.0
+offset_top = -52.0
+offset_right = 170.0
+offset_bottom = -16.0
+text = "Quit to menu"
+
+[node name="QuitConfirmDialog" type="ConfirmationDialog" parent="."]
+unique_name_in_owner = true
+title = "Quit to main menu"
+ok_button_text = "Yes"
+dialog_text = "Are you sure?"

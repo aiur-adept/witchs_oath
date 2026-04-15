@@ -1,6 +1,6 @@
-Design document
+# Arcana Design document
 
-Game name: Arcana
+## Rules
 
 Two 40-card decks.
 
@@ -24,24 +24,17 @@ Nobles are special cards with a certain ability on them.
 
 When a player has finished their turn, they discard down to 7 cards.
 
-A player wins the game when they have 20 ritual power on the field, or when a player attempts to draw from the empty deck, the player with the most ritual power wins. 
+A player wins the game when they have 20 ritual power on the field (only Rituals count toward ritual power, Nobles don't add to ritual power), or when a player attempts to draw from the empty deck, the player with the most ritual power wins. Ritual power counts active rituals only.
 
 Deckbuilding constraints:
 
-Every legal deck must have 19 Ritual cards and 21 non-Ritual cards, with a maximum of 3 Nobles
+Every legal deck must have 19 Ritual cards and 21 non-Ritual cards, with a maximum of 1 Noble of each first name, eg. "Yrss"
 
 There can be no more than 9 of one ritual card value in the deck, for example you may have 9 4-Rituals.
 
 —
 
-Mechanics of Set 1
-
-inc_verbs = ['seek', 'insight', 'burn', 'woe', 'revive', 'wrath']
-inc_values = [1, 2, 3, 4]
-
-set_1_incantations = cartesian_product(inc_verbs, inc_values).
-
-
+## Mechanics of Set 1
 
 Seek X: draw X cards from your deck
 
@@ -51,8 +44,19 @@ Burn X: discard the top 2*X cards of a chosen player's deck
 
 Woe X: a chosen player discards X cards
 
-Wrath 2/4: Choose and destroy 1/2 opponent rituals
+Wrath 2/3: Choose and destroy 1/2 opponent rituals
 
 Revive 1: return 1 discarded incantation to hand
 
-Dethrone: Choose and destroy an opponent's noble
+Dethrone 4: Choose and destroy an opponent's noble
+
+### Nobles:
+
+Krss, Noble of Power: A low-cost power noble that grants access to incantation lane 1.
+Trss, Noble of Power: A mid-cost power noble that grants access to incantation lane 2.
+Yrss, Noble of Power: A higher-cost power noble that grants access to incantation lane 3.
+Bndrr, Noble of Incantation: Once per turn, it can activate to cast a spell-like Burn 1 effect.
+Indrr, Noble of Incantation: Once per turn, it can activate to cast a spell-like Insight 2 effect.
+Rndrr, Noble of Incantation: Once per turn, it can activate to cast a spell-like Revive 1 effect.
+Sndrr, Noble of Incantation: Once per turn, it can activate to cast a spell-like Seek 1 effect.
+Wndrr, Noble of Incantation: Once per turn, it can activate to cast a spell-like Woe 1 effect.

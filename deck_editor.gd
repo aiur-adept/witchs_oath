@@ -36,22 +36,38 @@ const NOBLE_DEFS := [
 var _deck_paths: Array[String] = []
 var _selected_deck_path := ""
 var _entries: Dictionary = {}
+var _preview_popup: PanelContainer
+var _preview_label: Label
 
 
 func _ready() -> void:
+	_init_preview_popup()
 	_configure_add_controls()
 	deck_list.item_selected.connect(_on_deck_selected)
 	reload_decks_button.pressed.connect(_refresh_deck_list)
 	new_deck_button.pressed.connect(_on_new_deck_pressed)
 	add_type_button.pressed.connect(_on_add_type_pressed)
+	add_kind_option.mouse_entered.connect(_on_add_hovered)
+	add_verb_option.mouse_entered.connect(_on_add_hovered)
+	add_value_option.mouse_entered.connect(_on_add_hovered)
+	add_type_button.mouse_entered.connect(_on_add_hovered)
+	add_kind_option.mouse_exited.connect(_hide_preview)
+	add_verb_option.mouse_exited.connect(_hide_preview)
+	add_value_option.mouse_exited.connect(_hide_preview)
+	add_type_button.mouse_exited.connect(_hide_preview)
 	add_kind_option.item_selected.connect(func(_idx: int) -> void:
 		_refresh_add_verb_options()
 		_refresh_add_verb_visibility()
+		_refresh_add_value_options()
+	)
+	add_verb_option.item_selected.connect(func(_idx: int) -> void:
+		_refresh_add_value_options()
 	)
 	save_button.pressed.connect(_on_save_button_pressed)
 	back_button.pressed.connect(_on_back_button_pressed)
 	_refresh_add_verb_options()
 	_refresh_add_verb_visibility()
+	_refresh_add_value_options()
 	_refresh_deck_list()
 	if _deck_paths.is_empty():
 		_start_new_deck("default_deck")
@@ -74,6 +90,30 @@ func _configure_add_controls() -> void:
 		add_value_option.add_item(str(value))
 
 
+func _init_preview_popup() -> void:
+	_preview_popup = PanelContainer.new()
+	_preview_popup.visible = false
+	_preview_popup.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_preview_popup.z_index = 100
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.09, 0.11, 0.15, 0.97)
+	sb.border_color = Color(0.55, 0.63, 0.8)
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(10)
+	_preview_popup.add_theme_stylebox_override("panel", sb)
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 10)
+	margin.add_theme_constant_override("margin_top", 8)
+	margin.add_theme_constant_override("margin_right", 10)
+	margin.add_theme_constant_override("margin_bottom", 8)
+	_preview_popup.add_child(margin)
+	_preview_label = Label.new()
+	_preview_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_preview_label.custom_minimum_size = Vector2(220, 0)
+	margin.add_child(_preview_label)
+	add_child(_preview_popup)
+
+
 func _refresh_add_verb_options() -> void:
 	var kind := add_kind_option.get_item_text(add_kind_option.selected)
 	add_verb_option.clear()
@@ -89,6 +129,24 @@ func _refresh_add_verb_visibility() -> void:
 	var kind := add_kind_option.get_item_text(add_kind_option.selected)
 	add_verb_option.visible = kind == "Incantation" or kind == "Noble"
 	add_value_option.visible = kind == "Ritual" or kind == "Incantation"
+
+
+func _refresh_add_value_options() -> void:
+	var kind := add_kind_option.get_item_text(add_kind_option.selected)
+	add_value_option.clear()
+	var values: Array[int] = []
+	if kind == "Ritual":
+		values = RITUAL_VALUES
+	elif kind == "Incantation":
+		if add_verb_option.selected < 0 or add_verb_option.selected >= INCANTATION_VERBS.size():
+			return
+		values = _incantation_values_for_verb(INCANTATION_VERBS[add_verb_option.selected])
+	else:
+		return
+	for v in values:
+		add_value_option.add_item(str(v))
+	if add_value_option.item_count > 0:
+		add_value_option.select(0)
 
 
 func _ensure_deck_dir() -> void:
@@ -164,7 +222,7 @@ func _incantation_values_for_verb(verb: String) -> Array[int]:
 	if verb == "revive":
 		return [1]
 	if verb == "wrath":
-		return [2, 4]
+		return [2, 3]
 	return INCANTATION_VALUES
 
 
@@ -186,8 +244,110 @@ func _entry_display_name(entry: Dictionary) -> String:
 	if str(entry.get("kind", "")) == "noble":
 		return str(entry.get("name", "Noble"))
 	if str(entry.get("kind", "")) == "dethrone":
-		return "Dethrone"
+		return "Dethrone 4"
 	return "%s %d" % [str(entry.get("verb", "")).capitalize(), int(entry.get("value", 0))]
+
+
+func _entry_preview_text(entry: Dictionary) -> String:
+	var kind := str(entry.get("kind", ""))
+	if kind == "ritual":
+		var v := int(entry.get("value", 0))
+		return "Ritual %d\nProvides ritual value %d on your field." % [v, v]
+	if kind == "incantation":
+		var verb := str(entry.get("verb", "")).to_lower()
+		var v := int(entry.get("value", 0))
+		match verb:
+			"seek":
+				return "Seek %d\nDraw %d card(s)." % [v, v]
+			"insight":
+				return "Insight %d\nReorder the top %d card(s) of either deck." % [v, v]
+			"burn":
+				return "Burn %d\nDiscard the top %d card(s) of opponent's deck." % [v, v * 2]
+			"woe":
+				return "Woe %d\nOpponent randomly discards %d card(s)." % [v, v]
+			"revive":
+				return "Revive %d\nReturn up to %d random incantation card(s) from your discard to your hand." % [v, v]
+			"wrath":
+				return "Wrath %d\nDestroy %d opponent ritual(s)." % [v, _wrath_destroy_count(v)]
+		return "%s %d" % [verb.capitalize(), v]
+	if kind == "noble":
+		var nid := str(entry.get("noble_id", ""))
+		return "%s\n%s" % [str(entry.get("name", "Noble")), _noble_preview_text(nid)]
+	if kind == "dethrone":
+		return "Dethrone 4\nChoose and destroy an opponent noble."
+	return _entry_display_name(entry)
+
+
+func _noble_preview_text(noble_id: String) -> String:
+	match noble_id:
+		"krss_power":
+			return "Passive: grants access to 1-cost incantations."
+		"trss_power":
+			return "Passive: grants access to 2-cost incantations."
+		"yrss_power":
+			return "Passive: grants access to 3-cost incantations."
+		"sndrr_incantation":
+			return "Activate once per turn: Seek 1."
+		"indrr_incantation":
+			return "Activate once per turn: Insight 2."
+		"bndrr_incantation":
+			return "Activate once per turn: Burn 1."
+		"wndrr_incantation":
+			return "Activate once per turn: Woe 1."
+		"rndrr_incantation":
+			return "Activate once per turn: Revive 1."
+	return "Noble."
+
+
+func _wrath_destroy_count(value: int) -> int:
+	if value == 2:
+		return 1
+	if value == 3:
+		return 2
+	return 0
+
+
+func _show_preview(text: String) -> void:
+	if text.is_empty():
+		return
+	_preview_label.text = text
+	_preview_popup.reset_size()
+	var mouse := get_global_mouse_position()
+	_preview_popup.global_position = mouse + Vector2(18, 18)
+	_preview_popup.visible = true
+
+
+func _hide_preview() -> void:
+	if _preview_popup != null:
+		_preview_popup.visible = false
+
+
+func _add_selection_entry() -> Dictionary:
+	if add_kind_option.selected < 0:
+		return {}
+	var kind := add_kind_option.get_item_text(add_kind_option.selected)
+	if kind == "Ritual":
+		if add_value_option.selected < 0:
+			return {}
+		var ritual_value := int(add_value_option.get_item_text(add_value_option.selected))
+		return {"kind": "ritual", "value": ritual_value}
+	if kind == "Incantation":
+		if add_verb_option.selected < 0 or add_verb_option.selected >= INCANTATION_VERBS.size():
+			return {}
+		if add_value_option.selected < 0:
+			return {}
+		var ivalue := int(add_value_option.get_item_text(add_value_option.selected))
+		return {"kind": "incantation", "verb": INCANTATION_VERBS[add_verb_option.selected], "value": ivalue}
+	if kind == "Noble":
+		if add_verb_option.selected >= 0 and add_verb_option.selected < NOBLE_DEFS.size():
+			var noble: Dictionary = NOBLE_DEFS[add_verb_option.selected]
+			return {"kind": "noble", "noble_id": str(noble.get("id", "")), "name": str(noble.get("name", ""))}
+		return {"kind": "noble", "name": "Noble"}
+	return {"kind": "dethrone", "value": 4}
+
+
+func _on_add_hovered() -> void:
+	_show_preview(_entry_preview_text(_add_selection_entry()))
 
 
 func _add_or_increment_entry(key: String, base_data: Dictionary) -> void:
@@ -241,7 +401,8 @@ func _load_deck_path(path: String) -> void:
 			if not nid.is_empty():
 				_add_or_increment_entry(_entry_key_noble(nid), {"kind": "noble", "noble_id": nid, "name": nname})
 		elif kind == "dethrone":
-			_add_or_increment_entry("dethrone", {"kind": "dethrone"})
+			if int(card.get("value", 4)) == 4:
+				_add_or_increment_entry("dethrone", {"kind": "dethrone", "value": 4})
 	_render_entries()
 	_update_validation()
 
@@ -269,6 +430,11 @@ func _build_entry_pill(key: String, entry: Dictionary) -> Control:
 	sb.set_corner_radius_all(12)
 	bg.add_theme_stylebox_override("panel", sb)
 	row.add_child(bg)
+	var preview_text := _entry_preview_text(entry)
+	bg.mouse_entered.connect(func() -> void:
+		_show_preview(preview_text)
+	)
+	bg.mouse_exited.connect(_hide_preview)
 
 	var inner := HBoxContainer.new()
 	inner.add_theme_constant_override("separation", 8)
@@ -352,7 +518,11 @@ func _on_add_type_pressed() -> void:
 	elif kind == "Incantation":
 		var verb := INCANTATION_VERBS[add_verb_option.selected]
 		if not _incantation_values_for_verb(verb).has(value):
-			status_label.text = "%s only supports value 1." % verb.capitalize()
+			var legal_values: Array[int] = _incantation_values_for_verb(verb)
+			var legal_text := ",".join(PackedStringArray(legal_values.map(func(v: int) -> String:
+				return str(v)
+			)))
+			status_label.text = "%s only supports values %s." % [verb.capitalize(), legal_text]
 			status_label.modulate = Color(1, 0.95, 0.6)
 			return
 		var key_i := _entry_key_incantation(verb, value)
@@ -384,7 +554,7 @@ func _on_add_type_pressed() -> void:
 		if _entries.has("dethrone"):
 			_increment_entry("dethrone")
 			return
-		var entry_d := {"kind": "dethrone", "count": 0}
+		var entry_d := {"kind": "dethrone", "value": 4, "count": 0}
 		if not _can_increase_entry(entry_d):
 			_show_cannot_add_status(entry_d)
 			return
@@ -509,7 +679,7 @@ func _build_deck_payload() -> Dictionary:
 			if str(entry.get("kind", "")) == "dethrone":
 				dethrone_count = count
 				for _m in count:
-					cards.append({"type": "Dethrone"})
+					cards.append({"type": "Dethrone", "value": 4})
 				continue
 			var verb := str(entry.get("verb", ""))
 			var iv := int(entry.get("value", 0))

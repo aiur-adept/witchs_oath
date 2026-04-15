@@ -46,6 +46,8 @@ var _deck_path: String = DEFAULT_DECK_PATH
 @onready var sacrifice_hint: Label = %SacrificeHint
 @onready var sacrifice_confirm_button: Button = %SacrificeConfirmButton
 @onready var sacrifice_cancel_button: Button = %SacrificeCancelButton
+@onready var quit_to_menu_button: Button = %QuitToMenuButton
+@onready var quit_confirm_dialog: ConfirmationDialog = %QuitConfirmDialog
 
 var _host: bool = false
 var _my_player: int = 0
@@ -90,6 +92,12 @@ var _hover_preview_root: Panel
 var _hover_preview_title: Label
 var _hover_preview_type: Label
 var _hover_preview_body: RichTextLabel
+var _game_end_overlay: Control
+var _game_end_modal: PanelContainer
+var _game_end_title: Label
+var _game_end_body: Label
+var _game_end_play_again: Button
+var _game_end_main_menu: Button
 
 
 func _is_network_pvp() -> bool:
@@ -103,12 +111,17 @@ func _is_network_pvp() -> bool:
 
 func _ready() -> void:
 	set_multiplayer_authority(1)
+	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	status_label.clip_text = true
 	_build_insight_overlay()
 	_build_hover_preview_panel()
+	_build_game_end_modal()
 	end_turn_button.pressed.connect(_on_end_turn_pressed)
 	discard_draw_button.pressed.connect(_on_discard_draw_pressed)
 	sacrifice_confirm_button.pressed.connect(_on_sacrifice_confirm_pressed)
 	sacrifice_cancel_button.pressed.connect(_on_sacrifice_cancel_pressed)
+	quit_to_menu_button.pressed.connect(_on_quit_to_menu_pressed)
+	quit_confirm_dialog.confirmed.connect(_on_quit_to_menu_confirmed)
 	if _is_network_pvp():
 		_host = true
 		_my_player = 0
@@ -171,6 +184,7 @@ func _start_match() -> void:
 	if cards.is_empty():
 		status_label.text = "No deck at %s — use deck editor first." % _deck_path
 		return
+	_hide_game_end_modal()
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
 	var p0_first := rng.randi_range(0, 1) == 0
@@ -306,7 +320,7 @@ func _card_preview_title(card: Dictionary) -> String:
 	if t == "noble":
 		return str(card.get("name", "Noble"))
 	if t == "dethrone":
-		return "Dethrone"
+		return "Dethrone 4"
 	return "%s %d" % [str(card.get("verb", "")).capitalize(), int(card.get("value", 0))]
 
 
@@ -326,11 +340,11 @@ func _card_preview_rules_text(card: Dictionary) -> String:
 	var t := _card_type(card)
 	if t == "ritual":
 		var v := int(card.get("value", 0))
-		return "Play one ritual per turn. This allows you to play Incantations and Nobles. Activation requires a complete active chain (1..N)." % [v, v]
+		return "Play one ritual per turn. This allows you to play Incantations and Nobles of power %d if active. Activation requires a complete active chain (1..N)." % [v]
 	if t == "noble":
 		return _noble_preview_text(card)
 	if t == "dethrone":
-		return "Destroy 1 opponent noble."
+		return "Dethrone 4: destroy 1 opponent noble."
 	var n := int(card.get("value", 0))
 	var verb := str(card.get("verb", "")).to_lower()
 	match verb:
@@ -345,7 +359,7 @@ func _card_preview_rules_text(card: Dictionary) -> String:
 		"revive":
 			return "Revive %d: return up to %d random incantation card(s) from your discard to your hand." % [n, n]
 		"wrath":
-			return "Wrath %d: destroy %d opponent ritual(s). (%d destroys 1, %d destroys 2)." % [n, _wrath_destroy_count(n), 2, 4]
+			return "Wrath %d: destroy %d opponent ritual(s). (%d destroys 1, %d destroys 2)." % [n, _wrath_destroy_count(n), 2, 3]
 		_:
 			return "Incantation %d." % n
 
@@ -399,7 +413,18 @@ func _load_deck_cards() -> Array:
 	if typeof(data) != TYPE_DICTIONARY:
 		return []
 	var cards: Array = data.get("cards", [])
-	return cards
+	var out: Array = []
+	for c in cards:
+		if typeof(c) != TYPE_DICTIONARY:
+			continue
+		var cd: Dictionary = (c as Dictionary).duplicate(true)
+		if _card_type(cd) == "dethrone":
+			var dv := int(cd.get("value", 4))
+			if dv != 4:
+				continue
+			cd["value"] = 4
+		out.append(cd)
+	return out
 
 
 func _resolve_selected_deck_path() -> String:
@@ -488,6 +513,7 @@ func _apply_snap(snap: Dictionary) -> void:
 		_clear_sacrifice_mode()
 		_end_game_ui(snap)
 		return
+	_hide_game_end_modal()
 	var mine := cur == you
 	end_turn_button.disabled = not mine or _sacrifice_selecting or _insight_open
 	discard_draw_button.disabled = not mine or bool(snap.get("discard_draw_used", true)) or _sacrifice_selecting or _insight_open
@@ -497,17 +523,119 @@ func _apply_snap(snap: Dictionary) -> void:
 func _end_game_ui(snap: Dictionary) -> void:
 	var w: int = int(snap.get("winner", -1))
 	var you: int = int(snap.get("you", 0))
-	var msg := "Draw (tie on empty deck)."
+	var msg := "Draw."
+	var title := "Draw"
 	if w >= 0:
-		msg = "You win!" if w == you else "Opponent wins."
+		if w == you:
+			title = "Victory"
+			msg = "You win!"
+		else:
+			title = "Defeat"
+			msg = "Opponent wins."
 	if bool(snap.get("empty_deck_end", false)) and w >= 0:
 		msg = "Empty deck — " + msg
+	elif bool(snap.get("empty_deck_end", false)):
+		msg = "Empty deck — draw."
 	status_label.text = msg
 	end_turn_button.disabled = true
 	discard_draw_button.disabled = true
 	_clear_sacrifice_mode()
 	_clear_insight_ui()
 	_hide_card_hover_preview()
+	_show_game_end_modal(title, msg)
+
+
+func _build_game_end_modal() -> void:
+	_game_end_overlay = Control.new()
+	_game_end_overlay.name = "GameEndOverlay"
+	_game_end_overlay.visible = false
+	_game_end_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	_game_end_overlay.z_index = 119
+	_game_end_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(_game_end_overlay)
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0, 0, 0, 0.62)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	_game_end_overlay.add_child(shade)
+	var center := CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_game_end_overlay.add_child(center)
+	_game_end_modal = PanelContainer.new()
+	_game_end_modal.name = "GameEndModal"
+	_game_end_modal.visible = true
+	_game_end_modal.mouse_filter = Control.MOUSE_FILTER_STOP
+	_game_end_modal.z_index = 120
+	_game_end_modal.custom_minimum_size = Vector2(420, 190)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.08, 0.09, 0.12, 0.98)
+	sb.border_color = Color(0.66, 0.72, 0.86)
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(12)
+	_game_end_modal.add_theme_stylebox_override("panel", sb)
+	center.add_child(_game_end_modal)
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 16)
+	margin.add_theme_constant_override("margin_top", 14)
+	margin.add_theme_constant_override("margin_right", 16)
+	margin.add_theme_constant_override("margin_bottom", 14)
+	_game_end_modal.add_child(margin)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	margin.add_child(v)
+	_game_end_title = Label.new()
+	_game_end_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_game_end_title.add_theme_font_size_override("font_size", 30)
+	v.add_child(_game_end_title)
+	_game_end_body = Label.new()
+	_game_end_body.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_game_end_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(_game_end_body)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 12)
+	v.add_child(row)
+	_game_end_play_again = Button.new()
+	_game_end_play_again.text = "Play Again"
+	_game_end_main_menu = Button.new()
+	_game_end_main_menu.text = "Main Menu"
+	row.add_child(_game_end_play_again)
+	row.add_child(_game_end_main_menu)
+	_game_end_play_again.pressed.connect(_on_game_end_play_again_pressed)
+	_game_end_main_menu.pressed.connect(_on_game_end_main_menu_pressed)
+
+
+func _show_game_end_modal(title: String, body: String) -> void:
+	if _game_end_modal == null:
+		return
+	_game_end_title.text = title
+	_game_end_body.text = body
+	_game_end_overlay.visible = true
+	_game_end_play_again.disabled = false
+	if _is_network_client():
+		_game_end_play_again.text = "Play Again (request host)"
+	else:
+		_game_end_play_again.text = "Play Again"
+
+
+func _hide_game_end_modal() -> void:
+	if _game_end_overlay != null:
+		_game_end_overlay.visible = false
+		_game_end_play_again.disabled = false
+		_game_end_play_again.text = "Play Again"
+
+
+func _on_game_end_play_again_pressed() -> void:
+	if _is_network_client():
+		_game_end_play_again.disabled = true
+		_game_end_play_again.text = "Waiting for host..."
+		request_play_again.rpc_id(1)
+		return
+	_start_match()
+
+
+func _on_game_end_main_menu_pressed() -> void:
+	_on_quit_to_menu_confirmed()
 
 
 func _field_ritual_total_value(field: Array) -> int:
@@ -616,14 +744,18 @@ func _on_wrath_field_clicked(mid: int) -> void:
 	_rebuild_ritual_field(field_opp_cards, _last_snap.get("opp_field", []), false)
 
 
-func _enter_dethrone_mode(hand_idx: int) -> void:
+func _enter_dethrone_mode(hand_idx: int, locked_sacrifice_mids: Array = []) -> void:
 	_sacrifice_selecting = true
 	_inc_pick_phase = INC_PICK_DETHRONE
 	_pending_dethrone_hand_idx = hand_idx
 	_dethrone_selected_mid = -1
+	_locked_sacrifice_mids = locked_sacrifice_mids.duplicate()
 	sacrifice_row.visible = true
 	sacrifice_confirm_button.text = "Confirm destroy"
-	sacrifice_hint.text = "Dethrone: select one opponent noble to destroy."
+	if _locked_sacrifice_mids.is_empty():
+		sacrifice_hint.text = "Dethrone 4: select one opponent noble to destroy."
+	else:
+		sacrifice_hint.text = "Dethrone 4: sacrifice locked, now select one opponent noble to destroy."
 	_update_inc_modal_ui()
 	_rebuild_ritual_field(field_you_cards, _last_snap.get("your_field", []), true)
 	_rebuild_ritual_field(field_opp_cards, _last_snap.get("opp_field", []), false)
@@ -658,14 +790,14 @@ func _submit_inc_play_full(sac: Array, wrath_mids: Array, insight_target: int, i
 	_broadcast_sync(true)
 
 
-func _submit_dethrone_play(hand_idx: int, noble_mids: Array) -> void:
+func _submit_dethrone_play(hand_idx: int, noble_mids: Array, sacrifice_mids: Array = []) -> void:
 	if _is_network_client():
-		submit_play_dethrone.rpc_id(1, hand_idx, noble_mids)
+		submit_play_dethrone.rpc_id(1, hand_idx, noble_mids, sacrifice_mids)
 		_clear_sacrifice_mode()
 		return
 	if _match == null:
 		return
-	if _match.play_dethrone(_my_player_for_action(), hand_idx, noble_mids) != "ok":
+	if str(_match.call("play_dethrone", _my_player_for_action(), hand_idx, noble_mids, sacrifice_mids)) != "ok":
 		status_label.text = "Could not play Dethrone."
 		return
 	_clear_sacrifice_mode()
@@ -830,7 +962,7 @@ func _on_insight_cancel_pressed() -> void:
 
 
 func _on_sacrifice_confirm_pressed() -> void:
-	if not _sacrifice_selecting or _pending_inc_hand_idx < 0:
+	if not _sacrifice_selecting:
 		return
 	if _inc_pick_phase == INC_PICK_SAC:
 		var sumv := _sacrifice_selected_sum(_last_snap)
@@ -839,6 +971,10 @@ func _on_sacrifice_confirm_pressed() -> void:
 		var sac: Array = []
 		for k in _sacrifice_selected_mids.keys():
 			sac.append(int(k))
+		if _pending_dethrone_hand_idx >= 0:
+			var dhi := _pending_dethrone_hand_idx
+			_enter_dethrone_mode(dhi, sac)
+			return
 		var hand: Array = _last_snap.get("your_hand", [])
 		if _pending_inc_hand_idx < 0 or _pending_inc_hand_idx >= hand.size():
 			return
@@ -874,7 +1010,7 @@ func _on_sacrifice_confirm_pressed() -> void:
 	elif _inc_pick_phase == INC_PICK_DETHRONE:
 		if _pending_dethrone_hand_idx < 0 or _dethrone_selected_mid < 0:
 			return
-		_submit_dethrone_play(_pending_dethrone_hand_idx, [_dethrone_selected_mid])
+		_submit_dethrone_play(_pending_dethrone_hand_idx, [_dethrone_selected_mid], _locked_sacrifice_mids.duplicate())
 
 
 func _on_sacrifice_cancel_pressed() -> void:
@@ -1025,11 +1161,11 @@ func _make_ritual_card(value: int, ours: bool, active: bool, ritual_mid: int = -
 
 func _make_noble_card(noble: Dictionary, ours: bool) -> Control:
 	var btn := Button.new()
-	btn.custom_minimum_size = Vector2(96.0 * CARD_SCALE, RITUAL_CARD_H)
+	btn.custom_minimum_size = Vector2(RITUAL_CARD_H * RITUAL_CARD_ASPECT, RITUAL_CARD_H)
 	var noble_name := _short_noble_name(str(noble.get("name", "Noble")))
 	var used_turn := int(noble.get("used_turn", -1))
 	var exhausted := used_turn == int(_last_snap.get("turn_number", -999))
-	btn.text = noble_name if not exhausted else "%s (used)" % noble_name
+	btn.text = noble_name
 	var sb := StyleBoxFlat.new()
 	sb.set_corner_radius_all(4)
 	sb.set_border_width_all(2)
@@ -1039,7 +1175,7 @@ func _make_noble_card(noble: Dictionary, ours: bool) -> Control:
 	btn.add_theme_color_override("font_color", Color(0.96, 0.93, 1.0) if ours else Color(0.17, 0.12, 0.24))
 	var mid := int(noble.get("mid", -1))
 	var can_pick_dethrone := not ours and _sacrifice_selecting and _inc_pick_phase == INC_PICK_DETHRONE
-	var can_activate := ours and not _sacrifice_selecting and not _insight_open and int(_last_snap.get("current", -1)) == int(_last_snap.get("you", -2))
+	var can_activate := ours and not exhausted and not _sacrifice_selecting and not _insight_open and int(_last_snap.get("current", -1)) == int(_last_snap.get("you", -2))
 	btn.disabled = false
 	if can_pick_dethrone:
 		btn.pressed.connect(func() -> void:
@@ -1056,6 +1192,8 @@ func _make_noble_card(noble: Dictionary, ours: bool) -> Control:
 		sb_sel.border_color = Color(1.0, 0.45, 0.45)
 		sb_sel.set_border_width_all(3)
 		btn.add_theme_stylebox_override("normal", sb_sel)
+	if exhausted:
+		btn.modulate = Color(0.62, 0.62, 0.62, 1.0)
 	var noble_view := noble.duplicate(true)
 	noble_view["type"] = "noble"
 	btn.mouse_entered.connect(func() -> void:
@@ -1070,7 +1208,7 @@ func _make_noble_card(noble: Dictionary, ours: bool) -> Control:
 func _on_noble_activate_pressed(noble_mid: int) -> void:
 	var yours: Array = _last_snap.get("your_nobles", [])
 	for noble in yours:
-		if int(noble.get("mid", -1)) == noble_mid and str(noble.get("id", "")) == "indrr_incantation":
+		if int(noble.get("mid", -1)) == noble_mid and str(noble.get("noble_id", "")) == "indrr_incantation":
 			_begin_insight_ui(-1, 2, [], noble_mid)
 			return
 	if _is_network_client():
@@ -1094,7 +1232,7 @@ func _rebuild_hand(hand: Variant) -> void:
 		var key := _hand_card_stack_key(card)
 		card_counts[key] = int(card_counts.get(key, 0)) + 1
 	var rendered_keys: Dictionary = {}
-	var group_duplicates := not _selecting_end_discard
+	var group_duplicates := true
 	var mine: bool = int(_last_snap.get("current", -1)) == int(_last_snap.get("you", -2))
 	var ritual_used := mine and bool(_last_snap.get("your_ritual_played", false))
 	var noble_used := mine and bool(_last_snap.get("your_noble_played", false))
@@ -1108,10 +1246,14 @@ func _rebuild_hand(hand: Variant) -> void:
 		var ctype := _card_type(card)
 		var ritual_blocked := ritual_used and ctype == "ritual"
 		var noble_blocked := noble_used and ctype == "noble"
-		var is_disabled := (not mine and not _selecting_end_discard and not _mode_discard_draw) or _sacrifice_selecting or _insight_open or ((ritual_blocked or noble_blocked) and not _mode_discard_draw)
-		var picked := _end_discard_picked.has(idx)
+		var play_type_blocked := (ritual_blocked or noble_blocked) and not _mode_discard_draw and not _selecting_end_discard
+		var is_disabled := (not mine and not _selecting_end_discard and not _mode_discard_draw) or _sacrifice_selecting or _insight_open or play_type_blocked
+		var picked_count := 0
+		if _selecting_end_discard:
+			picked_count = int(_end_discard_picked.get(stack_key, 0))
+		var picked := picked_count > 0
 		var stack_count := int(card_counts.get(stack_key, 0))
-		var widget := _make_hand_card_widget(card, is_disabled, picked, stack_count)
+		var widget := _make_hand_card_widget(card, is_disabled, picked, stack_count, picked_count)
 		if not mine:
 			widget.modulate = Color(0.55, 0.55, 0.58)
 		var capture := idx
@@ -1124,7 +1266,7 @@ func _rebuild_hand(hand: Variant) -> void:
 		idx += 1
 
 
-func _make_hand_card_widget(card: Variant, disabled: bool, picked: bool, stack_count: int) -> Control:
+func _make_hand_card_widget(card: Variant, disabled: bool, picked: bool, stack_count: int, picked_count: int = 0) -> Control:
 	var depth := 0
 	if stack_count == 2:
 		depth = 1
@@ -1199,6 +1341,16 @@ func _make_hand_card_widget(card: Variant, disabled: bool, picked: bool, stack_c
 		badge.add_theme_font_size_override("font_size", 12)
 		badge.add_theme_color_override("font_color", Color(0.95, 0.95, 0.99))
 		shell.add_child(badge)
+	if _selecting_end_discard and picked_count > 0:
+		var pick_badge := Label.new()
+		pick_badge.text = "-%d" % picked_count
+		pick_badge.position = Vector2(depth * shift + 4, 4)
+		pick_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		pick_badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		pick_badge.custom_minimum_size = Vector2(24, 16)
+		pick_badge.add_theme_font_size_override("font_size", 12)
+		pick_badge.add_theme_color_override("font_color", Color(1.0, 0.86, 0.86))
+		shell.add_child(pick_badge)
 	return shell
 
 
@@ -1224,7 +1376,7 @@ func _card_label(card: Variant) -> String:
 	if t == "noble":
 		return _short_noble_name(str(card.get("name", "Noble")))
 	if t == "dethrone":
-		return "Dethrone"
+		return "Dethrone 4"
 	return "%s %d" % [str(card.get("verb", "")), int(card.get("value", 0))]
 
 
@@ -1261,18 +1413,22 @@ func _on_hand_pressed(hand_idx: int) -> void:
 			_try_discard_draw(_my_player_for_action(), hand_idx)
 		return
 	if _selecting_end_discard:
-		if _end_discard_picked.has(hand_idx):
-			_end_discard_picked.erase(hand_idx)
-		else:
-			_end_discard_picked[hand_idx] = true
-		if _end_discard_picked.size() == _end_discard_needed:
-			_selecting_end_discard = false
-			var keys: Array = _end_discard_picked.keys()
-			if _is_network_client():
-				submit_end_turn.rpc_id(1, keys)
+		var stack_key := _hand_card_stack_key(c)
+		var stack_total := 0
+		for card_in_hand in hand:
+			if _hand_card_stack_key(card_in_hand) == stack_key:
+				stack_total += 1
+		var stack_picked := int(_end_discard_picked.get(stack_key, 0))
+		var total_picked := _end_discard_selected_total()
+		if total_picked < _end_discard_needed and stack_picked < stack_total:
+			_end_discard_picked[stack_key] = stack_picked + 1
+		elif stack_picked > 0:
+			stack_picked -= 1
+			if stack_picked <= 0:
+				_end_discard_picked.erase(stack_key)
 			else:
-				_try_end_turn(_my_player_for_action(), keys)
-			_end_discard_picked.clear()
+				_end_discard_picked[stack_key] = stack_picked
+		_update_end_discard_status()
 		_rebuild_hand(snap.get("your_hand", []))
 		return
 	if _card_type(c) == "ritual":
@@ -1296,14 +1452,24 @@ func _on_hand_pressed(hand_idx: int) -> void:
 		if opp_nobles.is_empty():
 			status_label.text = "Opponent has no nobles to dethrone."
 			return
-		if opp_nobles.size() == 1:
-			var only_mid := int(opp_nobles[0].get("mid", -1))
-			if _is_network_client():
-				submit_play_dethrone.rpc_id(1, hand_idx, [only_mid])
-			else:
-				_try_play_dethrone(_my_player_for_action(), hand_idx, [only_mid])
+		var n := int(c.get("value", 4))
+		var field: Array = snap.get("your_field", [])
+		var has_lane := ArcanaMatchState.has_lane_for_field(field, n)
+		if not has_lane and _field_ritual_total_value(field) < n:
+			status_label.text = "Not enough ritual value on your field to pay for Dethrone %d." % n
 			return
-		_enter_dethrone_mode(hand_idx)
+		if has_lane:
+			if opp_nobles.size() == 1:
+				var only_mid := int(opp_nobles[0].get("mid", -1))
+				if _is_network_client():
+					submit_play_dethrone.rpc_id(1, hand_idx, [only_mid], [])
+				else:
+					_try_play_dethrone(_my_player_for_action(), hand_idx, [only_mid], [], true)
+				return
+			_enter_dethrone_mode(hand_idx)
+			return
+		_enter_sacrifice_mode(hand_idx, n, "Dethrone %d" % n)
+		_pending_dethrone_hand_idx = hand_idx
 	else:
 		var n: int = int(c.get("value", 0))
 		var verb := str(c.get("verb", "")).to_lower()
@@ -1376,7 +1542,7 @@ func _greedy_wrath_mids(opp_field: Array, need: int) -> Array:
 func _wrath_destroy_count(value: int) -> int:
 	if value == 2:
 		return 1
-	if value == 4:
+	if value == 3:
 		return 2
 	return 0
 
@@ -1409,10 +1575,10 @@ func _try_play_inc(player: int, hand_idx: int, sacrifice_mids: Array, wrath_mids
 	_broadcast_sync(trigger_cpu_check)
 
 
-func _try_play_dethrone(player: int, hand_idx: int, noble_mids: Array = [], trigger_cpu_check: bool = true) -> void:
+func _try_play_dethrone(player: int, hand_idx: int, noble_mids: Array = [], sacrifice_mids: Array = [], trigger_cpu_check: bool = true) -> void:
 	if _match == null:
 		return
-	if _match.play_dethrone(player, hand_idx, noble_mids) != "ok":
+	if str(_match.call("play_dethrone", player, hand_idx, noble_mids, sacrifice_mids)) != "ok":
 		return
 	_broadcast_sync(trigger_cpu_check)
 
@@ -1429,8 +1595,39 @@ func _try_end_turn(player: int, discard_indices: Array, trigger_cpu_check: bool 
 	if _match == null:
 		return
 	if _match.end_turn(player, discard_indices) != "ok":
+		status_label.text = "Could not end turn with selected discards."
 		return
 	_broadcast_sync(trigger_cpu_check)
+
+
+func _end_discard_selected_total() -> int:
+	var total := 0
+	for v in _end_discard_picked.values():
+		total += int(v)
+	return total
+
+
+func _end_discard_indices_from_hand(hand: Array) -> Array:
+	var grouped_indices: Dictionary = {}
+	for i in hand.size():
+		var key_i := _hand_card_stack_key(hand[i])
+		if not grouped_indices.has(key_i):
+			grouped_indices[key_i] = []
+		var arr_i: Array = grouped_indices[key_i]
+		arr_i.append(i)
+		grouped_indices[key_i] = arr_i
+	var indices: Array = []
+	for key in _end_discard_picked.keys():
+		var need_from_key := int(_end_discard_picked.get(key, 0))
+		var picks_for_key: Array = grouped_indices.get(key, [])
+		for j in mini(need_from_key, picks_for_key.size()):
+			indices.append(picks_for_key[j])
+	return indices
+
+
+func _update_end_discard_status() -> void:
+	var selected := _end_discard_selected_total()
+	status_label.text = "Select %d card(s) to discard, then press End Turn. Selected %d/%d." % [_end_discard_needed, selected, _end_discard_needed]
 
 
 func _run_cpu_turn() -> void:
@@ -1477,7 +1674,14 @@ func _run_cpu_turn() -> void:
 		for j in hand.size():
 			var ctype := _card_type(hand[j])
 			if ctype == "dethrone":
-				if not (snap.get("opp_nobles", []) as Array).is_empty():
+				var opp_nobles_a: Array = snap.get("opp_nobles", [])
+				var need_d := int(hand[j].get("value", 4))
+				var fld_d: Array = snap.get("your_field", [])
+				var ok_lane_d := ArcanaMatchState.has_lane_for_field(fld_d, need_d)
+				var tot_d := 0
+				for x in fld_d:
+					tot_d += int(x.get("value", 0))
+				if not opp_nobles_a.is_empty() and (ok_lane_d or tot_d >= need_d):
 					playable.append(j)
 				continue
 			if ctype != "incantation":
@@ -1504,7 +1708,14 @@ func _run_cpu_turn() -> void:
 			for j in hand.size():
 				var ctype2 := _card_type(hand[j])
 				if ctype2 == "dethrone":
-					if not (snap.get("opp_nobles", []) as Array).is_empty():
+					var opp_nobles_b: Array = snap.get("opp_nobles", [])
+					var need_d2 := int(hand[j].get("value", 4))
+					var fld_d2: Array = snap.get("your_field", [])
+					var ok_lane_d2 := ArcanaMatchState.has_lane_for_field(fld_d2, need_d2)
+					var tot_d2 := 0
+					for x in fld_d2:
+						tot_d2 += int(x.get("value", 0))
+					if not opp_nobles_b.is_empty() and (ok_lane_d2 or tot_d2 >= need_d2):
 						playable.append(j)
 					continue
 				if ctype2 != "incantation":
@@ -1524,7 +1735,11 @@ func _run_cpu_turn() -> void:
 				var opp_nobles: Array = snap.get("opp_nobles", [])
 				if not opp_nobles.is_empty():
 					var tmid := int(opp_nobles[0].get("mid", -1))
-					_try_play_dethrone(1, pick, [tmid], false)
+					var dn := int(hand[pick].get("value", 4))
+					var dsac: Array = []
+					if not ArcanaMatchState.has_lane_for_field(snap.get("your_field", []), dn):
+						dsac = _greedy_sacrifice_mids(snap, dn)
+					_try_play_dethrone(1, pick, [tmid], dsac, false)
 					await get_tree().create_timer(CPU_ACTION_SEC).timeout
 					continue
 			var nv: int = int(hand[pick].get("value", 0))
@@ -1606,13 +1821,13 @@ func submit_play_inc(hand_idx: int, sacrifice_mids: Array, wrath_mids: Array = [
 
 
 @rpc("any_peer", "reliable")
-func submit_play_dethrone(hand_idx: int, noble_mids: Array = []) -> void:
+func submit_play_dethrone(hand_idx: int, noble_mids: Array = [], sacrifice_mids: Array = []) -> void:
 	if not multiplayer.is_server():
 		return
 	if _match == null:
 		return
 	var pl := _peer_to_player(_sender_peer())
-	_try_play_dethrone(pl, hand_idx, noble_mids)
+	_try_play_dethrone(pl, hand_idx, noble_mids, sacrifice_mids)
 
 
 @rpc("any_peer", "reliable")
@@ -1657,6 +1872,13 @@ func submit_end_turn(discard_indices: Array) -> void:
 	_try_end_turn(pl, discard_indices)
 
 
+@rpc("any_peer", "reliable")
+func request_play_again() -> void:
+	if not multiplayer.is_server():
+		return
+	_start_match()
+
+
 func _on_end_turn_pressed() -> void:
 	if _insight_open:
 		return
@@ -1667,6 +1889,20 @@ func _on_end_turn_pressed() -> void:
 	if _is_network_client() and _last_snap.is_empty():
 		return
 	var snap: Dictionary = _last_snap
+	if _selecting_end_discard:
+		var hand_sel: Array = snap.get("your_hand", [])
+		var picked := _end_discard_selected_total()
+		if picked < _end_discard_needed:
+			_update_end_discard_status()
+			return
+		var indices := _end_discard_indices_from_hand(hand_sel)
+		_selecting_end_discard = false
+		_end_discard_picked.clear()
+		if _is_network_client():
+			submit_end_turn.rpc_id(1, indices)
+		else:
+			_try_end_turn(_my_player_for_action(), indices)
+		return
 	var hand: Array = snap.get("your_hand", [])
 	var need := maxi(0, hand.size() - 7)
 	if need == 0:
@@ -1678,7 +1914,7 @@ func _on_end_turn_pressed() -> void:
 	_selecting_end_discard = true
 	_end_discard_needed = need
 	_end_discard_picked.clear()
-	status_label.text = "Select %d hand cards to discard (click to toggle)." % need
+	_update_end_discard_status()
 	_rebuild_hand(hand)
 
 
@@ -1689,3 +1925,15 @@ func _on_discard_draw_pressed() -> void:
 		return
 	_mode_discard_draw = true
 	status_label.text = "Click a card to discard for draw."
+	if not _last_snap.is_empty():
+		_rebuild_hand(_last_snap.get("your_hand", []))
+
+
+func _on_quit_to_menu_pressed() -> void:
+	quit_confirm_dialog.popup_centered()
+
+
+func _on_quit_to_menu_confirmed() -> void:
+	if multiplayer.multiplayer_peer != null:
+		multiplayer.multiplayer_peer = null
+	get_tree().change_scene_to_file("res://main_menu.tscn")

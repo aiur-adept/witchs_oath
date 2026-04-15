@@ -338,6 +338,11 @@ func can_play_dethrone(p: int, hand_idx: int) -> bool:
 	var c: Variant = _card_at_hand(p, hand_idx)
 	if c == null or _card_kind(c) != "dethrone":
 		return false
+	var n := int(c.get("value", 4))
+	if n != 4:
+		return false
+	if not has_lane_for_field(_players[p]["field"], n) and not _can_sacrifice(p, n):
+		return false
 	return not (_players[1 - p]["noble_field"] as Array).is_empty()
 
 
@@ -401,19 +406,32 @@ func play_incantation(p: int, hand_idx: int, sacrifice_mids: Array, wrath_mids: 
 	return "ok"
 
 
-func play_dethrone(p: int, hand_idx: int, noble_mids: Array = []) -> String:
+func play_dethrone(p: int, hand_idx: int, noble_mids: Array = [], sacrifice_mids: Array = []) -> String:
 	if not can_play_dethrone(p, hand_idx):
 		return "illegal"
 	var pl: Dictionary = _players[p]
 	var hand: Array = pl["hand"]
 	var c: Dictionary = hand[hand_idx]
+	var n := int(c.get("value", 4))
+	var need_sac := not has_lane_for_field(_players[p]["field"], n)
 	var destroyed := _dethrone_resolve_mids(1 - p, noble_mids)
 	if destroyed.is_empty():
 		return "illegal_target"
+	var mids: Dictionary = {}
+	if need_sac:
+		for m in sacrifice_mids:
+			mids[int(m)] = true
+		if not _sacrifice_valid(p, n, mids):
+			mids.clear()
+			for mid in _greedy_sacrifice_mids_for_player(p, n):
+				mids[int(mid)] = true
+			if not _sacrifice_valid(p, n, mids):
+				return "illegal_sacrifice"
+	_apply_sacrifice(p, mids)
 	hand.remove_at(hand_idx)
 	_destroy_nobles_by_mids(1 - p, destroyed)
 	pl["inc_discard"].append(c)
-	_log("P%d plays Dethrone." % p)
+	_log("P%d plays Dethrone %d." % [p, n])
 	return "ok"
 
 
@@ -437,7 +455,7 @@ func activate_noble(p: int, noble_mid: int) -> String:
 	if not can_activate_noble(p, noble_mid):
 		return "illegal"
 	var noble := _find_noble_on_field(p, noble_mid)
-	if str(noble.get("id", "")) == "indrr_incantation":
+	if str(noble.get("noble_id", "")) == "indrr_incantation":
 		return activate_noble_with_insight(p, noble_mid, -1, [])
 	var hook: Variant = _hook_for_noble(noble)
 	var result: Variant = hook.call("activate", self, p, noble)
@@ -457,7 +475,7 @@ func activate_noble_with_insight(p: int, noble_mid: int, insight_target: int, in
 	if not can_activate_noble(p, noble_mid):
 		return "illegal"
 	var noble := _find_noble_on_field(p, noble_mid)
-	if str(noble.get("id", "")) == "indrr_incantation":
+	if str(noble.get("noble_id", "")) == "indrr_incantation":
 		_apply_incantation(p, "insight", 2, [], insight_target, insight_perm)
 		_mark_noble_used_this_turn(p, noble_mid)
 		_log("P%d activates Indrr (Insight 2)." % p)
@@ -637,7 +655,7 @@ func _revive_random(p: int, x: int) -> void:
 func _wrath_destroy_count(value: int) -> int:
 	if value == 2:
 		return 1
-	if value == 4:
+	if value == 3:
 		return 2
 	return 0
 
