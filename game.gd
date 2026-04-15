@@ -368,11 +368,11 @@ func _noble_preview_text(card: Dictionary) -> String:
 	var nid := str(card.get("noble_id", ""))
 	match nid:
 		"krss_power":
-			return "Passive: grants access to 1-cost incantations.\nActivate: none."
+			return "Passive: grants access to 1-cost incantations."
 		"trss_power":
-			return "Passive: grants access to 2-cost incantations.\nActivate: none."
+			return "Passive: grants access to 2-cost incantations."
 		"yrss_power":
-			return "Passive: grants access to 3-cost incantations.\nActivate: none."
+			return "Passive: grants access to 3-cost incantations."
 		"sndrr_incantation":
 			return "Activate (once per turn): Seek 1."
 		"wndrr_incantation":
