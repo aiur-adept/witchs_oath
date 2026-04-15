@@ -18,6 +18,10 @@ var winner: int = -1
 var empty_deck_end: bool = false
 var log_lines: PackedStringArray
 var turn_number: int = 0
+var _starting_player: int = 0
+var _mulligan_decision_pending: Array[bool] = [true, true]
+var _mulligan_used: Array[bool] = [false, false]
+var _mulligan_bottom_needed: Array[int] = [0, 0]
 
 var _players: Array[Dictionary]
 var _noble_hooks: Dictionary = {}
@@ -36,11 +40,12 @@ func _init(p0_deck: Array, p1_deck: Array, p0_first: bool, p_rng: RandomNumberGe
 		_make_player(p0_deck),
 		_make_player(p1_deck)
 	]
-	current = 0 if p0_first else 1
+	_starting_player = 0 if p0_first else 1
+	current = _starting_player
 	discard_draw_used = false
 	phase = Phase.MAIN
 	_deal_start()
-	_turn_start_draw()
+	_start_mulligan()
 
 
 func _make_player(deck_template: Array) -> Dictionary:
@@ -84,6 +89,8 @@ func _draw_card_silent(p: int) -> void:
 func _turn_start_draw() -> void:
 	if phase == Phase.GAME_OVER:
 		return
+	if _is_mulligan_active():
+		return
 	ritual_played_this_turn = false
 	noble_played_this_turn = false
 	turn_number += 1
@@ -124,10 +131,87 @@ func _resolve_empty_deck_loss(trigger_player: int) -> void:
 func _check_power_win(p: int) -> void:
 	if phase == Phase.GAME_OVER:
 		return
+	if _is_mulligan_active():
+		return
 	if ritual_power(p) >= WIN_POWER:
 		winner = p
 		phase = Phase.GAME_OVER
 		_log("P%d reached %d ritual power." % [p, WIN_POWER])
+
+
+func _start_mulligan() -> void:
+	_mulligan_decision_pending = [true, true]
+	_mulligan_used = [false, false]
+	_mulligan_bottom_needed = [0, 0]
+	current = _starting_player
+	_log("Starting hands dealt. Each player may take one London mulligan.")
+
+
+func _is_mulligan_active() -> bool:
+	return _mulligan_decision_pending[0] or _mulligan_decision_pending[1] or _mulligan_bottom_needed[0] > 0 or _mulligan_bottom_needed[1] > 0
+
+
+func _mulligan_player_needs_action(p: int) -> bool:
+	return _mulligan_decision_pending[p] or _mulligan_bottom_needed[p] > 0
+
+
+func _advance_mulligan_or_begin_game() -> void:
+	if not _is_mulligan_active():
+		current = _starting_player
+		_turn_start_draw()
+		return
+	if _mulligan_player_needs_action(_starting_player):
+		current = _starting_player
+		return
+	current = 1 - _starting_player
+
+
+func choose_starting_hand(p: int, take_mulligan: bool) -> String:
+	if phase != Phase.MAIN or not _is_mulligan_active() or p != current:
+		return "illegal"
+	if _mulligan_bottom_needed[p] > 0:
+		return "need_bottom"
+	if not _mulligan_decision_pending[p]:
+		return "already_chosen"
+	if take_mulligan:
+		if _mulligan_used[p]:
+			return "illegal"
+		var pl: Dictionary = _players[p]
+		var deck: Array = pl["deck"]
+		var hand: Array = pl["hand"]
+		for c in hand:
+			deck.append(c)
+		hand.clear()
+		_shuffle(deck)
+		for _i in START_HAND:
+			_draw_card_silent(p)
+		_mulligan_used[p] = true
+		_mulligan_bottom_needed[p] = 1
+		_log("P%d takes a London mulligan." % p)
+	else:
+		_log("P%d keeps opening hand." % p)
+	_mulligan_decision_pending[p] = false
+	_advance_mulligan_or_begin_game()
+	return "ok"
+
+
+func bottom_mulligan_card(p: int, hand_idx: int) -> String:
+	if phase != Phase.MAIN or not _is_mulligan_active() or p != current:
+		return "illegal"
+	if _mulligan_bottom_needed[p] <= 0:
+		return "illegal"
+	var pl: Dictionary = _players[p]
+	var hand: Array = pl["hand"]
+	if hand_idx < 0 or hand_idx >= hand.size():
+		return "illegal"
+	var c: Variant = hand[hand_idx]
+	hand.remove_at(hand_idx)
+	var deck: Array = pl["deck"]
+	deck.insert(0, c)
+	_mulligan_bottom_needed[p] -= 1
+	_log("P%d puts 1 card on bottom after mulligan." % p)
+	_advance_mulligan_or_begin_game()
+	return "ok"
 
 
 func ritual_power(p: int) -> int:
@@ -213,6 +297,10 @@ func snapshot(for_player: int) -> Dictionary:
 		"phase": int(phase),
 		"turn_number": turn_number,
 		"current": current,
+		"mulligan_active": _is_mulligan_active(),
+		"your_mulligan_decision_pending": _mulligan_decision_pending[for_player],
+		"your_can_mulligan": _mulligan_decision_pending[for_player] and not _mulligan_used[for_player] and _mulligan_bottom_needed[for_player] == 0,
+		"your_mulligan_bottom_needed": _mulligan_bottom_needed[for_player],
 		"your_ritual_played": for_player == current and ritual_played_this_turn,
 		"your_noble_played": for_player == current and noble_played_this_turn,
 		"discard_draw_used": discard_draw_used,
@@ -236,7 +324,7 @@ func snapshot(for_player: int) -> Dictionary:
 
 
 func can_play_ritual(p: int, hand_idx: int) -> bool:
-	if phase != Phase.MAIN or p != current or ritual_played_this_turn:
+	if phase != Phase.MAIN or _is_mulligan_active() or p != current or ritual_played_this_turn:
 		return false
 	var c: Variant = _card_at_hand(p, hand_idx)
 	return c != null and _card_kind(c) == "ritual"
@@ -258,7 +346,7 @@ func play_ritual(p: int, hand_idx: int) -> String:
 
 
 func can_play_noble(p: int, hand_idx: int) -> bool:
-	if phase != Phase.MAIN or p != current or noble_played_this_turn:
+	if phase != Phase.MAIN or _is_mulligan_active() or p != current or noble_played_this_turn:
 		return false
 	var c: Variant = _card_at_hand(p, hand_idx)
 	if c == null or _card_kind(c) != "noble":
@@ -329,7 +417,7 @@ func _noble_play_cost(nid: String) -> int:
 
 
 func can_play_incantation(p: int, hand_idx: int) -> bool:
-	if phase != Phase.MAIN or p != current:
+	if phase != Phase.MAIN or _is_mulligan_active() or p != current:
 		return false
 	var c: Variant = _card_at_hand(p, hand_idx)
 	if c == null or _card_kind(c) != "incantation":
@@ -343,7 +431,7 @@ func can_play_incantation(p: int, hand_idx: int) -> bool:
 
 
 func can_play_dethrone(p: int, hand_idx: int) -> bool:
-	if phase != Phase.MAIN or p != current:
+	if phase != Phase.MAIN or _is_mulligan_active() or p != current:
 		return false
 	var c: Variant = _card_at_hand(p, hand_idx)
 	if c == null or _card_kind(c) != "dethrone":
@@ -447,7 +535,7 @@ func play_dethrone(p: int, hand_idx: int, noble_mids: Array = [], sacrifice_mids
 
 
 func can_activate_noble(p: int, noble_mid: int) -> bool:
-	if phase != Phase.MAIN or p != current:
+	if phase != Phase.MAIN or _is_mulligan_active() or p != current:
 		return false
 	var noble := _find_noble_on_field(p, noble_mid)
 	if noble.is_empty():
@@ -783,7 +871,7 @@ func _dethrone_resolve_mids(target: int, client_mids: Array) -> Array:
 
 
 func can_discard_for_draw(p: int) -> bool:
-	return phase == Phase.MAIN and p == current and not discard_draw_used and not _players[p]["hand"].is_empty()
+	return phase == Phase.MAIN and not _is_mulligan_active() and p == current and not discard_draw_used and not _players[p]["hand"].is_empty()
 
 
 func discard_for_draw(p: int, hand_idx: int) -> String:
@@ -814,7 +902,7 @@ func _move_hand_card_to_discard(pl: Dictionary, hand: Array, idx: int) -> void:
 
 
 func end_turn(p: int, discard_indices: Array) -> String:
-	if phase != Phase.MAIN or p != current:
+	if phase != Phase.MAIN or _is_mulligan_active() or p != current:
 		return "illegal"
 	var pl: Dictionary = _players[p]
 	var hand: Array = pl["hand"]

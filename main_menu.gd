@@ -1,7 +1,10 @@
 extends Control
 
+const IncludedDecks = preload("res://included_decks.gd")
+
 const DECK_DIR := "user://decks"
 const DECK_EXT := ".json"
+const DECK_EXPORT_PREFIX := "decks_export_"
 const SELECTED_DECK_PATH_FILE := "user://selected_deck_path.txt"
 
 @onready var deck_picker_overlay: Control = %DeckPickerOverlay
@@ -33,7 +36,7 @@ func _show_deck_picker() -> void:
 	deck_picker_list.clear()
 	deck_picker_confirm_button.disabled = true
 	for path in _deck_paths:
-		deck_picker_list.add_item(path.get_file().trim_suffix(DECK_EXT))
+		deck_picker_list.add_item(IncludedDecks.list_row_text(path))
 	if _deck_paths.is_empty():
 		deck_picker_status.text = "No deck files found. Build and save one first."
 		return
@@ -48,19 +51,20 @@ func _hide_deck_picker() -> void:
 
 func _refresh_deck_paths() -> void:
 	_deck_paths.clear()
+	for slug in IncludedDecks.slug_list():
+		_deck_paths.append(IncludedDecks.token(slug))
 	DirAccess.make_dir_recursive_absolute(DECK_DIR)
 	var dir := DirAccess.open(DECK_DIR)
-	if dir == null:
-		return
-	dir.list_dir_begin()
-	while true:
-		var fn := dir.get_next()
-		if fn == "":
-			break
-		if dir.current_is_dir() or not fn.ends_with(DECK_EXT):
-			continue
-		_deck_paths.append("%s/%s" % [DECK_DIR, fn])
-	dir.list_dir_end()
+	if dir != null:
+		dir.list_dir_begin()
+		while true:
+			var fn := dir.get_next()
+			if fn == "":
+				break
+			if dir.current_is_dir() or not fn.ends_with(DECK_EXT) or fn.begins_with(DECK_EXPORT_PREFIX):
+				continue
+			_deck_paths.append("%s/%s" % [DECK_DIR, fn])
+		dir.list_dir_end()
 	_deck_paths.sort()
 
 

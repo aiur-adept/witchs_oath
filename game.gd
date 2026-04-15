@@ -1,5 +1,7 @@
 extends Control
 
+const IncludedDecks = preload("res://included_decks.gd")
+
 class InsightDnDSlot extends Panel:
 	var slot_index: int = 0
 	var game: Control
@@ -101,6 +103,10 @@ var _game_end_main_menu: Button
 var _end_discard_modal: PanelContainer
 var _end_discard_label: Label
 var _end_discard_confirm_button: Button
+var _mulligan_bar: PanelContainer
+var _mulligan_label: Label
+var _mulligan_keep_button: Button
+var _mulligan_take_button: Button
 
 
 func _is_network_pvp() -> bool:
@@ -120,6 +126,7 @@ func _ready() -> void:
 	_build_hover_preview_panel()
 	_build_game_end_modal()
 	_build_end_discard_modal()
+	_build_mulligan_bar()
 	end_turn_button.pressed.connect(_on_end_turn_pressed)
 	discard_draw_button.pressed.connect(_on_discard_draw_pressed)
 	sacrifice_confirm_button.pressed.connect(_on_sacrifice_confirm_pressed)
@@ -407,15 +414,21 @@ func _noble_cost_for_id(nid: String) -> int:
 
 func _load_deck_cards() -> Array:
 	_deck_path = _resolve_selected_deck_path()
-	if not FileAccess.file_exists(_deck_path):
-		return []
-	var f := FileAccess.open(_deck_path, FileAccess.READ)
-	if f == null:
-		return []
-	var txt := f.get_as_text()
-	var data = JSON.parse_string(txt)
-	if typeof(data) != TYPE_DICTIONARY:
-		return []
+	var data: Dictionary = {}
+	if IncludedDecks.is_token(_deck_path):
+		data = IncludedDecks.payload_for_slug(IncludedDecks.slug_from_token(_deck_path))
+		if data.is_empty():
+			return []
+	else:
+		if not FileAccess.file_exists(_deck_path):
+			return []
+		var f := FileAccess.open(_deck_path, FileAccess.READ)
+		if f == null:
+			return []
+		var parsed: Variant = JSON.parse_string(f.get_as_text())
+		if typeof(parsed) != TYPE_DICTIONARY:
+			return []
+		data = parsed as Dictionary
 	var cards: Array = data.get("cards", [])
 	var out: Array = []
 	for c in cards:
@@ -435,13 +448,13 @@ func _load_deck_cards() -> Array:
 
 func _resolve_selected_deck_path() -> String:
 	if not FileAccess.file_exists(SELECTED_DECK_PATH_FILE):
-		return DEFAULT_DECK_PATH
+		return IncludedDecks.default_play_path()
 	var f := FileAccess.open(SELECTED_DECK_PATH_FILE, FileAccess.READ)
 	if f == null:
-		return DEFAULT_DECK_PATH
+		return IncludedDecks.default_play_path()
 	var selected := f.get_as_text().strip_edges()
 	if selected.is_empty():
-		return DEFAULT_DECK_PATH
+		return IncludedDecks.default_play_path()
 	return selected
 
 
@@ -475,7 +488,11 @@ func _after_sync_local_cpu() -> void:
 	if _match == null:
 		return
 	var s0 := _match.snapshot(0)
-	if int(s0.get("phase", 0)) != 0:
+	if int(s0.get("phase", -1)) == int(ArcanaMatchState.Phase.GAME_OVER):
+		return
+	if bool(s0.get("mulligan_active", false)):
+		if int(s0.get("current", -1)) == 1:
+			call_deferred("_run_cpu_mulligan_step")
 		return
 	if int(s0.get("current", -1)) != 1:
 		return
@@ -515,10 +532,19 @@ func _apply_snap(snap: Dictionary) -> void:
 	var cur: int = int(snap.get("current", 0))
 	var you: int = int(snap.get("you", 0))
 	var phase: int = int(snap.get("phase", 0))
-	if phase != 0:
+	if phase == int(ArcanaMatchState.Phase.GAME_OVER):
 		_clear_sacrifice_mode()
+		_hide_mulligan_bar()
 		_end_game_ui(snap)
 		return
+	if bool(snap.get("mulligan_active", false)):
+		_show_mulligan_ui(snap)
+		end_turn_button.disabled = true
+		discard_draw_button.disabled = true
+		_rebuild_hand(snap.get("your_hand", []))
+		_hide_end_discard_modal()
+		return
+	_hide_mulligan_bar()
 	_hide_game_end_modal()
 	var mine := cur == you
 	end_turn_button.disabled = not mine or _sacrifice_selecting or _insight_open
@@ -686,6 +712,74 @@ func _show_end_discard_modal() -> void:
 func _hide_end_discard_modal() -> void:
 	if _end_discard_modal != null:
 		_end_discard_modal.visible = false
+
+
+func _build_mulligan_bar() -> void:
+	_mulligan_bar = PanelContainer.new()
+	_mulligan_bar.name = "MulliganBar"
+	_mulligan_bar.visible = false
+	_mulligan_bar.anchor_left = 0.5
+	_mulligan_bar.anchor_right = 0.5
+	_mulligan_bar.anchor_top = 0.5
+	_mulligan_bar.anchor_bottom = 0.5
+	_mulligan_bar.offset_left = -300
+	_mulligan_bar.offset_right = 300
+	_mulligan_bar.offset_top = -44
+	_mulligan_bar.offset_bottom = 44
+	_mulligan_bar.z_index = 90
+	add_child(_mulligan_bar)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 8)
+	_mulligan_bar.add_child(vb)
+	_mulligan_label = Label.new()
+	_mulligan_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_mulligan_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(_mulligan_label)
+	var hb := HBoxContainer.new()
+	hb.alignment = BoxContainer.ALIGNMENT_CENTER
+	hb.add_theme_constant_override("separation", 10)
+	vb.add_child(hb)
+	_mulligan_keep_button = Button.new()
+	_mulligan_keep_button.text = "Keep hand"
+	hb.add_child(_mulligan_keep_button)
+	_mulligan_take_button = Button.new()
+	_mulligan_take_button.text = "Mulligan"
+	hb.add_child(_mulligan_take_button)
+	_mulligan_keep_button.pressed.connect(_on_mulligan_keep_pressed)
+	_mulligan_take_button.pressed.connect(_on_mulligan_take_pressed)
+
+
+func _hide_mulligan_bar() -> void:
+	if _mulligan_bar != null:
+		_mulligan_bar.visible = false
+
+
+func _show_mulligan_ui(snap: Dictionary) -> void:
+	if _mulligan_bar == null:
+		return
+	_mulligan_bar.visible = true
+	var mine := int(snap.get("current", -1)) == int(snap.get("you", 0))
+	var bottom_needed := int(snap.get("your_mulligan_bottom_needed", 0))
+	var pending_decision := bool(snap.get("your_mulligan_decision_pending", false))
+	if not mine:
+		_mulligan_label.text = "Opponent resolving opening hand."
+		_mulligan_keep_button.visible = false
+		_mulligan_take_button.visible = false
+		return
+	if bottom_needed > 0:
+		_mulligan_label.text = "London mulligan: click 1 card in hand to put on bottom."
+		_mulligan_keep_button.visible = false
+		_mulligan_take_button.visible = false
+		return
+	if pending_decision:
+		_mulligan_label.text = "Opening hand: keep 5 cards or take one London mulligan."
+		_mulligan_keep_button.visible = true
+		_mulligan_take_button.visible = true
+		_mulligan_take_button.disabled = not bool(snap.get("your_can_mulligan", false))
+		return
+	_mulligan_label.text = "Waiting for opponent opening-hand decision."
+	_mulligan_keep_button.visible = false
+	_mulligan_take_button.visible = false
 
 
 func _on_end_discard_confirm_pressed() -> void:
@@ -1460,7 +1554,16 @@ func _on_hand_pressed(hand_idx: int) -> void:
 	if _is_network_client() and _last_snap.is_empty():
 		return
 	var snap: Dictionary = _last_snap
-	if int(snap.get("phase", 0)) != 0:
+	if int(snap.get("phase", -1)) == int(ArcanaMatchState.Phase.GAME_OVER):
+		return
+	if bool(snap.get("mulligan_active", false)):
+		if int(snap.get("current", -1)) != int(snap.get("you", 0)):
+			return
+		if int(snap.get("your_mulligan_bottom_needed", 0)) > 0:
+			if _is_network_client():
+				submit_mulligan_bottom.rpc_id(1, hand_idx)
+			else:
+				_try_mulligan_bottom(_my_player_for_action(), hand_idx)
 		return
 	if int(snap.get("current", -1)) != int(snap.get("you", 0)):
 		return
@@ -1729,7 +1832,7 @@ func _run_cpu_turn() -> void:
 	while true:
 		await get_tree().create_timer(CPU_ACTION_SEC).timeout
 		snap = _match.snapshot(1)
-		if int(snap.get("phase", 0)) != 0:
+		if int(snap.get("phase", -1)) == int(ArcanaMatchState.Phase.GAME_OVER):
 			return
 		if int(snap.get("current", -1)) != int(snap.get("you", -2)):
 			return
@@ -1791,7 +1894,7 @@ func _run_cpu_turn() -> void:
 		var k := randi_range(0, playable.size())
 		for _t in k:
 			snap = _match.snapshot(1)
-			if int(snap.get("phase", 0)) != 0:
+			if int(snap.get("phase", -1)) == int(ArcanaMatchState.Phase.GAME_OVER):
 				return
 			if int(snap.get("current", -1)) != int(snap.get("you", -2)):
 				return
@@ -1848,7 +1951,7 @@ func _run_cpu_turn() -> void:
 			await get_tree().create_timer(CPU_ACTION_SEC).timeout
 		break
 	snap = _match.snapshot(1)
-	if int(snap.get("phase", 0)) != 0:
+	if int(snap.get("phase", -1)) == int(ArcanaMatchState.Phase.GAME_OVER):
 		return
 	if int(snap.get("current", -1)) != int(snap.get("you", -2)):
 		return
@@ -1859,12 +1962,39 @@ func _run_cpu_turn() -> void:
 			_try_discard_draw(1, randi_range(0, hs - 1), false)
 			await get_tree().create_timer(CPU_ACTION_SEC).timeout
 	snap = _match.snapshot(1)
-	if int(snap.get("phase", 0)) != 0:
+	if int(snap.get("phase", -1)) == int(ArcanaMatchState.Phase.GAME_OVER):
 		return
 	if int(snap.get("current", -1)) != int(snap.get("you", -2)):
 		return
 	var disc := _ai_end_discards_from_snap(snap)
 	_try_end_turn(1, disc, true)
+
+
+func _run_cpu_mulligan_step() -> void:
+	if _match == null:
+		return
+	var snap := _match.snapshot(1)
+	if not bool(snap.get("mulligan_active", false)):
+		return
+	if int(snap.get("current", -1)) != 1:
+		return
+	var bottom_needed := int(snap.get("your_mulligan_bottom_needed", 0))
+	if bottom_needed > 0:
+		var hand: Array = snap.get("your_hand", [])
+		if hand.is_empty():
+			return
+		_try_mulligan_bottom(1, randi_range(0, hand.size() - 1), true)
+		return
+	var can_take := bool(snap.get("your_can_mulligan", false))
+	var take := false
+	if can_take:
+		var hand_now: Array = snap.get("your_hand", [])
+		var rituals := 0
+		for c in hand_now:
+			if _card_type(c) == "ritual":
+				rituals += 1
+		take = rituals <= 1
+	_try_choose_mulligan(1, take, true)
 
 
 func _ai_end_discards_from_snap(snap: Dictionary) -> Array:
@@ -1880,6 +2010,22 @@ func _ai_end_discards_from_snap(snap: Dictionary) -> Array:
 	for j in need:
 		chosen.append(idxs[j])
 	return chosen
+
+
+func _try_choose_mulligan(player: int, take_mulligan: bool, trigger_cpu_check: bool = true) -> void:
+	if _match == null:
+		return
+	if _match.choose_starting_hand(player, take_mulligan) != "ok":
+		return
+	_broadcast_sync(trigger_cpu_check)
+
+
+func _try_mulligan_bottom(player: int, hand_idx: int, trigger_cpu_check: bool = true) -> void:
+	if _match == null:
+		return
+	if _match.bottom_mulligan_card(player, hand_idx) != "ok":
+		return
+	_broadcast_sync(trigger_cpu_check)
 
 
 @rpc("any_peer", "reliable")
@@ -1965,6 +2111,26 @@ func submit_end_turn(discard_indices: Array) -> void:
 
 
 @rpc("any_peer", "reliable")
+func submit_choose_mulligan(take_mulligan: bool) -> void:
+	if not multiplayer.is_server():
+		return
+	if _match == null:
+		return
+	var pl := _peer_to_player(_sender_peer())
+	_try_choose_mulligan(pl, take_mulligan)
+
+
+@rpc("any_peer", "reliable")
+func submit_mulligan_bottom(hand_idx: int) -> void:
+	if not multiplayer.is_server():
+		return
+	if _match == null:
+		return
+	var pl := _peer_to_player(_sender_peer())
+	_try_mulligan_bottom(pl, hand_idx)
+
+
+@rpc("any_peer", "reliable")
 func request_play_again() -> void:
 	if not multiplayer.is_server():
 		return
@@ -2009,6 +2175,24 @@ func _on_discard_draw_pressed() -> void:
 	status_label.text = "Click a card to discard for draw."
 	if not _last_snap.is_empty():
 		_rebuild_hand(_last_snap.get("your_hand", []))
+
+
+func _on_mulligan_keep_pressed() -> void:
+	if _last_snap.is_empty():
+		return
+	if _is_network_client():
+		submit_choose_mulligan.rpc_id(1, false)
+	else:
+		_try_choose_mulligan(_my_player_for_action(), false)
+
+
+func _on_mulligan_take_pressed() -> void:
+	if _last_snap.is_empty():
+		return
+	if _is_network_client():
+		submit_choose_mulligan.rpc_id(1, true)
+	else:
+		_try_choose_mulligan(_my_player_for_action(), true)
 
 
 func _on_quit_to_menu_pressed() -> void:

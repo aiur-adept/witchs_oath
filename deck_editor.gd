@@ -1,5 +1,7 @@
 extends Control
 
+const IncludedDecks = preload("res://included_decks.gd")
+
 const RITUAL_VALUES: Array[int] = [1, 2, 3, 4]
 const INCANTATION_VERBS: Array[String] = ["seek", "insight", "burn", "woe", "revive", "wrath", "dethrone"]
 const INCANTATION_VALUES: Array[int] = [1, 2, 3, 4]
@@ -9,6 +11,7 @@ const MAX_RITUAL_COPIES := 9
 const MAX_INCANTATION_COPIES := 4
 const DECK_DIR := "user://decks"
 const DECK_EXT := ".json"
+const DECK_EXPORT_PREFIX := "decks_export_"
 const NOBLE_DEFS := [
 	{"id": "krss_power", "name": "Krss, Noble of Power"},
 	{"id": "trss_power", "name": "Trss, Noble of Power"},
@@ -24,6 +27,9 @@ const NOBLE_DEFS := [
 @onready var deck_name_edit: LineEdit = %DeckNameEdit
 @onready var reload_decks_button: Button = %ReloadDecksButton
 @onready var new_deck_button: Button = %NewDeckButton
+@onready var export_decks_button: Button = %ExportDecksButton
+@onready var delete_deck_button: Button = %DeleteDeckButton
+@onready var delete_deck_confirm_dialog: ConfirmationDialog = %DeleteDeckConfirmDialog
 @onready var add_type_button: Button = %AddTypeButton
 @onready var add_kind_option: OptionButton = %AddKindOption
 @onready var add_verb_option: OptionButton = %AddVerbOption
@@ -47,6 +53,9 @@ func _ready() -> void:
 	deck_list.item_selected.connect(_on_deck_selected)
 	reload_decks_button.pressed.connect(_refresh_deck_list)
 	new_deck_button.pressed.connect(_on_new_deck_pressed)
+	export_decks_button.pressed.connect(_on_export_decks_button_pressed)
+	delete_deck_button.pressed.connect(_on_delete_deck_button_pressed)
+	delete_deck_confirm_dialog.confirmed.connect(_on_delete_deck_confirmed)
 	add_type_button.pressed.connect(_on_add_type_pressed)
 	add_kind_option.mouse_entered.connect(_on_add_hovered)
 	add_verb_option.mouse_entered.connect(_on_add_hovered)
@@ -159,23 +168,25 @@ func _refresh_deck_list() -> void:
 	_ensure_deck_dir()
 	_deck_paths.clear()
 	deck_list.clear()
+	for slug in IncludedDecks.slug_list():
+		_deck_paths.append(IncludedDecks.token(slug))
 	var dir := DirAccess.open(DECK_DIR)
 	if dir == null:
-		status_label.text = "Could not open %s." % DECK_DIR
-		status_label.modulate = Color(1, 0.55, 0.55)
-		return
-	dir.list_dir_begin()
-	while true:
-		var fn := dir.get_next()
-		if fn == "":
-			break
-		if dir.current_is_dir() or not fn.ends_with(DECK_EXT):
-			continue
-		_deck_paths.append("%s/%s" % [DECK_DIR, fn])
-	dir.list_dir_end()
+		status_label.text = "Could not open %s (included decks still listed)." % DECK_DIR
+		status_label.modulate = Color(1, 0.95, 0.6)
+	else:
+		dir.list_dir_begin()
+		while true:
+			var fn := dir.get_next()
+			if fn == "":
+				break
+			if dir.current_is_dir() or not fn.ends_with(DECK_EXT) or fn.begins_with(DECK_EXPORT_PREFIX):
+				continue
+			_deck_paths.append("%s/%s" % [DECK_DIR, fn])
+		dir.list_dir_end()
 	_deck_paths.sort()
 	for path in _deck_paths:
-		deck_list.add_item(path.get_file().trim_suffix(DECK_EXT))
+		deck_list.add_item(IncludedDecks.list_row_text(path))
 
 
 func _on_deck_selected(index: int) -> void:
@@ -194,6 +205,7 @@ func _start_new_deck(deck_name_seed: String) -> void:
 	_entries.clear()
 	_render_entries()
 	_update_validation()
+	_apply_readonly_ui()
 
 
 func _sanitize_deck_name(raw: String) -> String:
@@ -365,27 +377,7 @@ func _add_or_increment_entry(key: String, base_data: Dictionary) -> void:
 	_entries[key] = e
 
 
-func _load_deck_path(path: String) -> void:
-	_selected_deck_path = path
-	deck_name_edit.text = path.get_file().trim_suffix(DECK_EXT)
-	_entries.clear()
-	if not FileAccess.file_exists(path):
-		_render_entries()
-		_update_validation()
-		return
-	var f := FileAccess.open(path, FileAccess.READ)
-	if f == null:
-		status_label.text = "Failed to read %s." % path
-		status_label.modulate = Color(1, 0.55, 0.55)
-		_render_entries()
-		_update_validation()
-		return
-	var parsed: Variant = JSON.parse_string(f.get_as_text())
-	if typeof(parsed) != TYPE_DICTIONARY:
-		_render_entries()
-		_update_validation()
-		return
-	var parsed_dict := parsed as Dictionary
+func _ingest_deck_dictionary(parsed_dict: Dictionary) -> void:
 	var cards: Array = parsed_dict.get("cards", []) as Array
 	for card in cards:
 		if typeof(card) != TYPE_DICTIONARY:
@@ -408,8 +400,50 @@ func _load_deck_path(path: String) -> void:
 		elif kind == "dethrone":
 			if int(card.get("value", 4)) == 4:
 				_add_or_increment_entry("dethrone", {"kind": "dethrone", "value": 4})
+
+
+func _load_deck_path(path: String) -> void:
+	_selected_deck_path = path
+	_entries.clear()
+	var parsed_dict: Dictionary = {}
+	if IncludedDecks.is_token(path):
+		var slug := IncludedDecks.slug_from_token(path)
+		parsed_dict = IncludedDecks.payload_for_slug(slug)
+		if parsed_dict.is_empty():
+			status_label.text = "Missing included deck: %s" % slug
+			status_label.modulate = Color(1, 0.55, 0.55)
+			deck_name_edit.text = slug
+			_render_entries()
+			_update_validation()
+			_apply_readonly_ui()
+			return
+		deck_name_edit.text = str(parsed_dict.get("deck_name", slug))
+	else:
+		deck_name_edit.text = path.get_file().trim_suffix(DECK_EXT)
+		if not FileAccess.file_exists(path):
+			_render_entries()
+			_update_validation()
+			_apply_readonly_ui()
+			return
+		var f := FileAccess.open(path, FileAccess.READ)
+		if f == null:
+			status_label.text = "Failed to read %s." % path
+			status_label.modulate = Color(1, 0.55, 0.55)
+			_render_entries()
+			_update_validation()
+			_apply_readonly_ui()
+			return
+		var parsed: Variant = JSON.parse_string(f.get_as_text())
+		if typeof(parsed) != TYPE_DICTIONARY:
+			_render_entries()
+			_update_validation()
+			_apply_readonly_ui()
+			return
+		parsed_dict = parsed as Dictionary
+	_ingest_deck_dictionary(parsed_dict)
 	_render_entries()
 	_update_validation()
+	_apply_readonly_ui()
 
 
 func _render_entries() -> void:
@@ -418,10 +452,30 @@ func _render_entries() -> void:
 	var keys: Array = _entries.keys()
 	keys.sort()
 	for key in keys:
-		deck_cards_list.add_child(_build_entry_pill(key, _entries[key]))
+		deck_cards_list.add_child(_build_entry_pill(key, _entries[key], _deck_readonly()))
 
 
-func _build_entry_pill(key: String, entry: Dictionary) -> Control:
+func _deck_readonly() -> bool:
+	return IncludedDecks.is_token(_selected_deck_path)
+
+
+func _apply_readonly_ui() -> void:
+	var ro := _deck_readonly()
+	add_type_button.disabled = ro
+	add_kind_option.disabled = ro
+	add_verb_option.disabled = ro
+	add_value_option.disabled = ro
+	deck_name_edit.editable = not ro
+	_update_delete_deck_button()
+
+
+func _update_delete_deck_button() -> void:
+	var p := _selected_deck_path
+	var can_delete := not IncludedDecks.is_token(p) and not p.is_empty() and FileAccess.file_exists(p)
+	delete_deck_button.disabled = not can_delete
+
+
+func _build_entry_pill(key: String, entry: Dictionary, readonly: bool) -> Control:
 	var row := HBoxContainer.new()
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_theme_constant_override("separation", 8)
@@ -453,6 +507,7 @@ func _build_entry_pill(key: String, entry: Dictionary) -> Control:
 	var minus := Button.new()
 	minus.text = "-"
 	minus.custom_minimum_size = Vector2(32, 28)
+	minus.disabled = readonly
 	minus.pressed.connect(func() -> void:
 		_decrement_entry(key)
 	)
@@ -461,6 +516,7 @@ func _build_entry_pill(key: String, entry: Dictionary) -> Control:
 	var plus := Button.new()
 	plus.text = "+"
 	plus.custom_minimum_size = Vector2(32, 28)
+	plus.disabled = readonly
 	plus.pressed.connect(func() -> void:
 		_increment_entry(key)
 	)
@@ -469,6 +525,7 @@ func _build_entry_pill(key: String, entry: Dictionary) -> Control:
 	var remove := Button.new()
 	remove.text = "X"
 	remove.custom_minimum_size = Vector2(36, 28)
+	remove.disabled = readonly
 	remove.pressed.connect(func() -> void:
 		_entries.erase(key)
 		_render_entries()
@@ -507,6 +564,8 @@ func _decrement_entry(key: String) -> void:
 
 
 func _on_add_type_pressed() -> void:
+	if _deck_readonly():
+		return
 	var kind := add_kind_option.get_item_text(add_kind_option.selected)
 	var value := int(add_value_option.get_item_text(add_value_option.selected))
 	if kind == "Ritual":
@@ -670,8 +729,16 @@ func _update_validation() -> void:
 	]
 	var copies_ok := _incantation_copy_limit_ok()
 	var is_valid: bool = totals["rituals"] == TARGET_RITUAL_COUNT and totals["non_ritual"] == TARGET_NON_RITUAL_COUNT and copies_ok
-	save_button.disabled = not is_valid
-	if is_valid:
+	var ro := _deck_readonly()
+	save_button.disabled = not is_valid or ro
+	if ro:
+		if is_valid:
+			status_label.text = "Included deck (read-only; cannot delete or overwrite)."
+			status_label.modulate = Color(0.72, 0.88, 1.0)
+		else:
+			status_label.text = "Included deck data looks invalid."
+			status_label.modulate = Color(1, 0.55, 0.55)
+	elif is_valid:
 		status_label.text = "Deck is legal. Save is enabled."
 		status_label.modulate = Color(0.65, 1, 0.65)
 	elif not copies_ok:
@@ -752,7 +819,69 @@ func _write_json(path: String, payload: Dictionary) -> int:
 	return OK
 
 
+func _load_deck_payload(path: String) -> Dictionary:
+	if IncludedDecks.is_token(path):
+		return IncludedDecks.payload_for_slug(IncludedDecks.slug_from_token(path))
+	if not FileAccess.file_exists(path):
+		return {}
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return {}
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return {}
+	return parsed as Dictionary
+
+
+func _export_path() -> String:
+	var stamp := Time.get_datetime_string_from_system(false).replace(":", "-").replace(" ", "_")
+	return "%s/%s%s%s" % [DECK_DIR, DECK_EXPORT_PREFIX, stamp, DECK_EXT]
+
+
+func _build_decks_export_payload() -> Dictionary:
+	var exported_decks: Array[Dictionary] = []
+	for path in _deck_paths:
+		if IncludedDecks.is_token(path):
+			continue
+		var payload := _load_deck_payload(path)
+		if payload.is_empty():
+			continue
+		exported_decks.append({
+			"file_name": path.get_file(),
+			"deck_name": str(payload.get("deck_name", path.get_file().trim_suffix(DECK_EXT))),
+			"payload": payload
+		})
+	return {
+		"schema_version": 1,
+		"exported_at": Time.get_datetime_string_from_system(true),
+		"deck_count": exported_decks.size(),
+		"decks": exported_decks
+	}
+
+
+func _on_export_decks_button_pressed() -> void:
+	_refresh_deck_list()
+	var export_payload := _build_decks_export_payload()
+	var export_count := int(export_payload.get("deck_count", 0))
+	if export_count <= 0:
+		status_label.text = "No saved deck files found to export."
+		status_label.modulate = Color(1, 0.95, 0.6)
+		return
+	var path := _export_path()
+	var result := _write_json(path, export_payload)
+	if result != OK:
+		status_label.text = "Failed to export decks to %s (error %d)." % [path, result]
+		status_label.modulate = Color(1, 0.55, 0.55)
+		return
+	status_label.text = "Exported %d deck(s): %s" % [export_count, path]
+	status_label.modulate = Color(0.65, 1, 0.65)
+
+
 func _on_save_button_pressed() -> void:
+	if _deck_readonly():
+		status_label.text = "Cannot save over an included deck."
+		status_label.modulate = Color(1, 0.95, 0.6)
+		return
 	var totals := _totals()
 	if not _incantation_copy_limit_ok():
 		status_label.text = "Deck is invalid. You may only have %d copies of each incantation variant." % MAX_INCANTATION_COPIES
@@ -776,6 +905,39 @@ func _on_save_button_pressed() -> void:
 
 func _on_back_button_pressed() -> void:
 	get_tree().change_scene_to_file("res://main_menu.tscn")
+
+
+func _on_delete_deck_button_pressed() -> void:
+	if delete_deck_button.disabled:
+		return
+	var path := _selected_deck_path
+	if IncludedDecks.is_token(path) or path.is_empty() or not FileAccess.file_exists(path):
+		return
+	var display := path.get_file().get_basename()
+	delete_deck_confirm_dialog.dialog_text = "Delete \"%s\" permanently? This cannot be undone." % display
+	delete_deck_confirm_dialog.popup_centered()
+
+
+func _on_delete_deck_confirmed() -> void:
+	var path := _selected_deck_path
+	if IncludedDecks.is_token(path) or path.is_empty():
+		return
+	if not FileAccess.file_exists(path):
+		_update_delete_deck_button()
+		return
+	var err := DirAccess.remove_absolute(path)
+	if err != OK:
+		status_label.text = "Could not delete deck (error %d)." % err
+		status_label.modulate = Color(1, 0.55, 0.55)
+		return
+	status_label.text = "Deleted: %s" % path.get_file()
+	status_label.modulate = Color(0.65, 1, 0.65)
+	_refresh_deck_list()
+	if _deck_paths.is_empty():
+		_start_new_deck("new_deck")
+	else:
+		_load_deck_path(_deck_paths[0])
+		deck_list.select(0)
 
 
 func _select_deck_path(path: String) -> void:

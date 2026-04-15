@@ -6,7 +6,7 @@ Two 40-card decks.
 
 Players determine who goes first based on a challenge (ie. D20)
 
-Starting hands: 5 cards
+Starting hands: 5 cards (with a single london mulligan allowed (draw 5 put one on the bottom of library))
 
 Card types: ritual, incantation, noble
 
