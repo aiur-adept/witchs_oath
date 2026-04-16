@@ -43,7 +43,7 @@ text = "Deck Builder"
 
 [node name="Subtitle" type="Label" parent="MainMargin/RootVBox"]
 layout_mode = 2
-text = "Select a deck, tune card-type counts with + / - / X, or add new card types."
+text = "Select a deck, click cards to add copies, and tune counts with + / - / X."
 
 [node name="Split" type="HSplitContainer" parent="MainMargin/RootVBox"]
 layout_mode = 2
@@ -132,26 +132,23 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "Rituals 0/19   Incantations 0/21   Total 0/40"
 
-[node name="AddRow" type="HBoxContainer" parent="MainMargin/RootVBox/Split/BuilderPanel/BuilderMargin/BuilderVBox"]
+[node name="CardGalleryHeader" type="Label" parent="MainMargin/RootVBox/Split/BuilderPanel/BuilderMargin/BuilderVBox"]
 layout_mode = 2
-theme_override_constants/separation = 8
+text = "Card Gallery"
 
-[node name="AddKindOption" type="OptionButton" parent="MainMargin/RootVBox/Split/BuilderPanel/BuilderMargin/BuilderVBox/AddRow"]
+[node name="CardGalleryScroll" type="ScrollContainer" parent="MainMargin/RootVBox/Split/BuilderPanel/BuilderMargin/BuilderVBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 210)
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="CardGallery" type="GridContainer" parent="MainMargin/RootVBox/Split/BuilderPanel/BuilderMargin/BuilderVBox/CardGalleryScroll"]
 unique_name_in_owner = true
 layout_mode = 2
-
-[node name="AddVerbOption" type="OptionButton" parent="MainMargin/RootVBox/Split/BuilderPanel/BuilderMargin/BuilderVBox/AddRow"]
-unique_name_in_owner = true
-layout_mode = 2
-
-[node name="AddValueOption" type="OptionButton" parent="MainMargin/RootVBox/Split/BuilderPanel/BuilderMargin/BuilderVBox/AddRow"]
-unique_name_in_owner = true
-layout_mode = 2
-
-[node name="AddTypeButton" type="Button" parent="MainMargin/RootVBox/Split/BuilderPanel/BuilderMargin/BuilderVBox/AddRow"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Add Type"
+size_flags_horizontal = 3
+columns = 4
+theme_override_constants/h_separation = 4
+theme_override_constants/v_separation = 4
 
 [node name="CardsScroll" type="ScrollContainer" parent="MainMargin/RootVBox/Split/BuilderPanel/BuilderMargin/BuilderVBox"]
 layout_mode = 2

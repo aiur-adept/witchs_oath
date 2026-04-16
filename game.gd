@@ -1,6 +1,7 @@
 extends Control
 
 const IncludedDecks = preload("res://included_decks.gd")
+const CardPreviewPresenter = preload("res://card_preview_presenter.gd")
 
 class InsightDnDSlot extends Panel:
 	var slot_index: int = 0
@@ -131,10 +132,7 @@ var _aeoiu_overlay: Control
 var _aeoiu_crypt_row: VBoxContainer
 var _aeoiu_noble_mid: int = -1
 
-var _hover_preview_root: Panel
-var _hover_preview_title: Label
-var _hover_preview_type: Label
-var _hover_preview_body: RichTextLabel
+var _hover_preview: Dictionary = {}
 var _game_end_overlay: Control
 var _game_end_modal: PanelContainer
 var _game_end_title: Label
@@ -730,173 +728,19 @@ func _finalize_revive_wrath_submit(wrath_mids: Array) -> void:
 
 
 func _build_hover_preview_panel() -> void:
-	_hover_preview_root = Panel.new()
-	_hover_preview_root.name = "CardHoverPreview"
-	_hover_preview_root.visible = false
-	_hover_preview_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_hover_preview_root.anchor_left = 1.0
-	_hover_preview_root.anchor_top = 1.0
-	_hover_preview_root.anchor_right = 1.0
-	_hover_preview_root.anchor_bottom = 1.0
-	var card_h := 210.0 * CARD_SCALE
-	var card_w := card_h * RITUAL_CARD_ASPECT
-	_hover_preview_root.offset_left = -18.0 - card_w
-	_hover_preview_root.offset_top = -18.0 - card_h
-	_hover_preview_root.offset_right = -18.0
-	_hover_preview_root.offset_bottom = -18.0
-	_hover_preview_root.custom_minimum_size = Vector2(card_w, card_h)
-	var sb := StyleBoxFlat.new()
-	sb.set_corner_radius_all(6)
-	sb.set_border_width_all(2)
-	sb.bg_color = Color(0.03, 0.03, 0.05, 0.95)
-	sb.border_color = Color(0.8, 0.83, 0.9)
-	_hover_preview_root.add_theme_stylebox_override("panel", sb)
-	add_child(_hover_preview_root)
-
-	var pad := MarginContainer.new()
-	pad.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	pad.add_theme_constant_override("margin_left", 10)
-	pad.add_theme_constant_override("margin_top", 8)
-	pad.add_theme_constant_override("margin_right", 10)
-	pad.add_theme_constant_override("margin_bottom", 8)
-	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_hover_preview_root.add_child(pad)
-
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 4)
-	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pad.add_child(col)
-
-	_hover_preview_title = Label.new()
-	_hover_preview_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_hover_preview_title.add_theme_font_size_override("font_size", 15)
-	_hover_preview_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(_hover_preview_title)
-
-	_hover_preview_type = Label.new()
-	_hover_preview_type.add_theme_font_size_override("font_size", 13)
-	_hover_preview_type.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(_hover_preview_type)
-
-	_hover_preview_body = RichTextLabel.new()
-	_hover_preview_body.fit_content = true
-	_hover_preview_body.scroll_active = false
-	_hover_preview_body.bbcode_enabled = false
-	_hover_preview_body.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_hover_preview_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	col.add_child(_hover_preview_body)
+	_hover_preview = CardPreviewPresenter.build_preview_panel(self, {
+		"mode": "corner",
+		"card_scale": CARD_SCALE,
+		"card_aspect": RITUAL_CARD_ASPECT
+	})
 
 
 func _show_card_hover_preview(card: Dictionary) -> void:
-	if _hover_preview_root == null:
-		return
-	_hover_preview_title.text = _card_preview_title(card)
-	_hover_preview_type.text = _card_preview_type_line(card)
-	_hover_preview_body.text = _card_preview_rules_text(card)
-	_hover_preview_root.visible = true
+	CardPreviewPresenter.show_preview(_hover_preview, card)
 
 
 func _hide_card_hover_preview() -> void:
-	if _hover_preview_root != null:
-		_hover_preview_root.visible = false
-
-
-func _card_preview_title(card: Dictionary) -> String:
-	var t := _card_type(card)
-	if t == "ritual":
-		return "%d-Ritual" % int(card.get("value", 0))
-	if t == "noble":
-		return str(card.get("name", "Noble"))
-	if t == "dethrone":
-		return "Dethrone 4"
-	return "%s %d" % [str(card.get("verb", "")).capitalize(), int(card.get("value", 0))]
-
-
-func _card_preview_type_line(card: Dictionary) -> String:
-	var t := _card_type(card)
-	if t == "ritual":
-		return "Ritual"
-	if t == "noble":
-		var cost := _noble_cost_for_id(str(card.get("noble_id", "")))
-		return "Noble%s" % (" (cost %d)" % cost if cost > 0 else "")
-	if t == "dethrone":
-		return "Incantation"
-	return "Incantation"
-
-
-func _card_preview_rules_text(card: Dictionary) -> String:
-	var t := _card_type(card)
-	if t == "ritual":
-		var v := int(card.get("value", 0))
-		return "Play one ritual per turn. This allows you to play Incantations and Nobles of power %d if active. Activation requires a complete active chain (1..N)." % [v]
-	if t == "noble":
-		return _noble_preview_text(card)
-	if t == "dethrone":
-		return "Dethrone 4: destroy 1 opponent noble."
-	var n := int(card.get("value", 0))
-	var verb := str(card.get("verb", "")).to_lower()
-	match verb:
-		"seek":
-			return "Seek %d: draw %d card(s)." % [n, n]
-		"insight":
-			return "Insight %d: reorder the top %d card(s) of either deck." % [n, n]
-		"burn":
-			return "Burn %d: discard the top %d card(s) of a chosen player's deck." % [n, n * 2]
-		"woe":
-			return "Woe %d: a chosen player discards %d chosen card(s) from hand." % [n, n]
-		"revive":
-			return "Revive %d: you may cast %d incantation(s) from your crypt (chosen; no ritual cost)." % [n, n]
-		"wrath":
-			return "Wrath %d: destroy %d opponent ritual(s)." % [n, _wrath_destroy_count(n)]
-		_:
-			return "Incantation %d." % n
-
-
-func _noble_preview_text(card: Dictionary) -> String:
-	var nid := str(card.get("noble_id", ""))
-	match nid:
-		"krss_power":
-			return "Passive: grants access to 1-cost incantations."
-		"trss_power":
-			return "Passive: grants access to 2-cost incantations."
-		"yrss_power":
-			return "Passive: grants access to 3-cost incantations."
-		"sndrr_incantation":
-			return "Activate (once per turn): Seek 1."
-		"wndrr_incantation":
-			return "Activate (once per turn): Woe 1."
-		"bndrr_incantation":
-			return "Activate (once per turn): Burn 1."
-		"rndrr_incantation":
-			return "Activate (once per turn): Revive 1."
-		"indrr_incantation":
-			return "Activate (once per turn): Insight 2."
-		"xytzr_emanation":
-			return "Whenever you Seek, draw an additional card. Whenever you Insight, look at an additional card."
-		"yytzr_occultation":
-			return "Whenever you Burn, add 3 to the number discarded. Whenever you Revive, you may sacrifice 2+ ritual power for an extra crypt cast."
-		"zytzr_annihilation":
-			return "Whenever you Wrath, destroy an extra ritual. Whenever you Woe, the victim discards an additional card."
-		"aeoiu_rituals":
-			return "Activate (once per turn): play a Ritual from your crypt."
-		_:
-			return "Noble effect."
-
-
-func _noble_cost_for_id(nid: String) -> int:
-	match nid:
-		"krss_power":
-			return 2
-		"trss_power":
-			return 3
-		"yrss_power":
-			return 4
-		"xytzr_emanation", "yytzr_occultation", "zytzr_annihilation", "aeoiu_rituals":
-			return 4
-		"sndrr_incantation", "wndrr_incantation", "bndrr_incantation", "rndrr_incantation", "indrr_incantation":
-			return 3
-		_:
-			return 0
+	CardPreviewPresenter.hide_preview(_hover_preview)
 
 
 func _load_deck_cards() -> Array:

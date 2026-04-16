@@ -35,10 +35,7 @@ const NOBLE_DEFS := [
 @onready var export_decks_button: Button = %ExportDecksButton
 @onready var delete_deck_button: Button = %DeleteDeckButton
 @onready var delete_deck_confirm_dialog: ConfirmationDialog = %DeleteDeckConfirmDialog
-@onready var add_type_button: Button = %AddTypeButton
-@onready var add_kind_option: OptionButton = %AddKindOption
-@onready var add_verb_option: OptionButton = %AddVerbOption
-@onready var add_value_option: OptionButton = %AddValueOption
+@onready var card_gallery: GridContainer = %CardGallery
 @onready var deck_cards_list: VBoxContainer = %DeckCardsList
 @onready var totals_label: Label = %TotalsLabel
 @onready var status_label: Label = %StatusLabel
@@ -48,41 +45,25 @@ const NOBLE_DEFS := [
 var _deck_paths: Array[String] = []
 var _selected_deck_path := ""
 var _entries: Dictionary = {}
-var _preview_popup: PanelContainer
-var _preview_label: Label
+var _hover_preview: Dictionary = {}
+var _gallery_entries: Array[Dictionary] = []
 
 
 func _ready() -> void:
-	_init_preview_popup()
-	_configure_add_controls()
+	_hover_preview = CardPreviewPresenter.build_preview_panel(self, {
+		"mode": "corner",
+		"name": "DeckCardHoverPreview"
+	})
+	_gallery_entries = _build_gallery_entries()
+	_render_gallery()
 	deck_list.item_selected.connect(_on_deck_selected)
 	reload_decks_button.pressed.connect(_refresh_deck_list)
 	new_deck_button.pressed.connect(_on_new_deck_pressed)
 	export_decks_button.pressed.connect(_on_export_decks_button_pressed)
 	delete_deck_button.pressed.connect(_on_delete_deck_button_pressed)
 	delete_deck_confirm_dialog.confirmed.connect(_on_delete_deck_confirmed)
-	add_type_button.pressed.connect(_on_add_type_pressed)
-	add_kind_option.mouse_entered.connect(_on_add_hovered)
-	add_verb_option.mouse_entered.connect(_on_add_hovered)
-	add_value_option.mouse_entered.connect(_on_add_hovered)
-	add_type_button.mouse_entered.connect(_on_add_hovered)
-	add_kind_option.mouse_exited.connect(_hide_preview)
-	add_verb_option.mouse_exited.connect(_hide_preview)
-	add_value_option.mouse_exited.connect(_hide_preview)
-	add_type_button.mouse_exited.connect(_hide_preview)
-	add_kind_option.item_selected.connect(func(_idx: int) -> void:
-		_refresh_add_verb_options()
-		_refresh_add_verb_visibility()
-		_refresh_add_value_options()
-	)
-	add_verb_option.item_selected.connect(func(_idx: int) -> void:
-		_refresh_add_value_options()
-	)
 	save_button.pressed.connect(_on_save_button_pressed)
 	back_button.pressed.connect(_on_back_button_pressed)
-	_refresh_add_verb_options()
-	_refresh_add_verb_visibility()
-	_refresh_add_value_options()
 	_refresh_deck_list()
 	if _deck_paths.is_empty():
 		_start_new_deck("default_deck")
@@ -91,76 +72,27 @@ func _ready() -> void:
 	_update_validation()
 
 
-func _configure_add_controls() -> void:
-	add_kind_option.clear()
-	add_kind_option.add_item("Ritual")
-	add_kind_option.add_item("Incantation")
-	add_kind_option.add_item("Noble")
-	add_verb_option.clear()
-	for verb in INCANTATION_VERBS:
-		add_verb_option.add_item(verb.capitalize())
-	add_value_option.clear()
+func _build_gallery_entries() -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
 	for value in RITUAL_VALUES:
-		add_value_option.add_item(str(value))
+		out.append({"kind": "ritual", "value": value})
+	for verb in INCANTATION_VERBS:
+		for value in _incantation_values_for_verb(verb):
+			if verb == "dethrone":
+				out.append({"kind": "dethrone", "value": 4})
+			else:
+				out.append({"kind": "incantation", "verb": verb, "value": value})
+	for noble in NOBLE_DEFS:
+		out.append({"kind": "noble", "noble_id": str(noble.get("id", "")), "name": str(noble.get("name", ""))})
+	return out
 
 
-func _init_preview_popup() -> void:
-	_preview_popup = PanelContainer.new()
-	_preview_popup.visible = false
-	_preview_popup.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_preview_popup.z_index = 100
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.09, 0.11, 0.15, 0.97)
-	sb.border_color = Color(0.55, 0.63, 0.8)
-	sb.set_border_width_all(2)
-	sb.set_corner_radius_all(10)
-	_preview_popup.add_theme_stylebox_override("panel", sb)
-	var margin := MarginContainer.new()
-	margin.add_theme_constant_override("margin_left", 10)
-	margin.add_theme_constant_override("margin_top", 8)
-	margin.add_theme_constant_override("margin_right", 10)
-	margin.add_theme_constant_override("margin_bottom", 8)
-	_preview_popup.add_child(margin)
-	_preview_label = Label.new()
-	_preview_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_preview_label.custom_minimum_size = Vector2(220, 0)
-	margin.add_child(_preview_label)
-	add_child(_preview_popup)
-
-
-func _refresh_add_verb_options() -> void:
-	var kind := add_kind_option.get_item_text(add_kind_option.selected)
-	add_verb_option.clear()
-	if kind == "Noble":
-		for n in NOBLE_DEFS:
-			add_verb_option.add_item(str(n.get("name", "")))
-	else:
-		for verb in INCANTATION_VERBS:
-			add_verb_option.add_item(verb.capitalize())
-
-
-func _refresh_add_verb_visibility() -> void:
-	var kind := add_kind_option.get_item_text(add_kind_option.selected)
-	add_verb_option.visible = kind == "Incantation" or kind == "Noble"
-	add_value_option.visible = kind == "Ritual" or kind == "Incantation"
-
-
-func _refresh_add_value_options() -> void:
-	var kind := add_kind_option.get_item_text(add_kind_option.selected)
-	add_value_option.clear()
-	var values: Array[int] = []
-	if kind == "Ritual":
-		values = RITUAL_VALUES
-	elif kind == "Incantation":
-		if add_verb_option.selected < 0 or add_verb_option.selected >= INCANTATION_VERBS.size():
-			return
-		values = _incantation_values_for_verb(INCANTATION_VERBS[add_verb_option.selected])
-	else:
-		return
-	for v in values:
-		add_value_option.add_item(str(v))
-	if add_value_option.item_count > 0:
-		add_value_option.select(0)
+func _render_gallery() -> void:
+	for c in card_gallery.get_children():
+		c.queue_free()
+	var readonly := _deck_readonly()
+	for entry in _gallery_entries:
+		card_gallery.add_child(_build_gallery_card(entry, readonly))
 
 
 func _ensure_deck_dir() -> void:
@@ -267,117 +199,67 @@ func _entry_display_name(entry: Dictionary) -> String:
 	return "%s %d" % [str(entry.get("verb", "")).capitalize(), int(entry.get("value", 0))]
 
 
-func _entry_preview_text(entry: Dictionary) -> String:
+func _entry_to_preview_card(entry: Dictionary) -> Dictionary:
+	var out := entry.duplicate(true)
+	out["type"] = str(entry.get("kind", ""))
+	return out
+
+
+func _entry_key(entry: Dictionary) -> String:
 	var kind := str(entry.get("kind", ""))
 	if kind == "ritual":
-		var v := int(entry.get("value", 0))
-		return "Ritual %d\nProvides ritual value %d on your field." % [v, v]
-	if kind == "incantation":
-		var verb := str(entry.get("verb", "")).to_lower()
-		var v := int(entry.get("value", 0))
-		match verb:
-			"seek":
-				return "Seek %d\nDraw %d card(s)." % [v, v]
-			"insight":
-				return "Insight %d\nReorder the top %d card(s) of a chosen player's deck." % [v, v]
-			"burn":
-				return "Burn %d\nDiscard the top %d card(s) of a chosen player's deck." % [v, v * 2]
-			"woe":
-				return "Woe %d\nA chosen player discards %d chosen card(s)." % [v, v]
-			"revive":
-				return "Revive %d\nYou may cast %d incantation(s) from your crypt (chosen)." % [v, v]
-			"wrath":
-				return "Wrath %d\nDestroy %d opponent ritual(s)." % [v, _wrath_destroy_count(v)]
-			"dethrone":
-				return "Dethrone 4\nChoose and destroy an opponent noble."
-		return "%s %d" % [verb.capitalize(), v]
+		return _entry_key_ritual(int(entry.get("value", 0)))
 	if kind == "noble":
-		var nid := str(entry.get("noble_id", ""))
-		return "%s\n%s" % [str(entry.get("name", "Noble")), _noble_preview_text(nid)]
+		return _entry_key_noble(str(entry.get("noble_id", "")))
 	if kind == "dethrone":
-		return "Dethrone 4\nChoose and destroy an opponent noble."
-	return _entry_display_name(entry)
+		return "dethrone"
+	return _entry_key_incantation(str(entry.get("verb", "")), int(entry.get("value", 0)))
 
 
-func _noble_preview_text(noble_id: String) -> String:
-	match noble_id:
-		"krss_power":
-			return "Passive: grants access to 1-cost incantations."
-		"trss_power":
-			return "Passive: grants access to 2-cost incantations."
-		"yrss_power":
-			return "Passive: grants access to 3-cost incantations."
-		"sndrr_incantation":
-			return "Activate once per turn: Seek 1."
-		"indrr_incantation":
-			return "Activate once per turn: Insight 2."
-		"bndrr_incantation":
-			return "Activate once per turn: Burn 1."
-		"wndrr_incantation":
-			return "Activate once per turn: Woe 1."
-		"rndrr_incantation":
-			return "Activate once per turn: Revive 1."
-		"xytzr_emanation":
-			return "Whenever you Seek, draw an additional card. Whenever you Insight, look at an additional card."
-		"yytzr_occultation":
-			return "Whenever you Burn, add 3 to cards milled. Whenever you Revive, you may sacrifice 2+ ritual power for an extra crypt cast."
-		"zytzr_annihilation":
-			return "Whenever you Wrath, destroy an extra ritual. Whenever you Woe, the victim discards an additional card."
-		"aeoiu_rituals":
-			return "Activate once per turn: play a Ritual from your crypt."
-	return "Noble."
+func _build_gallery_card(entry: Dictionary, readonly: bool) -> Control:
+	var card_slot := MarginContainer.new()
+	card_slot.custom_minimum_size = Vector2(160, 74)
+	card_slot.add_theme_constant_override("margin_right", 6)
+	card_slot.add_theme_constant_override("margin_bottom", 6)
 
+	var btn := Button.new()
+	btn.text = _entry_display_name(entry)
+	btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	btn.custom_minimum_size = Vector2(150, 68)
+	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var key := _entry_key(entry)
+	var count := int((_entries.get(key, {}) as Dictionary).get("count", 0))
+	var probe := entry.duplicate(true)
+	probe["count"] = count
+	btn.disabled = readonly or not _can_increase_entry(probe)
+	if count > 0:
+		btn.text = "%s  x%d" % [btn.text, count]
+	btn.pressed.connect(func() -> void:
+		_add_entry_from_gallery(entry)
+	)
+	btn.mouse_entered.connect(func() -> void:
+		CardPreviewPresenter.show_preview(_hover_preview, _entry_to_preview_card(entry))
+	)
+	btn.mouse_exited.connect(func() -> void:
+		CardPreviewPresenter.hide_preview(_hover_preview)
+	)
 
-func _wrath_destroy_count(value: int) -> int:
-	if value == 4:
-		return 2
-	return 0
+	var sb := StyleBoxFlat.new()
+	sb.set_corner_radius_all(10)
+	sb.set_border_width_all(2)
+	sb.bg_color = Color(0.13, 0.16, 0.21)
+	sb.border_color = Color(0.42, 0.5, 0.64)
+	btn.add_theme_stylebox_override("normal", sb)
+	var sb_hover := sb.duplicate()
+	sb_hover.border_color = Color(0.8, 0.88, 1.0)
+	btn.add_theme_stylebox_override("hover", sb_hover)
+	var sb_disabled := sb.duplicate()
+	sb_disabled.bg_color = Color(0.1, 0.11, 0.14)
+	sb_disabled.border_color = Color(0.3, 0.32, 0.38)
+	btn.add_theme_stylebox_override("disabled", sb_disabled)
 
-
-func _show_preview(text: String) -> void:
-	if text.is_empty():
-		return
-	_preview_label.text = text
-	_preview_popup.reset_size()
-	var mouse := get_global_mouse_position()
-	_preview_popup.global_position = mouse + Vector2(18, 18)
-	_preview_popup.visible = true
-
-
-func _hide_preview() -> void:
-	if _preview_popup != null:
-		_preview_popup.visible = false
-
-
-func _add_selection_entry() -> Dictionary:
-	if add_kind_option.selected < 0:
-		return {}
-	var kind := add_kind_option.get_item_text(add_kind_option.selected)
-	if kind == "Ritual":
-		if add_value_option.selected < 0:
-			return {}
-		var ritual_value := int(add_value_option.get_item_text(add_value_option.selected))
-		return {"kind": "ritual", "value": ritual_value}
-	if kind == "Incantation":
-		if add_verb_option.selected < 0 or add_verb_option.selected >= INCANTATION_VERBS.size():
-			return {}
-		var sel_verb := INCANTATION_VERBS[add_verb_option.selected]
-		if sel_verb == "dethrone":
-			return {"kind": "dethrone", "value": 4}
-		if add_value_option.selected < 0:
-			return {}
-		var ivalue := int(add_value_option.get_item_text(add_value_option.selected))
-		return {"kind": "incantation", "verb": sel_verb, "value": ivalue}
-	if kind == "Noble":
-		if add_verb_option.selected >= 0 and add_verb_option.selected < NOBLE_DEFS.size():
-			var noble: Dictionary = NOBLE_DEFS[add_verb_option.selected]
-			return {"kind": "noble", "noble_id": str(noble.get("id", "")), "name": str(noble.get("name", ""))}
-		return {"kind": "noble", "name": "Noble"}
-	return {"kind": "dethrone", "value": 4}
-
-
-func _on_add_hovered() -> void:
-	_show_preview(_entry_preview_text(_add_selection_entry()))
+	card_slot.add_child(btn)
+	return card_slot
 
 
 func _add_or_increment_entry(key: String, base_data: Dictionary) -> void:
@@ -466,6 +348,7 @@ func _render_entries() -> void:
 	keys.sort()
 	for key in keys:
 		deck_cards_list.add_child(_build_entry_pill(key, _entries[key], _deck_readonly()))
+	_render_gallery()
 
 
 func _deck_readonly() -> bool:
@@ -473,12 +356,8 @@ func _deck_readonly() -> bool:
 
 
 func _apply_readonly_ui() -> void:
-	var ro := _deck_readonly()
-	add_type_button.disabled = ro
-	add_kind_option.disabled = ro
-	add_verb_option.disabled = ro
-	add_value_option.disabled = ro
-	deck_name_edit.editable = not ro
+	deck_name_edit.editable = not _deck_readonly()
+	_render_gallery()
 	_update_delete_deck_button()
 
 
@@ -502,11 +381,13 @@ func _build_entry_pill(key: String, entry: Dictionary, readonly: bool) -> Contro
 	sb.set_corner_radius_all(12)
 	bg.add_theme_stylebox_override("panel", sb)
 	row.add_child(bg)
-	var preview_text := _entry_preview_text(entry)
+	var preview_card := _entry_to_preview_card(entry)
 	bg.mouse_entered.connect(func() -> void:
-		_show_preview(preview_text)
+		CardPreviewPresenter.show_preview(_hover_preview, preview_card)
 	)
-	bg.mouse_exited.connect(_hide_preview)
+	bg.mouse_exited.connect(func() -> void:
+		CardPreviewPresenter.hide_preview(_hover_preview)
+	)
 
 	var inner := HBoxContainer.new()
 	inner.add_theme_constant_override("separation", 8)
@@ -576,80 +457,20 @@ func _decrement_entry(key: String) -> void:
 	_update_validation()
 
 
-func _on_add_type_pressed() -> void:
+func _add_entry_from_gallery(base_entry: Dictionary) -> void:
 	if _deck_readonly():
 		return
-	var kind := add_kind_option.get_item_text(add_kind_option.selected)
-	var value := int(add_value_option.get_item_text(add_value_option.selected))
-	if kind == "Ritual":
-		var key_r := _entry_key_ritual(value)
-		if _entries.has(key_r):
-			_increment_entry(key_r)
-			return
-		var entry_r := {"kind": "ritual", "value": value, "count": 0}
-		if not _can_increase_entry(entry_r):
-			_show_cannot_add_status(entry_r)
-			return
-		entry_r["count"] = 1
-		_entries[key_r] = entry_r
-	elif kind == "Incantation":
-		var verb := INCANTATION_VERBS[add_verb_option.selected]
-		if verb == "dethrone":
-			if _entries.has("dethrone"):
-				_increment_entry("dethrone")
-				return
-			var entry_d := {"kind": "dethrone", "value": 4, "count": 0}
-			if not _can_increase_entry(entry_d):
-				_show_cannot_add_status(entry_d)
-				return
-			entry_d["count"] = 1
-			_entries["dethrone"] = entry_d
-			_render_entries()
-			_update_validation()
-			return
-		if not _incantation_values_for_verb(verb).has(value):
-			var legal_values: Array[int] = _incantation_values_for_verb(verb)
-			var legal_text := ",".join(PackedStringArray(legal_values.map(func(v: int) -> String:
-				return str(v)
-			)))
-			status_label.text = "%s only supports values %s." % [verb.capitalize(), legal_text]
-			status_label.modulate = Color(1, 0.95, 0.6)
-			return
-		var key_i := _entry_key_incantation(verb, value)
-		if _entries.has(key_i):
-			_increment_entry(key_i)
-			return
-		var entry_i := {"kind": "incantation", "verb": verb, "value": value, "count": 0}
-		if not _can_increase_entry(entry_i):
-			_show_cannot_add_status(entry_i)
-			return
-		entry_i["count"] = 1
-		_entries[key_i] = entry_i
-	elif kind == "Noble":
-		if add_verb_option.selected < 0 or add_verb_option.selected >= NOBLE_DEFS.size():
-			return
-		var noble: Dictionary = NOBLE_DEFS[add_verb_option.selected]
-		var nid := str(noble.get("id", ""))
-		var key_n := _entry_key_noble(nid)
-		if _entries.has(key_n):
-			_increment_entry(key_n)
-			return
-		var entry_n := {"kind": "noble", "noble_id": nid, "name": str(noble.get("name", "")), "count": 0}
-		if not _can_increase_entry(entry_n):
-			_show_cannot_add_status(entry_n)
-			return
-		entry_n["count"] = 1
-		_entries[key_n] = entry_n
-	else:
-		if _entries.has("dethrone"):
-			_increment_entry("dethrone")
-			return
-		var entry_d := {"kind": "dethrone", "value": 4, "count": 0}
-		if not _can_increase_entry(entry_d):
-			_show_cannot_add_status(entry_d)
-			return
-		entry_d["count"] = 1
-		_entries["dethrone"] = entry_d
+	var key := _entry_key(base_entry)
+	if _entries.has(key):
+		_increment_entry(key)
+		return
+	var entry := base_entry.duplicate(true)
+	entry["count"] = 0
+	if not _can_increase_entry(entry):
+		_show_cannot_add_status(entry)
+		return
+	entry["count"] = 1
+	_entries[key] = entry
 	_render_entries()
 	_update_validation()
 
@@ -787,14 +608,12 @@ func _update_validation() -> void:
 	var noble_ok := _noble_copy_limit_ok()
 	var is_valid: bool = totals["rituals"] == TARGET_RITUAL_COUNT and totals["non_ritual"] == TARGET_NON_RITUAL_COUNT and copies_ok and noble_ok
 	var ro := _deck_readonly()
+	if ro:
+		is_valid = true
 	save_button.disabled = not is_valid or ro
 	if ro:
-		if is_valid:
-			status_label.text = "Included deck (read-only; cannot delete or overwrite)."
-			status_label.modulate = Color(0.72, 0.88, 1.0)
-		else:
-			status_label.text = "Included deck data looks invalid."
-			status_label.modulate = Color(1, 0.55, 0.55)
+		status_label.text = "Included deck (read-only; cannot delete or overwrite)."
+		status_label.modulate = Color(0.72, 0.88, 1.0)
 	elif is_valid:
 		status_label.text = "Deck is legal. Save is enabled."
 		status_label.modulate = Color(0.65, 1, 0.65)
