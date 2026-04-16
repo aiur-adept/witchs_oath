@@ -1,6 +1,8 @@
 extends RefCounted
 class_name CardPreviewPresenter
 
+const CardTraits = preload("res://card_traits.gd")
+
 
 static func build_preview_panel(host: Control, config: Dictionary = {}) -> Dictionary:
 	var mode := str(config.get("mode", "corner"))
@@ -149,18 +151,7 @@ static func card_rules_text(card: Dictionary) -> String:
 
 
 static func _card_type(card: Dictionary) -> String:
-	var t := str(card.get("type", card.get("kind", ""))).to_lower()
-	if t == "dethrone":
-		return "dethrone"
-	if t == "incantation":
-		if str(card.get("verb", "")).to_lower() == "dethrone":
-			return "dethrone"
-		return "incantation"
-	if t == "ritual":
-		return "ritual"
-	if t == "noble":
-		return "noble"
-	return t
+	return CardTraits.effective_kind(card)
 
 
 static func _wrath_destroy_count(value: int) -> int:

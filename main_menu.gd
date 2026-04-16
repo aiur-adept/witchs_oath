@@ -6,8 +6,10 @@ const DECK_DIR := "user://decks"
 const DECK_EXT := ".json"
 const DECK_EXPORT_PREFIX := "decks_export_"
 const SELECTED_DECK_PATH_FILE := "user://selected_deck_path.txt"
+const PLAY_MODE_FILE := "user://arcana_play_mode.txt"
 
 @onready var play_button: Button = %PlayLink
+@onready var goldfish_button: Button = %GoldfishLink
 @onready var deck_editor_button: Button = %DeckEditorLink
 @onready var how_to_play_button: Button = %HowToPlayLink
 @onready var exit_button: Button = %ExitButton
@@ -18,14 +20,17 @@ const SELECTED_DECK_PATH_FILE := "user://selected_deck_path.txt"
 @onready var deck_picker_cancel_button: Button = %DeckPickerCancelButton
 
 var _deck_paths: Array[String] = []
+var _deck_picker_for_goldfish: bool = false
 
 
 func _ready() -> void:
 	_double_button_padding(play_button)
+	_double_button_padding(goldfish_button)
 	_double_button_padding(deck_editor_button)
 	_double_button_padding(how_to_play_button)
 	_double_button_padding(exit_button)
 	%PlayLink.pressed.connect(_on_play_pressed)
+	%GoldfishLink.pressed.connect(_on_goldfish_pressed)
 	%DeckEditorLink.pressed.connect(_on_deck_editor_pressed)
 	%HowToPlayLink.pressed.connect(_on_how_to_play_pressed)
 	%ExitButton.pressed.connect(_on_exit_pressed)
@@ -50,6 +55,12 @@ func _double_button_padding(btn: Button) -> void:
 		btn.add_theme_stylebox_override(style_name, padded)
 
 func _on_play_pressed() -> void:
+	_deck_picker_for_goldfish = false
+	_show_deck_picker()
+
+
+func _on_goldfish_pressed() -> void:
+	_deck_picker_for_goldfish = true
 	_show_deck_picker()
 
 
@@ -62,7 +73,7 @@ func _show_deck_picker() -> void:
 	if _deck_paths.is_empty():
 		deck_picker_status.text = "No deck files found. Build and save one first."
 		return
-	deck_picker_status.text = "Choose a deck, then press Play."
+	deck_picker_status.text = "Choose a deck for goldfish (solo), then confirm." if _deck_picker_for_goldfish else "Choose a deck, then press Play."
 	deck_picker_overlay.visible = true
 	deck_picker_list.grab_focus()
 
@@ -114,6 +125,9 @@ func _play_with_selected_deck(index: int) -> void:
 		deck_picker_status.text = "Could not store selected deck. Try again."
 		return
 	f.store_string(selected_path)
+	var mf := FileAccess.open(PLAY_MODE_FILE, FileAccess.WRITE)
+	if mf != null:
+		mf.store_string("goldfish" if _deck_picker_for_goldfish else "versus")
 	_hide_deck_picker()
 	get_tree().change_scene_to_file("res://game.tscn")
 

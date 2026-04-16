@@ -1,6 +1,8 @@
 class_name ArcanaMatchState
 extends RefCounted
 
+const CardTraits = preload("res://card_traits.gd")
+
 const MAX_HAND_END := 7
 const START_HAND := 5
 const WIN_POWER := 20
@@ -18,6 +20,7 @@ var winner: int = -1
 var empty_deck_end: bool = false
 var log_lines: PackedStringArray
 var turn_number: int = 0
+var goldfish: bool = false
 var _starting_player: int = 0
 var _mulligan_decision_pending: Array[bool] = [true, true]
 var _mulligan_used: Array[bool] = [false, false]
@@ -38,9 +41,9 @@ var _scion_pending_next_id: int = 1
 
 
 func _card_kind(c: Variant) -> String:
-	if c == null:
+	if c == null or typeof(c) != TYPE_DICTIONARY:
 		return ""
-	return str(c.get("type", "")).to_lower()
+	return CardTraits.effective_kind(c as Dictionary)
 
 
 func _noble_on_field(p: int, noble_id: String) -> bool:
@@ -92,14 +95,18 @@ func _validate_yytzr_extra_sacrifice(p: int, primary_mids: Dictionary, extra: Ar
 	return esum >= 2
 
 
-func _init(p0_deck: Array, p1_deck: Array, p0_first: bool, p_rng: RandomNumberGenerator) -> void:
+func _init(p0_deck: Array, p1_deck: Array, p0_first: bool, p_rng: RandomNumberGenerator, p_goldfish: bool) -> void:
 	rng = p_rng
+	goldfish = p_goldfish
 	_load_noble_hooks()
 	_players = [
 		_make_player(p0_deck),
 		_make_player(p1_deck)
 	]
-	_starting_player = 0 if p0_first else 1
+	if goldfish:
+		_starting_player = 0
+	else:
+		_starting_player = 0 if p0_first else 1
 	current = _starting_player
 	discard_draw_used = false
 	phase = Phase.MAIN
@@ -130,6 +137,10 @@ func _shuffle(arr: Array) -> void:
 
 
 func _deal_start() -> void:
+	if goldfish:
+		for _i in START_HAND:
+			_draw_card_silent(0)
+		return
 	for p in range(2):
 		for _i in START_HAND:
 			_draw_card_silent(p)
@@ -171,6 +182,11 @@ func _draw_one_attempt(p: int) -> bool:
 
 func _resolve_empty_deck_loss(trigger_player: int) -> void:
 	empty_deck_end = true
+	if goldfish and trigger_player == 0:
+		winner = 1
+		phase = Phase.GAME_OVER
+		_log("Goldfish: could not draw from empty deck.")
+		return
 	var p0_power := ritual_power(0)
 	var p1_power := ritual_power(1)
 	if p0_power > p1_power:
@@ -212,8 +228,13 @@ func _start_mulligan() -> void:
 	_mulligan_decision_pending = [true, true]
 	_mulligan_used = [false, false]
 	_mulligan_bottom_needed = [0, 0]
+	if goldfish:
+		_mulligan_decision_pending[1] = false
 	current = _starting_player
-	_log("Starting hands dealt. Each player may take one London mulligan.")
+	if goldfish:
+		_log("Starting hand dealt. You may take one London mulligan.")
+	else:
+		_log("Starting hands dealt. Each player may take one London mulligan.")
 
 
 func _is_mulligan_active() -> bool:
@@ -404,7 +425,8 @@ func snapshot(for_player: int) -> Dictionary:
 		"scion_pending_waiting": bool(scion_for_player.get("waiting", false)),
 		"scion_pending_type": str(scion_for_player.get("type", "")),
 		"scion_pending_id": int(scion_for_player.get("id", -1)),
-		"log": log_lines.duplicate()
+		"log": log_lines.duplicate(),
+		"goldfish": goldfish
 	}
 
 
@@ -818,6 +840,8 @@ func _validate_play_ctx(p: int, verb: String, value: int, wrath_mids: Array, ctx
 		"wrath":
 			if effective_wrath_destroy_count(p, value) == 0:
 				return "illegal"
+			if (_players[opp]["field"] as Array).is_empty():
+				return "ok"
 			var wr := _wrath_resolve_mids(opp, value, wrath_mids, p)
 			if wr.is_empty() and effective_wrath_destroy_count(p, value) > 0:
 				return "illegal"
@@ -1621,7 +1645,10 @@ func end_turn(p: int, discard_indices: Array) -> String:
 	for idx in remove_desc:
 		var i2 := int(idx)
 		_move_hand_card_to_discard(pl, hand, i2)
-	current = 1 - p
+	if goldfish:
+		current = 0
+	else:
+		current = 1 - p
 	_log("P%d ends turn." % p)
 	if phase != Phase.GAME_OVER:
 		_turn_start_draw()

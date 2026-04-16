@@ -113,7 +113,7 @@ layout_mode = 2
 size_flags_horizontal = 3
 size_flags_stretch_ratio = 0.8
 size_flags_vertical = 3
-theme_override_constants/separation = 10
+theme_override_constants/separation = 8
 
 [node name="StatsRow" type="HBoxContainer" parent="Margin/RootRow/BoardCol"]
 layout_mode = 2
@@ -190,10 +190,13 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "Cancel"
 
-[node name="OpponentArea" type="VBoxContainer" parent="Margin/RootRow/BoardCol"]
+[node name="BoardFieldTopSpacer" type="Control" parent="Margin/RootRow/BoardCol"]
 layout_mode = 2
 size_flags_vertical = 3
-theme_override_constants/separation = 8
+
+[node name="OpponentArea" type="VBoxContainer" parent="Margin/RootRow/BoardCol"]
+layout_mode = 2
+theme_override_constants/separation = 6
 
 [node name="OppFieldTitle" type="Label" parent="Margin/RootRow/BoardCol/OpponentArea"]
 layout_mode = 2
@@ -206,14 +209,13 @@ size_flags_horizontal = 3
 size_flags_vertical = 0
 theme_override_constants/separation = 10
 
-[node name="Spacer" type="Control" parent="Margin/RootRow/BoardCol"]
+[node name="FieldRowsGap" type="Control" parent="Margin/RootRow/BoardCol"]
+custom_minimum_size = Vector2(0, 10)
 layout_mode = 2
-size_flags_vertical = 3
 
 [node name="PlayerArea" type="VBoxContainer" parent="Margin/RootRow/BoardCol"]
 layout_mode = 2
-size_flags_vertical = 1
-theme_override_constants/separation = 8
+theme_override_constants/separation = 6
 
 [node name="YourFieldTitle" type="Label" parent="Margin/RootRow/BoardCol/PlayerArea"]
 layout_mode = 2
@@ -226,10 +228,13 @@ size_flags_horizontal = 3
 size_flags_vertical = 0
 theme_override_constants/separation = 10
 
-[node name="HandRow" type="HBoxContainer" parent="Margin/RootRow/BoardCol/PlayerArea"]
+[node name="BoardFieldBottomSpacer" type="Control" parent="Margin/RootRow/BoardCol"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="HandRow" type="HBoxContainer" parent="Margin/RootRow/BoardCol"]
 unique_name_in_owner = true
 layout_mode = 2
-size_flags_vertical = 8
 theme_override_constants/separation = 6
 
 [node name="ButtonsRow" type="HBoxContainer" parent="Margin/RootRow/BoardCol"]

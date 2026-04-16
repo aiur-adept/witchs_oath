@@ -1,6 +1,7 @@
 extends Control
 
 const IncludedDecks = preload("res://included_decks.gd")
+const CardTraits = preload("res://card_traits.gd")
 
 class InsightDnDSlot extends Panel:
 	var slot_index: int = 0
@@ -26,6 +27,7 @@ const PORT_MIN := 17777
 const PORT_MAX := 17799
 const DEFAULT_DECK_PATH := "user://decks/default_deck.json"
 const SELECTED_DECK_PATH_FILE := "user://selected_deck_path.txt"
+const PLAY_MODE_FILE := "user://arcana_play_mode.txt"
 const CPU_ACTION_SEC := 1.618
 const CARD_SCALE := 1.618
 const RITUAL_CARD_ASPECT := 2.5 / 3.5
@@ -70,6 +72,7 @@ var _deck_path: String = DEFAULT_DECK_PATH
 
 var _host: bool = false
 var _my_player: int = 0
+var _goldfish: bool = false
 var _last_snap: Dictionary = {}
 var _match: ArcanaMatchState
 var _mode_discard_draw: bool = false
@@ -316,7 +319,11 @@ func _ready() -> void:
 		return
 	_host = true
 	_my_player = 0
-	status_label.text = "You vs CPU — shuffle up."
+	_goldfish = _read_play_mode_goldfish()
+	if _goldfish:
+		status_label.text = "Goldfish — solo practice (no opponent)."
+	else:
+		status_label.text = "You vs CPU — shuffle up."
 	_start_match()
 
 
@@ -361,8 +368,11 @@ func _start_match() -> void:
 	_hide_game_end_modal()
 	var rng := RandomNumberGenerator.new()
 	rng.randomize()
-	var p0_first := rng.randi_range(0, 1) == 0
-	_match = ArcanaMatchState.new(cards.duplicate(true), cards.duplicate(true), p0_first, rng)
+	if _goldfish:
+		_match = ArcanaMatchState.new(cards.duplicate(true), [], true, rng, true)
+	else:
+		var p0_first := rng.randi_range(0, 1) == 0
+		_match = ArcanaMatchState.new(cards.duplicate(true), cards.duplicate(true), p0_first, rng, false)
 	_broadcast_sync()
 
 
@@ -887,6 +897,13 @@ func _resolve_selected_deck_path() -> String:
 	return selected
 
 
+func _read_play_mode_goldfish() -> bool:
+	var f := FileAccess.open(PLAY_MODE_FILE, FileAccess.READ)
+	if f == null:
+		return false
+	return f.get_as_text().strip_edges() == "goldfish"
+
+
 func _peer_to_player(peer_id: int) -> int:
 	return 0 if peer_id == 1 else 1
 
@@ -909,7 +926,7 @@ func _broadcast_sync(trigger_cpu_check: bool = true) -> void:
 	if _is_network_pvp():
 		for peer_id in multiplayer.get_peers():
 			sync_state.rpc_id(peer_id, _match.snapshot(1))
-	if trigger_cpu_check and not _is_network_pvp():
+	if trigger_cpu_check and not _is_network_pvp() and not _goldfish:
 		_after_sync_local_cpu()
 
 
@@ -940,6 +957,37 @@ func sync_state(snap: Dictionary) -> void:
 	_apply_snap(snap)
 
 
+func _should_abort_sacrifice_for_snap(snap: Dictionary) -> bool:
+	if int(snap.get("phase", -1)) == int(ArcanaMatchState.Phase.GAME_OVER):
+		return true
+	if bool(snap.get("mulligan_active", false)):
+		return true
+	var you := int(snap.get("you", 0))
+	if int(snap.get("current", -1)) != you:
+		return true
+	if _pending_inc_hand_idx < 0:
+		return true
+	var h: Array = snap.get("your_hand", []) as Array
+	return _pending_inc_hand_idx >= h.size()
+
+
+func _prune_sacrifice_picks_for_snap(snap: Dictionary) -> void:
+	var yf: Array = snap.get("your_field", []) as Array
+	var yok: Dictionary = {}
+	for x in yf:
+		yok[int(x.get("mid", -1))] = true
+	for k in _sacrifice_selected_mids.keys().duplicate():
+		if not yok.has(int(k)):
+			_sacrifice_selected_mids.erase(k)
+	var of: Array = snap.get("opp_field", []) as Array
+	var ook: Dictionary = {}
+	for x in of:
+		ook[int(x.get("mid", -1))] = true
+	for k2 in _wrath_selected_mids.keys().duplicate():
+		if not ook.has(int(k2)):
+			_wrath_selected_mids.erase(k2)
+
+
 func _apply_snap(snap: Dictionary) -> void:
 	_last_snap = snap
 	if snap.is_empty():
@@ -947,7 +995,7 @@ func _apply_snap(snap: Dictionary) -> void:
 	_hide_card_hover_preview()
 	if _insight_open:
 		_clear_insight_ui()
-	if _sacrifice_selecting:
+	if _sacrifice_selecting and _should_abort_sacrifice_for_snap(snap):
 		_clear_sacrifice_mode()
 	if _burn_woe_overlay != null and _burn_woe_overlay.visible and _burn_woe_mode == "tmrsk_woe":
 		_clear_burn_woe_overlay()
@@ -959,8 +1007,13 @@ func _apply_snap(snap: Dictionary) -> void:
 	var your_deck_n := int(snap.get("your_deck", 0))
 	var opp_deck_n := int(snap.get("opp_deck", 0))
 	you_stats_label.text = _format_player_stats("You", yp, your_hand_n, your_deck_n)
-	opp_stats_label.text = _format_player_stats("Opponent", op, opp_hand_n, opp_deck_n)
+	if bool(snap.get("goldfish", false)):
+		opp_stats_label.text = _format_player_stats("(no opponent)", op, opp_hand_n, opp_deck_n)
+	else:
+		opp_stats_label.text = _format_player_stats("Opponent", op, opp_hand_n, opp_deck_n)
 	_update_crypt_button_and_popups(snap)
+	if _sacrifice_selecting:
+		_prune_sacrifice_picks_for_snap(snap)
 	_rebuild_ritual_field(field_you_cards, snap.get("your_field", []), true)
 	_rebuild_ritual_field(field_opp_cards, snap.get("opp_field", []), false)
 	var logs: Array = snap.get("log", [])
@@ -1014,6 +1067,8 @@ func _apply_snap(snap: Dictionary) -> void:
 		_show_end_discard_modal()
 	else:
 		_hide_end_discard_modal()
+	if _sacrifice_selecting:
+		_update_inc_modal_ui()
 
 
 func _format_player_stats(player_name: String, power: int, hand_n: int, deck_n: int) -> String:
@@ -1025,17 +1080,30 @@ func _end_game_ui(snap: Dictionary) -> void:
 	var you: int = int(snap.get("you", 0))
 	var msg := "Draw."
 	var title := "Draw"
-	if w >= 0:
-		if w == you:
-			title = "Victory"
-			msg = "You win!"
-		else:
+	if bool(snap.get("goldfish", false)):
+		if bool(snap.get("empty_deck_end", false)) and w >= 0 and w != you:
 			title = "Defeat"
-			msg = "Opponent wins."
-	if bool(snap.get("empty_deck_end", false)) and w >= 0:
-		msg = "Empty deck — " + msg
-	elif bool(snap.get("empty_deck_end", false)):
-		msg = "Empty deck — draw."
+			msg = "Your deck is empty."
+		elif w == you:
+			title = "Victory"
+			msg = "You reached 20 ritual power."
+		elif w >= 0:
+			title = "Defeat"
+			msg = "You conceded."
+		else:
+			msg = "Draw."
+	else:
+		if w >= 0:
+			if w == you:
+				title = "Victory"
+				msg = "You win!"
+			else:
+				title = "Defeat"
+				msg = "Opponent wins."
+		if bool(snap.get("empty_deck_end", false)) and w >= 0:
+			msg = "Empty deck — " + msg
+		elif bool(snap.get("empty_deck_end", false)):
+			msg = "Empty deck — draw."
 	status_label.text = msg
 	end_turn_button.disabled = true
 	discard_draw_button.disabled = true
@@ -1789,8 +1857,9 @@ func _submit_inc_play_full(sac: Array, wrath_mids: Array, ctx: Dictionary = {}) 
 		return
 	if _match == null:
 		return
-	if _match.play_incantation(_my_player_for_action(), _pending_inc_hand_idx, sac, wrath_mids, ctx) != "ok":
-		status_label.text = "Could not play incantation."
+	var perr := _match.play_incantation(_my_player_for_action(), _pending_inc_hand_idx, sac, wrath_mids, ctx)
+	if perr != "ok":
+		status_label.text = "Could not play incantation (%s)." % perr
 		return
 	_clear_incantation_flow_ui()
 	_broadcast_sync(true)
@@ -2034,6 +2103,7 @@ func _on_sacrifice_confirm_pressed() -> void:
 			return
 		var hand: Array = _last_snap.get("your_hand", [])
 		if _pending_inc_hand_idx < 0 or _pending_inc_hand_idx >= hand.size():
+			status_label.text = "That card is no longer in your hand — cancel and try again."
 			return
 		var verb := str(hand[_pending_inc_hand_idx].get("verb", "")).to_lower()
 		var opp_f: Array = _last_snap.get("opp_field", [])
@@ -2206,13 +2276,15 @@ func _make_ritual_stack(cards: Array, ours: bool, pick_mode: int) -> Control:
 		var d: Dictionary = cards[i]
 		var mid: int = int(d.get("mid", -1))
 		var picked := (pick_mode == 1 and (_sacrifice_selected_mids.has(mid) or _smrsk_selected_mid == mid)) or (pick_mode == 2 and _wrath_selected_mids.has(mid))
+		var is_front := i == count - 1
 		var card := _make_ritual_card(
 			int(d.get("value", 0)),
 			ours,
 			bool(d.get("active", true)),
 			mid,
 			pick_mode,
-			picked
+			picked,
+			is_front
 		)
 		card.position = Vector2(shift * i, 0)
 		card.z_index = i
@@ -2220,7 +2292,7 @@ func _make_ritual_stack(cards: Array, ours: bool, pick_mode: int) -> Control:
 	return stack
 
 
-func _make_ritual_card(value: int, ours: bool, active: bool, ritual_mid: int = -1, pick_mode: int = 0, picked: bool = false) -> Control:
+func _make_ritual_card(value: int, ours: bool, active: bool, ritual_mid: int = -1, pick_mode: int = 0, picked: bool = false, dim_when_inactive: bool = true) -> Control:
 	var w := RITUAL_CARD_H * RITUAL_CARD_ASPECT
 	var h := RITUAL_CARD_H
 	var ritual_gold := Color(0.95, 0.78, 0.24)
@@ -2278,7 +2350,7 @@ func _make_ritual_card(value: int, ours: bool, active: bool, ritual_mid: int = -
 	lbl.add_theme_color_override("font_color", ritual_gold_strong if picked else ritual_gold)
 	lbl.add_theme_font_size_override("font_size", 26)
 	cc.add_child(lbl)
-	if not active:
+	if not active and dim_when_inactive:
 		panel.modulate = Color(0.58, 0.58, 0.62)
 	return panel
 
@@ -2696,7 +2768,9 @@ func _hand_card_stack_key(card: Variant) -> String:
 
 
 func _card_type(card: Variant) -> String:
-	return str(card.get("type", "")).to_lower()
+	if typeof(card) != TYPE_DICTIONARY:
+		return ""
+	return CardTraits.effective_kind(card as Dictionary)
 
 
 func _card_label(card: Variant) -> String:
