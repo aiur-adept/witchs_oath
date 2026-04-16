@@ -50,7 +50,9 @@ var _deck_path: String = DEFAULT_DECK_PATH
 @onready var sacrifice_confirm_button: Button = %SacrificeConfirmButton
 @onready var sacrifice_cancel_button: Button = %SacrificeCancelButton
 @onready var quit_to_menu_button: Button = %QuitToMenuButton
-@onready var quit_confirm_dialog: ConfirmationDialog = %QuitConfirmDialog
+@onready var pause_overlay: Control = %PauseOverlay
+@onready var pause_return_button: Button = %PauseReturnButton
+@onready var pause_quit_button: Button = %PauseQuitButton
 
 var _host: bool = false
 var _my_player: int = 0
@@ -223,7 +225,9 @@ func _ready() -> void:
 	sacrifice_confirm_button.pressed.connect(_on_sacrifice_confirm_pressed)
 	sacrifice_cancel_button.pressed.connect(_on_sacrifice_cancel_pressed)
 	quit_to_menu_button.pressed.connect(_on_quit_to_menu_pressed)
-	quit_confirm_dialog.confirmed.connect(_on_quit_to_menu_confirmed)
+	pause_return_button.pressed.connect(_on_pause_return_pressed)
+	pause_quit_button.pressed.connect(_on_pause_quit_pressed)
+	pause_overlay.visible = false
 	if _is_network_pvp():
 		_host = true
 		_my_player = 0
@@ -1634,6 +1638,13 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel") and _sacrifice_selecting:
 		get_viewport().set_input_as_handled()
 		_on_sacrifice_cancel_pressed()
+		return
+	if event.is_action_pressed("ui_cancel"):
+		get_viewport().set_input_as_handled()
+		if pause_overlay.visible:
+			_hide_pause_overlay()
+		else:
+			_show_pause_overlay()
 
 
 func _rebuild_ritual_field(row: HBoxContainer, field: Variant, ours: bool) -> void:
@@ -3022,10 +3033,27 @@ func _on_mulligan_take_pressed() -> void:
 
 
 func _on_quit_to_menu_pressed() -> void:
-	quit_confirm_dialog.popup_centered()
+	_show_pause_overlay()
 
 
 func _on_quit_to_menu_confirmed() -> void:
 	if multiplayer.multiplayer_peer != null:
 		multiplayer.multiplayer_peer = null
 	get_tree().change_scene_to_file("res://main_menu.tscn")
+
+
+func _show_pause_overlay() -> void:
+	pause_overlay.visible = true
+	pause_return_button.grab_focus()
+
+
+func _hide_pause_overlay() -> void:
+	pause_overlay.visible = false
+
+
+func _on_pause_return_pressed() -> void:
+	_hide_pause_overlay()
+
+
+func _on_pause_quit_pressed() -> void:
+	_on_quit_to_menu_confirmed()
