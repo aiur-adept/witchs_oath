@@ -15,6 +15,9 @@ const DECK_EXT := ".json"
 const DECK_EXPORT_PREFIX := "decks_export_"
 const NOBLE_DEFS := [
 	{"id": "krss_power", "name": "Krss, Noble of Power"},
+	{"id": "rmrsk_emanation", "name": "Rmrsk, Scion of Emanation"},
+	{"id": "smrsk_occultation", "name": "Smrsk, Scion of Occultation"},
+	{"id": "tmrsk_annihilation", "name": "Tmrsk, Scion of Annihilation"},
 	{"id": "trss_power", "name": "Trss, Noble of Power"},
 	{"id": "yrss_power", "name": "Yrss, Noble of Power"},
 	{"id": "xytzr_emanation", "name": "Xytzr, Noble of Emanation"},

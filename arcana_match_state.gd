@@ -33,6 +33,8 @@ var _woe_pending_spell_card: Variant = null
 var _woe_pending_spell_to_abyss: bool = false
 var _woe_pending_revive_wrapper: Variant = null
 var _woe_pending_noble_mid: int = -1
+var _scion_pending: Dictionary = {}
+var _scion_pending_next_id: int = 1
 
 
 func _card_kind(c: Variant) -> String:
@@ -360,6 +362,7 @@ func _extra_incantation_lanes_from_nobles(p: int) -> Array:
 
 func snapshot(for_player: int) -> Dictionary:
 	var opp := 1 - for_player
+	var scion_for_player := _scion_pending_player_view(for_player)
 	return {
 		"phase": int(phase),
 		"turn_number": turn_number,
@@ -397,6 +400,10 @@ func snapshot(for_player: int) -> Dictionary:
 		"woe_pending_you_respond": _woe_pending_instigator >= 0 and for_player == _woe_pending_victim,
 		"woe_pending_waiting": _woe_pending_instigator >= 0 and for_player == _woe_pending_instigator,
 		"woe_pending_amount": _woe_pending_amount if _woe_pending_instigator >= 0 else 0,
+		"scion_pending_you_respond": bool(scion_for_player.get("you_respond", false)),
+		"scion_pending_waiting": bool(scion_for_player.get("waiting", false)),
+		"scion_pending_type": str(scion_for_player.get("type", "")),
+		"scion_pending_id": int(scion_for_player.get("id", -1)),
 		"log": log_lines.duplicate()
 	}
 
@@ -405,6 +412,8 @@ func can_play_ritual(p: int, hand_idx: int) -> bool:
 	if phase != Phase.MAIN or _is_mulligan_active() or p != current or ritual_played_this_turn:
 		return false
 	if _woe_waiting_on_response() and p == _woe_pending_instigator:
+		return false
+	if _scion_waiting_on_response() and p == int(_scion_pending.get("player", -1)):
 		return false
 	var c: Variant = _card_at_hand(p, hand_idx)
 	return c != null and _card_kind(c) == "ritual"
@@ -429,6 +438,8 @@ func can_play_noble(p: int, hand_idx: int) -> bool:
 	if phase != Phase.MAIN or _is_mulligan_active() or p != current or noble_played_this_turn:
 		return false
 	if _woe_waiting_on_response() and p == _woe_pending_instigator:
+		return false
+	if _scion_waiting_on_response() and p == int(_scion_pending.get("player", -1)):
 		return false
 	var c: Variant = _card_at_hand(p, hand_idx)
 	if c == null or _card_kind(c) != "noble":
@@ -512,10 +523,130 @@ func _woe_clear_pending() -> void:
 	_woe_pending_noble_mid = -1
 
 
+func _scion_waiting_on_response() -> bool:
+	return not _scion_pending.is_empty()
+
+
+func _scion_clear_pending() -> void:
+	_scion_pending.clear()
+
+
+func _scion_pending_player_view(for_player: int) -> Dictionary:
+	if _scion_pending.is_empty():
+		return {}
+	var owner := int(_scion_pending.get("player", -1))
+	if owner < 0:
+		return {}
+	return {
+		"you_respond": owner == for_player,
+		"waiting": owner != for_player,
+		"type": str(_scion_pending.get("type", "")),
+		"id": int(_scion_pending.get("id", -1))
+	}
+
+
+func _set_scion_pending(player: int, ptype: String) -> void:
+	_scion_pending = {
+		"id": _scion_pending_next_id,
+		"player": player,
+		"type": ptype
+	}
+	_scion_pending_next_id += 1
+
+
+func _queue_post_effect_scion_trigger(p: int, verb: String) -> void:
+	var v := verb.to_lower()
+	if v == "seek" or v == "insight":
+		if _noble_on_field(p, "rmrsk_emanation"):
+			_set_scion_pending(p, "rmrsk_draw")
+		return
+	if v == "burn" or v == "revive":
+		if _noble_on_field(p, "smrsk_occultation"):
+			_set_scion_pending(p, "smrsk_burn")
+		return
+	if v == "wrath":
+		if _noble_on_field(p, "tmrsk_annihilation"):
+			_set_scion_pending(p, "tmrsk_woe")
+
+
+func _ritual_value_for_mid(p: int, ritual_mid: int) -> int:
+	for x in _players[p]["field"]:
+		if int(x.get("mid", -1)) == ritual_mid:
+			return int(x.get("value", 0))
+	return -1
+
+
+func submit_scion_trigger_response(p: int, action: String, ctx: Dictionary = {}) -> String:
+	if not _scion_waiting_on_response():
+		return "illegal"
+	var expected_id := int(_scion_pending.get("id", -1))
+	var provided_id := int(ctx.get("scion_id", -1))
+	if expected_id < 0 or provided_id != expected_id:
+		return "illegal"
+	var owner := int(_scion_pending.get("player", -1))
+	if p != owner:
+		return "illegal"
+	var ptype := str(_scion_pending.get("type", ""))
+	var a := action.to_lower()
+	if a != "accept" and a != "skip":
+		return "illegal"
+	_scion_clear_pending()
+	if a == "skip":
+		match ptype:
+			"rmrsk_draw":
+				_log("P%d skips Rmrsk trigger." % p)
+			"smrsk_burn":
+				_log("P%d skips Smrsk trigger." % p)
+			"tmrsk_woe":
+				_log("P%d skips Tmrsk trigger." % p)
+		return "ok"
+	match ptype:
+		"rmrsk_draw":
+			_draw_n(p, 1)
+			_log("P%d resolves Rmrsk (draw 1)." % p)
+			return "ok"
+		"smrsk_burn":
+			var ritual_mid := int(ctx.get("ritual_mid", -1))
+			var power := _ritual_value_for_mid(p, ritual_mid)
+			if power <= 0:
+				return "illegal"
+			_apply_sacrifice(p, {ritual_mid: true})
+			var berr := execute_incantation_effect(p, "burn", power, [], {"mill_target": p})
+			if berr != "ok":
+				return berr
+			_log("P%d resolves Smrsk (sacrifice %d-power ritual; Burn self %d)." % [p, power, power])
+			return "ok"
+		"tmrsk_woe":
+			var wt := int(ctx.get("woe_target", -1))
+			var opp := 1 - p
+			if wt != p and wt != opp:
+				return "illegal_target"
+			var need := _woe_discard_need(p, 1, wt)
+			if wt == opp and need > 0:
+				_woe_pending_instigator = p
+				_woe_pending_victim = wt
+				_woe_pending_amount = need
+				_woe_pending_spell_card = null
+				_woe_pending_spell_to_abyss = false
+				_woe_pending_revive_wrapper = null
+				_woe_pending_noble_mid = -1
+				_log("P%d resolves Tmrsk; Woe pending on P%d." % [p, wt])
+				return "ok"
+			var werr := execute_incantation_effect(p, "woe", 1, [], ctx)
+			if werr != "ok":
+				return werr
+			_log("P%d resolves Tmrsk (Woe 1)." % p)
+			return "ok"
+		_:
+			return "illegal"
+
+
 func can_play_incantation(p: int, hand_idx: int) -> bool:
 	if phase != Phase.MAIN or _is_mulligan_active() or p != current:
 		return false
 	if _woe_waiting_on_response() and p == _woe_pending_instigator:
+		return false
+	if _scion_waiting_on_response() and p == int(_scion_pending.get("player", -1)):
 		return false
 	var c: Variant = _card_at_hand(p, hand_idx)
 	if c == null or _card_kind(c) != "incantation":
@@ -532,6 +663,8 @@ func can_play_dethrone(p: int, hand_idx: int) -> bool:
 	if phase != Phase.MAIN or _is_mulligan_active() or p != current:
 		return false
 	if _woe_waiting_on_response() and p == _woe_pending_instigator:
+		return false
+	if _scion_waiting_on_response() and p == int(_scion_pending.get("player", -1)):
 		return false
 	var c: Variant = _card_at_hand(p, hand_idx)
 	if c == null or _card_kind(c) != "dethrone":
@@ -823,6 +956,8 @@ func submit_woe_discard(p: int, indices: Array) -> String:
 	if noble_mid >= 0:
 		_mark_noble_used_this_turn(inst, noble_mid)
 	_log("Woe response complete (victim P%d)." % p)
+	if not _scion_waiting_on_response():
+		_queue_post_effect_scion_trigger(inst, "woe")
 	_check_power_win(inst)
 	return "ok"
 
@@ -867,6 +1002,7 @@ func apply_noble_spell_like(p: int, noble_mid: int, verb: String, value: int, wr
 	var err := execute_incantation_effect(p, v, value, wr_r, ctx)
 	if err != "ok":
 		return err
+	_queue_post_effect_scion_trigger(p, v)
 	_mark_noble_used_this_turn(p, noble_mid)
 	match nid:
 		"bndrr_incantation":
@@ -944,7 +1080,9 @@ func apply_noble_revive_from_crypt(p: int, noble_mid: int, ctx: Dictionary) -> S
 			return err
 		pl["inc_abyss"].append(crypt_card)
 		_log("P%d Revive casts %s %d from crypt (Rndrr)." % [p, cv, cn])
+		_queue_post_effect_scion_trigger(p, cv)
 	_mark_noble_used_this_turn(p, noble_mid)
+	_queue_post_effect_scion_trigger(p, "revive")
 	_log("P%d activates Rndrr (Revive from crypt)." % p)
 	return "ok"
 
@@ -1018,7 +1156,10 @@ func play_incantation(p: int, hand_idx: int, sacrifice_mids: Array, wrath_mids: 
 	var pl: Dictionary = _players[p]
 	pl["hand"].remove_at(hand_idx)
 	if verb == "revive":
-		return _run_revive_steps_after_payment(p, n, ctx_use, payment_text, c)
+		var rr := _run_revive_steps_after_payment(p, n, ctx_use, payment_text, c)
+		if rr == "ok":
+			_queue_post_effect_scion_trigger(p, "revive")
+		return rr
 	var wrath_resolved: Array = []
 	if verb == "wrath":
 		wrath_resolved = _wrath_resolve_mids(1 - p, n, wrath_mids, p)
@@ -1037,6 +1178,7 @@ func play_incantation(p: int, hand_idx: int, sacrifice_mids: Array, wrath_mids: 
 			_log("P%d plays %s %d (%s); Woe pending on P%d." % [p, verb_raw, n, payment_text, wt])
 			return "ok"
 	execute_incantation_effect(p, verb, n, wrath_resolved, ctx_use)
+	_queue_post_effect_scion_trigger(p, verb)
 	pl["crypt"].append(c)
 	_log("P%d plays %s %d (%s)." % [p, verb_raw, n, payment_text])
 	_check_power_win(p)
@@ -1076,6 +1218,8 @@ func can_activate_noble(p: int, noble_mid: int) -> bool:
 	if phase != Phase.MAIN or _is_mulligan_active() or p != current:
 		return false
 	if _woe_waiting_on_response() and p == _woe_pending_instigator:
+		return false
+	if _scion_waiting_on_response() and p == int(_scion_pending.get("player", -1)):
 		return false
 	var noble := _find_noble_on_field(p, noble_mid)
 	if noble.is_empty():
@@ -1122,6 +1266,7 @@ func activate_noble_with_insight(p: int, noble_mid: int, insight_target: int, in
 		if _validate_play_ctx(p, "insight", 2, [], ctx) != "ok":
 			return "illegal"
 		execute_incantation_effect(p, "insight", 2, [], ctx)
+		_queue_post_effect_scion_trigger(p, "insight")
 		_mark_noble_used_this_turn(p, noble_mid)
 		_log("P%d activates Indrr (Insight %d)." % [p, insight_effective_n(p, 2)])
 		return "ok"
@@ -1194,6 +1339,7 @@ func resolve_spell_like_effect(p: int, verb: String, value: int, ctx: Dictionary
 	if v == "wrath":
 		wr = _wrath_resolve_mids(1 - p, value, [], p)
 	execute_incantation_effect(p, v, value, wr, ctx)
+	_queue_post_effect_scion_trigger(p, v)
 
 
 func _draw_n(p: int, n: int) -> void:
@@ -1365,6 +1511,8 @@ func can_discard_for_draw(p: int) -> bool:
 		return false
 	if _woe_waiting_on_response() and p == _woe_pending_instigator:
 		return false
+	if _scion_waiting_on_response() and p == int(_scion_pending.get("player", -1)):
+		return false
 	return true
 
 
@@ -1448,6 +1596,8 @@ func end_turn(p: int, discard_indices: Array) -> String:
 	if phase != Phase.MAIN or _is_mulligan_active() or p != current:
 		return "illegal"
 	if _woe_waiting_on_response() and p == _woe_pending_instigator:
+		return "illegal"
+	if _scion_waiting_on_response() and p == int(_scion_pending.get("player", -1)):
 		return "illegal"
 	var pl: Dictionary = _players[p]
 	var hand: Array = pl["hand"]

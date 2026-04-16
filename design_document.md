@@ -34,7 +34,7 @@ Incantations are used a single time and discarded, and they can typically* only 
 
 ### Nobles 
 
-Nobles are special cards with a certain ability on them.
+Nobles are special cards with a certain ability on them. They have a cost just like incantations, which means they can only be played when that ritual lane (eg. 3) is active.
 
 ### Discard phase 
 
@@ -89,7 +89,7 @@ You may only have 4 copies of a given incantation. For example you can have 4x s
 
 *Xytzr, Noble of Emanation*: Whenever you *Seek*, draw an additional card. Whenever you *Insight*, look at and additional card.
 
-*Yytzr, Noble of Occultation*: Whenever you *Burn*, add 3 to the number to be discarded. Whenever you *Revive*, you may sacrifice {2} or more. If you do, you may play an additional card from the crypt.
+*Yytzr, Noble of Occultation*: Whenever you *Burn*, add 3 to the number to be discarded. Whenever you *Revive*, you may sacrifice {2R} or more. If you do, you may play an additional card from the crypt.
 
 *Zytzr, Noble of Annihilation*: Whenever you *Wrath*, destroy an extra ritual. Whenever you *Woe*, the player discards an additional card.
 
@@ -106,8 +106,6 @@ You may only have 4 copies of a given incantation. For example you can have 4x s
 *Sndrr, Noble of Incantation*: Once per turn, it can activate to cast a spell-like *Seek 1* effect.
 
 *Wndrr, Noble of Incantation*: Once per turn, it can activate to cast a spell-like *Woe 1* effect.
-
-#### Cost 2
 
 *Rmrsk, Scion of Emanation*: Whenever you Seek or Insight, you may then draw a card.
 

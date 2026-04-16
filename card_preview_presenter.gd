@@ -194,6 +194,12 @@ static func _noble_preview_text(noble_id: String) -> String:
 			return "Whenever you Wrath, destroy an extra ritual. Whenever you Woe, the victim discards an additional card."
 		"aeoiu_rituals":
 			return "Activate (once per turn): play a Ritual from your crypt."
+		"rmrsk_emanation":
+			return "Whenever you Seek or Insight, you may draw a card."
+		"smrsk_occultation":
+			return "Whenever you Burn or Revive, you may sacrifice a Ritual of power X to Burn yourself X."
+		"tmrsk_annihilation":
+			return "Whenever you Wrath, Woe 1."
 		_:
 			return "Noble effect."
 
@@ -201,6 +207,8 @@ static func _noble_preview_text(noble_id: String) -> String:
 static func _noble_cost_for_id(nid: String) -> int:
 	match nid:
 		"krss_power":
+			return 2
+		"rmrsk_emanation", "smrsk_occultation", "tmrsk_annihilation":
 			return 2
 		"trss_power":
 			return 3

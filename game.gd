@@ -86,6 +86,8 @@ const INC_PICK_WOE_TGT := 5
 const INC_PICK_WOE_SELF := 6
 const INC_PICK_REVIVE := 7
 const INC_PICK_YTTR := 8
+const INC_PICK_SMRSK := 9
+const INC_PICK_RMRSK := 10
 var _sacrifice_selecting: bool = false
 var _inc_pick_phase: int = INC_PICK_NONE
 var _pending_inc_hand_idx: int = -1
@@ -143,6 +145,8 @@ var _yytzr_pending_first_ctx: Dictionary = {}
 var _yytzr_first_step: Dictionary = {}
 var _yytzr_waits_second_crypt: bool = false
 var _yytzr_extra_sac_mids: Array = []
+var _smrsk_selected_mid: int = -1
+var _last_scion_prompt_id: int = -1
 
 var _aeoiu_overlay: Control
 var _aeoiu_crypt_row: VBoxContainer
@@ -591,6 +595,27 @@ func _on_burn_woe_right_pressed() -> void:
 
 
 func _on_burn_woe_confirm_pressed() -> void:
+	if _burn_woe_mode == "tmrsk_woe":
+		var ys := int(_last_snap.get("you", 0))
+		var sid := int(_last_snap.get("scion_pending_id", -1))
+		if _pending_woe_target == ys:
+			_clear_burn_woe_overlay()
+			_woe_self_picking = true
+			_woe_self_need = _woe_discard_count_ui(_last_snap, 1, true)
+			_woe_self_picked.clear()
+			_inc_pick_phase = INC_PICK_WOE_SELF
+			_burn_woe_mode = "tmrsk_woe_self"
+			status_label.text = "Tmrsk Woe: tap %d card(s) to discard." % _woe_self_need
+		else:
+			var ctxt := {"scion_id": sid, "woe_target": _pending_woe_target}
+			if _is_network_client():
+				submit_scion_trigger_response.rpc_id(1, "accept", ctxt)
+			else:
+				if _match != null:
+					_match.submit_scion_trigger_response(_my_player_for_action(), "accept", ctxt)
+			_clear_incantation_flow_ui()
+			_broadcast_sync(true)
+		return
 	if _burn_woe_mode == "noble_burn":
 		var ctxb := {"mill_target": _pending_mill_target}
 		if _is_network_client():
@@ -898,6 +923,9 @@ func _after_sync_local_cpu() -> void:
 	if bool(s1.get("woe_pending_you_respond", false)):
 		call_deferred("_run_cpu_turn")
 		return
+	if bool(s1.get("scion_pending_you_respond", false)):
+		call_deferred("_run_cpu_turn")
+		return
 	if bool(s0.get("mulligan_active", false)):
 		if int(s0.get("current", -1)) == 1:
 			call_deferred("_run_cpu_mulligan_step")
@@ -921,6 +949,8 @@ func _apply_snap(snap: Dictionary) -> void:
 		_clear_insight_ui()
 	if _sacrifice_selecting:
 		_clear_sacrifice_mode()
+	if _burn_woe_overlay != null and _burn_woe_overlay.visible and _burn_woe_mode == "tmrsk_woe":
+		_clear_burn_woe_overlay()
 	var yp: int = int(snap.get("your_power", 0))
 	var op: int = int(snap.get("opp_power", 0))
 	var your_hand: Array = snap.get("your_hand", []) as Array
@@ -956,7 +986,9 @@ func _apply_snap(snap: Dictionary) -> void:
 	_hide_mulligan_bar()
 	_hide_game_end_modal()
 	var mine := cur == you
-	var ui_block := _sacrifice_selecting or _insight_open or _woe_self_picking or bool(snap.get("woe_pending_waiting", false))
+	var scion_waiting := bool(snap.get("scion_pending_waiting", false))
+	var scion_respond := bool(snap.get("scion_pending_you_respond", false))
+	var ui_block := _sacrifice_selecting or _insight_open or _woe_self_picking or bool(snap.get("woe_pending_waiting", false)) or scion_waiting or scion_respond
 	if _burn_woe_overlay != null and _burn_woe_overlay.visible:
 		ui_block = true
 	if _revive_overlay != null and _revive_overlay.visible:
@@ -967,6 +999,12 @@ func _apply_snap(snap: Dictionary) -> void:
 		_woe_self_picked.clear()
 	if bool(snap.get("woe_pending_waiting", false)):
 		status_label.text = "Waiting for opponent to discard for Woe…"
+	if scion_waiting:
+		status_label.text = "Waiting for opponent to resolve scion trigger…"
+	if scion_respond:
+		_show_scion_prompt_ui(snap)
+	else:
+		_last_scion_prompt_id = -1
 	end_turn_button.disabled = not mine or ui_block
 	discard_draw_button.disabled = not mine or bool(snap.get("discard_draw_used", true)) or ui_block
 	_rebuild_hand(snap.get("your_hand", []))
@@ -1615,8 +1653,10 @@ func _clear_sacrifice_mode() -> void:
 	_sacrifice_selected_mids.clear()
 	_wrath_selected_mids.clear()
 	_locked_sacrifice_mids.clear()
+	_smrsk_selected_mid = -1
 	sacrifice_row.visible = false
 	sacrifice_confirm_button.text = "Confirm sacrifice"
+	sacrifice_cancel_button.text = "Cancel"
 	sacrifice_confirm_button.disabled = true
 
 
@@ -1633,12 +1673,60 @@ func _update_inc_modal_ui() -> void:
 		sacrifice_confirm_button.disabled = _wrath_selected_mids.size() != _pending_wrath_need
 	elif _inc_pick_phase == INC_PICK_DETHRONE:
 		sacrifice_confirm_button.disabled = _dethrone_selected_mid < 0
+	elif _inc_pick_phase == INC_PICK_SMRSK:
+		sacrifice_confirm_button.disabled = _smrsk_selected_mid < 0
+	elif _inc_pick_phase == INC_PICK_RMRSK:
+		sacrifice_confirm_button.disabled = false
+
+
+func _show_scion_prompt_ui(snap: Dictionary) -> void:
+	var sid := int(snap.get("scion_pending_id", -1))
+	if sid >= 0 and sid == _last_scion_prompt_id:
+		return
+	_last_scion_prompt_id = sid
+	var st := str(snap.get("scion_pending_type", ""))
+	if st == "rmrsk_draw":
+		_sacrifice_selecting = true
+		_inc_pick_phase = INC_PICK_RMRSK
+		sacrifice_row.visible = true
+		sacrifice_confirm_button.text = "Draw 1"
+		sacrifice_cancel_button.text = "Skip"
+		sacrifice_hint.text = "Rmrsk: after Seek/Insight, draw a card?"
+		_update_inc_modal_ui()
+		_rebuild_hand(snap.get("your_hand", []))
+		return
+	if st == "smrsk_burn":
+		_sacrifice_selecting = true
+		_inc_pick_phase = INC_PICK_SMRSK
+		_smrsk_selected_mid = -1
+		sacrifice_row.visible = true
+		sacrifice_confirm_button.text = "Sacrifice and Burn self"
+		sacrifice_cancel_button.text = "Skip"
+		sacrifice_hint.text = "Smrsk: choose one ritual to sacrifice; then Burn yourself by its power."
+		_update_inc_modal_ui()
+		_rebuild_ritual_field(field_you_cards, snap.get("your_field", []), true)
+		return
+	if st == "tmrsk_woe":
+		_burn_woe_mode = "tmrsk_woe"
+		_pending_woe_target = int(snap.get("you", 0))
+		_burn_woe_title.text = "Tmrsk — Woe 1: who discards?"
+		_tgt_left_btn.text = "You"
+		_tgt_right_btn.text = "Opponent"
+		_burn_woe_hint.text = "Choose target, then confirm."
+		_burn_woe_overlay.visible = true
+		_inc_pick_phase = INC_PICK_WOE_TGT
+		end_turn_button.disabled = true
+		discard_draw_button.disabled = true
 
 
 func _on_sacrifice_field_clicked(mid: int) -> void:
 	if not _sacrifice_selecting:
 		return
 	if _inc_pick_phase != INC_PICK_SAC and _inc_pick_phase != INC_PICK_YTTR:
+		if _inc_pick_phase == INC_PICK_SMRSK:
+			_smrsk_selected_mid = -1 if _smrsk_selected_mid == mid else mid
+			_update_inc_modal_ui()
+			_rebuild_ritual_field(field_you_cards, _last_snap.get("your_field", []), true)
 		return
 	if _sacrifice_selected_mids.has(mid):
 		_sacrifice_selected_mids.erase(mid)
@@ -1906,6 +1994,30 @@ func _on_sacrifice_confirm_pressed() -> void:
 		_clear_sacrifice_mode()
 		_begin_revive_hand_ui(hi_y, nn_y, esac_y)
 		return
+	if _inc_pick_phase == INC_PICK_SMRSK:
+		if _smrsk_selected_mid < 0:
+			return
+		var sid := int(_last_snap.get("scion_pending_id", -1))
+		var ctxs := {"scion_id": sid, "ritual_mid": _smrsk_selected_mid}
+		if _is_network_client():
+			submit_scion_trigger_response.rpc_id(1, "accept", ctxs)
+		else:
+			if _match != null:
+				_match.submit_scion_trigger_response(_my_player_for_action(), "accept", ctxs)
+		_clear_sacrifice_mode()
+		_broadcast_sync(true)
+		return
+	if _inc_pick_phase == INC_PICK_RMRSK:
+		var sidr := int(_last_snap.get("scion_pending_id", -1))
+		var ctxr := {"scion_id": sidr}
+		if _is_network_client():
+			submit_scion_trigger_response.rpc_id(1, "accept", ctxr)
+		else:
+			if _match != null:
+				_match.submit_scion_trigger_response(_my_player_for_action(), "accept", ctxr)
+		_clear_sacrifice_mode()
+		_broadcast_sync(true)
+		return
 	if _inc_pick_phase == INC_PICK_SAC:
 		var sumv := _sacrifice_selected_sum(_last_snap)
 		if sumv < _sacrifice_need:
@@ -1992,6 +2104,28 @@ func _on_sacrifice_cancel_pressed() -> void:
 		elif not _last_snap.is_empty():
 			_apply_snap(_last_snap)
 		return
+	if _inc_pick_phase == INC_PICK_SMRSK:
+		var sid2 := int(_last_snap.get("scion_pending_id", -1))
+		var ctx_skip := {"scion_id": sid2}
+		if _is_network_client():
+			submit_scion_trigger_response.rpc_id(1, "skip", ctx_skip)
+		else:
+			if _match != null:
+				_match.submit_scion_trigger_response(_my_player_for_action(), "skip", ctx_skip)
+		_clear_sacrifice_mode()
+		_broadcast_sync(true)
+		return
+	if _inc_pick_phase == INC_PICK_RMRSK:
+		var sidr2 := int(_last_snap.get("scion_pending_id", -1))
+		var ctx_skip_r := {"scion_id": sidr2}
+		if _is_network_client():
+			submit_scion_trigger_response.rpc_id(1, "skip", ctx_skip_r)
+		else:
+			if _match != null:
+				_match.submit_scion_trigger_response(_my_player_for_action(), "skip", ctx_skip_r)
+		_clear_sacrifice_mode()
+		_broadcast_sync(true)
+		return
 	_clear_sacrifice_mode()
 	if not _last_snap.is_empty():
 		_apply_snap(_last_snap)
@@ -2049,6 +2183,8 @@ func _rebuild_ritual_field(row: HBoxContainer, field: Variant, ours: bool) -> vo
 		var pick_mode := 0
 		if ours and _sacrifice_selecting and _inc_pick_phase == INC_PICK_SAC:
 			pick_mode = 1
+		elif ours and _sacrifice_selecting and _inc_pick_phase == INC_PICK_SMRSK:
+			pick_mode = 1
 		elif not ours and _sacrifice_selecting and _inc_pick_phase == INC_PICK_WRATH:
 			pick_mode = 2
 		row.add_child(_make_ritual_stack(by_value[v], ours, pick_mode))
@@ -2066,7 +2202,7 @@ func _make_ritual_stack(cards: Array, ours: bool, pick_mode: int) -> Control:
 	for i in count:
 		var d: Dictionary = cards[i]
 		var mid: int = int(d.get("mid", -1))
-		var picked := (pick_mode == 1 and _sacrifice_selected_mids.has(mid)) or (pick_mode == 2 and _wrath_selected_mids.has(mid))
+		var picked := (pick_mode == 1 and (_sacrifice_selected_mids.has(mid) or _smrsk_selected_mid == mid)) or (pick_mode == 2 and _wrath_selected_mids.has(mid))
 		var card := _make_ritual_card(
 			int(d.get("value", 0)),
 			ours,
@@ -2477,6 +2613,8 @@ func _noble_cost_for_id(nid: String) -> int:
 	match nid:
 		"krss_power":
 			return 2
+		"rmrsk_emanation", "smrsk_occultation", "tmrsk_annihilation":
+			return 2
 		"trss_power":
 			return 3
 		"yrss_power":
@@ -2643,7 +2781,7 @@ func _on_hand_pressed(hand_idx: int) -> void:
 		else:
 			_rebuild_hand(hand)
 		return
-	if _woe_self_picking and _burn_woe_mode != "revive_woe_self":
+	if _woe_self_picking and _burn_woe_mode != "revive_woe_self" and _burn_woe_mode != "tmrsk_woe_self":
 		if _woe_self_picked.has(hand_idx):
 			_woe_self_picked.erase(hand_idx)
 		else:
@@ -2677,6 +2815,31 @@ func _on_hand_pressed(hand_idx: int) -> void:
 			_burn_woe_mode = ""
 			_woe_self_picked.clear()
 			_finalize_revive_cast(ctxv2)
+		else:
+			_rebuild_hand(hand)
+		return
+	if _woe_self_picking and _burn_woe_mode == "tmrsk_woe_self":
+		if _woe_self_picked.has(hand_idx):
+			_woe_self_picked.erase(hand_idx)
+		else:
+			if _woe_self_picked.size() < _woe_self_need:
+				_woe_self_picked[hand_idx] = true
+		if _woe_self_need > 0 and _woe_self_picked.size() == _woe_self_need:
+			var idxs4: Array = []
+			for k4 in _woe_self_picked.keys():
+				idxs4.append(int(k4))
+			idxs4.sort()
+			var sidt := int(snap.get("scion_pending_id", -1))
+			var ctxt := {"scion_id": sidt, "woe_target": int(snap.get("you", 0)), "woe_indices": idxs4}
+			_woe_self_picking = false
+			_burn_woe_mode = ""
+			_woe_self_picked.clear()
+			if _is_network_client():
+				submit_scion_trigger_response.rpc_id(1, "accept", ctxt)
+			else:
+				if _match != null:
+					_match.submit_scion_trigger_response(_my_player_for_action(), "accept", ctxt)
+			_broadcast_sync(true)
 		else:
 			_rebuild_hand(hand)
 		return
@@ -2875,6 +3038,15 @@ func _try_submit_woe_discard(player: int, indices: Array, trigger_cpu_check: boo
 	_broadcast_sync(trigger_cpu_check)
 
 
+func _try_submit_scion_trigger(player: int, action: String, ctx: Dictionary = {}, trigger_cpu_check: bool = true) -> bool:
+	if _match == null:
+		return false
+	if _match.submit_scion_trigger_response(player, action, ctx) != "ok":
+		return false
+	_broadcast_sync(trigger_cpu_check)
+	return true
+
+
 func _try_play_dethrone(player: int, hand_idx: int, noble_mids: Array = [], sacrifice_mids: Array = [], trigger_cpu_check: bool = true) -> void:
 	if _match == null:
 		return
@@ -3033,6 +3205,27 @@ func _run_cpu_turn() -> void:
 			for wi in mini(needw, hwo.size()):
 				idxsw.append(wi)
 			_try_submit_woe_discard(1, idxsw, false)
+			continue
+		if bool(snap.get("scion_pending_you_respond", false)):
+			var st := str(snap.get("scion_pending_type", ""))
+			var sid := int(snap.get("scion_pending_id", -1))
+			if st == "rmrsk_draw":
+				if not _try_submit_scion_trigger(1, "accept", {"scion_id": sid}, false):
+					_try_submit_scion_trigger(1, "skip", {"scion_id": sid}, false)
+				continue
+			if st == "smrsk_burn":
+				var ff: Array = snap.get("your_field", [])
+				if ff.is_empty():
+					_try_submit_scion_trigger(1, "skip", {"scion_id": sid}, false)
+				else:
+					if not _try_submit_scion_trigger(1, "accept", {"scion_id": sid, "ritual_mid": int(ff[0].get("mid", -1))}, false):
+						_try_submit_scion_trigger(1, "skip", {"scion_id": sid}, false)
+				continue
+			if st == "tmrsk_woe":
+				if not _try_submit_scion_trigger(1, "accept", {"scion_id": sid, "woe_target": 0}, false):
+					_try_submit_scion_trigger(1, "skip", {"scion_id": sid}, false)
+				continue
+			_try_submit_scion_trigger(1, "skip", {"scion_id": sid}, false)
 			continue
 		if int(snap.get("current", -1)) != int(snap.get("you", -2)):
 			return
@@ -3322,6 +3515,16 @@ func submit_woe_discard(indices: Array) -> void:
 		return
 	var pl := _peer_to_player(_sender_peer())
 	_try_submit_woe_discard(pl, indices)
+
+
+@rpc("any_peer", "reliable")
+func submit_scion_trigger_response(action: String, ctx: Dictionary = {}) -> void:
+	if not multiplayer.is_server():
+		return
+	if _match == null:
+		return
+	var pl := _peer_to_player(_sender_peer())
+	_try_submit_scion_trigger(pl, action, ctx)
 
 
 @rpc("any_peer", "reliable")
