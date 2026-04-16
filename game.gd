@@ -3395,6 +3395,9 @@ func _run_cpu_turn() -> void:
 					ictx = {}
 			_try_play_inc(1, pick, sac, wm, ictx, false)
 			await get_tree().create_timer(CPU_ACTION_SEC).timeout
+		snap = _match.snapshot(1)
+		if bool(snap.get("woe_pending_you_respond", false)) or bool(snap.get("scion_pending_you_respond", false)):
+			continue
 		break
 	snap = _match.snapshot(1)
 	if int(snap.get("phase", -1)) == int(ArcanaMatchState.Phase.GAME_OVER):
