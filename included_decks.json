@@ -1167,7 +1167,6 @@
 		},
 		{
 			"deck_name": "Occultation",
-			"file_name": "occultation.json",
 			"payload": {
 				"cards": [
 					{
