@@ -581,6 +581,8 @@ func _on_burn_woe_left_pressed() -> void:
 	var y := int(_last_snap.get("you", 0))
 	if _burn_woe_mode == "burn" or _burn_woe_mode == "noble_burn" or _burn_woe_mode == "revive_burn":
 		_pending_mill_target = y
+	elif _burn_woe_mode == "tmrsk_woe":
+		_pending_woe_target = y
 	elif _burn_woe_mode == "woe" or _burn_woe_mode == "noble_woe" or _burn_woe_mode == "revive_woe":
 		_pending_woe_target = y
 
@@ -589,6 +591,8 @@ func _on_burn_woe_right_pressed() -> void:
 	var y := int(_last_snap.get("you", 0))
 	if _burn_woe_mode == "burn" or _burn_woe_mode == "noble_burn" or _burn_woe_mode == "revive_burn":
 		_pending_mill_target = 1 - y
+	elif _burn_woe_mode == "tmrsk_woe":
+		_pending_woe_target = 1 - y
 	elif _burn_woe_mode == "woe" or _burn_woe_mode == "noble_woe" or _burn_woe_mode == "revive_woe":
 		_pending_woe_target = 1 - y
 
@@ -1365,7 +1369,7 @@ func _update_crypt_button_and_popups(snap: Dictionary) -> void:
 
 
 func _show_crypt_hover_popup() -> void:
-	if _crypt_focus_zone == "crypt":
+	if _crypt_focus_zone == "crypt" or _crypt_focus_zone == "abyss":
 		return
 	if _crypt_modal_overlay.visible:
 		return
@@ -1494,10 +1498,7 @@ func _on_abyss_button_mouse_exited() -> void:
 func _on_abyss_button_pressed() -> void:
 	_crypt_focus_zone = "abyss"
 	_crypt_focus_opponent = false
-	if _crypt_modal_overlay.visible:
-		_hide_crypt_modal()
-	else:
-		_show_crypt_modal()
+	_show_crypt_modal()
 
 
 func _on_opp_abyss_button_mouse_entered() -> void:
@@ -1513,10 +1514,7 @@ func _on_opp_abyss_button_mouse_exited() -> void:
 func _on_opp_abyss_button_pressed() -> void:
 	_crypt_focus_zone = "abyss"
 	_crypt_focus_opponent = true
-	if _crypt_modal_overlay.visible:
-		_hide_crypt_modal()
-	else:
-		_show_crypt_modal()
+	_show_crypt_modal()
 
 
 func _hide_mulligan_bar() -> void:
@@ -1696,7 +1694,7 @@ func _show_scion_prompt_ui(snap: Dictionary) -> void:
 		sacrifice_row.visible = true
 		sacrifice_confirm_button.text = "Draw 1"
 		sacrifice_cancel_button.text = "Skip"
-		sacrifice_hint.text = "Rmrsk: after Seek/Insight, draw a card?"
+		sacrifice_hint.text = "Rmrsk: after Insight, draw a card?"
 		_update_inc_modal_ui()
 		_rebuild_hand(snap.get("your_hand", []))
 		return
@@ -3211,7 +3209,7 @@ func _run_cpu_turn() -> void:
 			var idxsw: Array = []
 			for wi in mini(needw, hwo.size()):
 				idxsw.append(wi)
-			_try_submit_woe_discard(1, idxsw, false)
+			_try_submit_woe_discard(1, idxsw, true)
 			continue
 		if bool(snap.get("scion_pending_you_respond", false)):
 			var st := str(snap.get("scion_pending_type", ""))

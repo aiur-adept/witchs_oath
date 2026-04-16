@@ -556,7 +556,7 @@ func _set_scion_pending(player: int, ptype: String) -> void:
 
 func _queue_post_effect_scion_trigger(p: int, verb: String) -> void:
 	var v := verb.to_lower()
-	if v == "seek" or v == "insight":
+	if v == "insight":
 		if _noble_on_field(p, "rmrsk_emanation"):
 			_set_scion_pending(p, "rmrsk_draw")
 		return
@@ -567,6 +567,7 @@ func _queue_post_effect_scion_trigger(p: int, verb: String) -> void:
 	if v == "wrath":
 		if _noble_on_field(p, "tmrsk_annihilation"):
 			_set_scion_pending(p, "tmrsk_woe")
+			_log("P%d: Tmrsk — choose Woe 1 (after Wrath)." % p)
 
 
 func _ritual_value_for_mid(p: int, ritual_mid: int) -> int:
@@ -590,8 +591,8 @@ func submit_scion_trigger_response(p: int, action: String, ctx: Dictionary = {})
 	var a := action.to_lower()
 	if a != "accept" and a != "skip":
 		return "illegal"
-	_scion_clear_pending()
 	if a == "skip":
+		_scion_clear_pending()
 		match ptype:
 			"rmrsk_draw":
 				_log("P%d skips Rmrsk trigger." % p)
@@ -602,6 +603,7 @@ func submit_scion_trigger_response(p: int, action: String, ctx: Dictionary = {})
 		return "ok"
 	match ptype:
 		"rmrsk_draw":
+			_scion_clear_pending()
 			_draw_n(p, 1)
 			_log("P%d resolves Rmrsk (draw 1)." % p)
 			return "ok"
@@ -610,6 +612,7 @@ func submit_scion_trigger_response(p: int, action: String, ctx: Dictionary = {})
 			var power := _ritual_value_for_mid(p, ritual_mid)
 			if power <= 0:
 				return "illegal"
+			_scion_clear_pending()
 			_apply_sacrifice(p, {ritual_mid: true})
 			var berr := execute_incantation_effect(p, "burn", power, [], {"mill_target": p})
 			if berr != "ok":
@@ -623,6 +626,7 @@ func submit_scion_trigger_response(p: int, action: String, ctx: Dictionary = {})
 				return "illegal_target"
 			var need := _woe_discard_need(p, 1, wt)
 			if wt == opp and need > 0:
+				_scion_clear_pending()
 				_woe_pending_instigator = p
 				_woe_pending_victim = wt
 				_woe_pending_amount = need
@@ -632,6 +636,7 @@ func submit_scion_trigger_response(p: int, action: String, ctx: Dictionary = {})
 				_woe_pending_noble_mid = -1
 				_log("P%d resolves Tmrsk; Woe pending on P%d." % [p, wt])
 				return "ok"
+			_scion_clear_pending()
 			var werr := execute_incantation_effect(p, "woe", 1, [], ctx)
 			if werr != "ok":
 				return werr
