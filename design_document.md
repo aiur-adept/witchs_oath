@@ -29,8 +29,7 @@ This document defines the complete game rules for Arcana as currently implemente
 - **Incantation**: one-shot spell card played from hand, then put into crypt.
 - **Noble**: persistent unit with static and/or activated/triggered abilities.
 - **Temple**: persistent card played by sacrificing rituals; has once-per-turn activations.
-- **Dethrone**: a special spell card (value 4) that destroys an enemy noble.
-- **Bird**: a supplemental unit type used for lane activation and bird-fight combat.
+- **Bird**: a supplemental unit type used for match points and bird combat.
 
 ## 4) Turn Structure
 
