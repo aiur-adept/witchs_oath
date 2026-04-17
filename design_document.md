@@ -21,7 +21,7 @@ Card types: **ritual**, **incantation**, **noble**
 
 At the start of a player's turn, they draw a card from their deck.
 
-During a player’s turn, they may play any number of incantation cards from their hand and up to one ritual and one noble. Once during a player's turn, they may discard a card to draw a card.
+During a player’s turn, they may play any number of incantation cards from their hand and up to one ritual, one noble, and one temple. Once during a player's turn, they may discard a card to draw a card.
 
 ### Rituals 
 
@@ -35,6 +35,10 @@ Incantations are used a single time and discarded, and they can typically* only 
 ### Nobles 
 
 Nobles are special cards with a certain ability on them. They have a cost just like incantations, which means they can only be played when that ritual lane (eg. 3) is active.
+
+### Temples
+
+Temples are cards that must be played by sacrifice due to their cost. They remain on the field, and offer a benefit.
 
 ### Discard phase 
 
@@ -89,7 +93,7 @@ You may only have 4 copies of a given incantation. For example you can have 4x s
 
 *Zytzr, Noble of Annihilation*: Whenever you *Wrath*, destroy an extra ritual. Whenever you *Woe*, the player discards an additional card.
 
-*Aeoiu, Scion of Rituals*: Once per turn, you may play a Ritual from your crypt.
+*Aeoiu, Scion of Rituals*: Once per turn, you may play a Ritual from your crypt (in addition to the ritual for turn).
 
 #### Cost 3 
 
@@ -114,3 +118,13 @@ You may only have 4 copies of a given incantation. For example you can have 4x s
 #### Cost 2
 
 *Krss, Noble of Power*: Grants access to incantation lane 1.
+
+### Temples
+
+#### Cost 8
+
+*Phaedra, Temple of Illusion*: once per turn you may view the top card of your deck and choose whether to send it to the bottom.
+
+*Delpha, Temple of Oracles*: once per turn, you may sacrifice a ritual with power N to search your library for a ritual with power up to N+2 and put it onto your field.
+
+*Gotha, Temple of Illness*: 

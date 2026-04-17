@@ -2216,12 +2216,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		_hide_crypt_modal()
 		return
-	if event.is_action_pressed("ui_cancel"):
-		get_viewport().set_input_as_handled()
-		if pause_overlay.visible:
-			_hide_pause_overlay()
-		else:
-			_show_pause_overlay()
 
 
 func _rebuild_ritual_field(row: HBoxContainer, field: Variant, ours: bool) -> void:
@@ -2370,8 +2364,12 @@ func _make_noble_card(noble: Dictionary, ours: bool) -> Control:
 	btn.add_theme_stylebox_override("normal", sb)
 	btn.add_theme_color_override("font_color", Color(0.96, 0.93, 1.0) if ours else Color(0.17, 0.12, 0.24))
 	var mid := int(noble.get("mid", -1))
+	var noble_hid := str(noble.get("noble_id", ""))
 	var can_pick_dethrone := not ours and _sacrifice_selecting and _inc_pick_phase == INC_PICK_DETHRONE
 	var can_activate := ours and not exhausted and not _sacrifice_selecting and not _insight_open and int(_last_snap.get("current", -1)) == int(_last_snap.get("you", -2))
+	if noble_hid == "aeoiu_rituals":
+		var cr: Array = _last_snap.get("your_ritual_crypt_cards", []) as Array
+		can_activate = can_activate and cr.size() > 0
 	btn.disabled = false
 	if can_pick_dethrone:
 		btn.pressed.connect(func() -> void:
@@ -2475,6 +2473,12 @@ func _start_noble_revive(noble_mid: int) -> void:
 
 
 func _start_aeoiu_ritual_pick(noble_mid: int) -> void:
+	if (_last_snap.get("your_ritual_crypt_cards", []) as Array).is_empty():
+		status_label.text = "No rituals in your crypt."
+		return
+	if _match != null and not _is_network_client() and not _match.can_activate_noble(_my_player_for_action(), noble_mid):
+		status_label.text = "Cannot use Aeoiu right now."
+		return
 	_aeoiu_noble_mid = noble_mid
 	for c in _aeoiu_crypt_row.get_children():
 		c.queue_free()
@@ -2507,10 +2511,12 @@ func _on_aeoiu_crypt_chosen(crypt_idx: int) -> void:
 	discard_draw_button.disabled = false
 	if _is_network_client():
 		submit_aeoiu_ritual.rpc_id(1, nm, crypt_idx)
-	else:
-		if _match != null:
-			_match.apply_aeoiu_ritual_from_crypt(_my_player_for_action(), nm, crypt_idx)
-	_broadcast_sync(true)
+		return
+	if _match != null:
+		var res: String = _match.apply_aeoiu_ritual_from_crypt(_my_player_for_action(), nm, crypt_idx)
+		if res != "ok":
+			status_label.text = "Could not play that ritual from the crypt."
+		_broadcast_sync(true)
 
 
 func _on_aeoiu_cancel_pressed() -> void:
@@ -3672,6 +3678,15 @@ func submit_aeoiu_ritual(noble_mid: int, crypt_idx: int) -> void:
 	var pl := _peer_to_player(_sender_peer())
 	if _match.apply_aeoiu_ritual_from_crypt(pl, noble_mid, crypt_idx) == "ok":
 		_broadcast_sync(true)
+		return
+	var snd := multiplayer.get_remote_sender_id()
+	if snd != 0:
+		notify_aeoiu_failed.rpc_id(snd, "Could not play that ritual from the crypt.")
+
+
+@rpc("authority", "reliable")
+func notify_aeoiu_failed(msg: String) -> void:
+	status_label.text = msg
 
 
 @rpc("any_peer", "reliable")

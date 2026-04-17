@@ -73,8 +73,6 @@ func effective_wrath_destroy_count(instigator: int, value: int) -> int:
 
 
 func can_play_aeoiu_ritual(p: int) -> bool:
-	if ritual_played_this_turn:
-		return false
 	return not _ritual_crypt_cards(_players[p]).is_empty()
 
 
@@ -1122,8 +1120,6 @@ func apply_aeoiu_ritual_from_crypt(p: int, noble_mid: int, crypt_idx: int) -> St
 	var noble := _find_noble_on_field(p, noble_mid)
 	if str(noble.get("noble_id", "")) != "aeoiu_rituals":
 		return "illegal"
-	if ritual_played_this_turn:
-		return "illegal"
 	var pl: Dictionary = _players[p]
 	var rg: Array = _ritual_crypt_cards(pl)
 	if crypt_idx < 0 or crypt_idx >= rg.size():
@@ -1135,7 +1131,6 @@ func apply_aeoiu_ritual_from_crypt(p: int, noble_mid: int, crypt_idx: int) -> St
 	(pl["crypt"] as Array).remove_at(global_crypt_idx)
 	var mid := _next_mid(pl)
 	pl["field"].append({"mid": mid, "value": int(c["value"])})
-	ritual_played_this_turn = true
 	_mark_noble_used_this_turn(p, noble_mid)
 	_log("P%d plays %d-Ritual from crypt (Aeoiu)." % [p, int(c["value"])])
 	_check_power_win(p)
@@ -1674,16 +1669,31 @@ func _log(s: String) -> void:
 
 func _load_noble_hooks() -> void:
 	_noble_hooks.clear()
-	var dir := DirAccess.open(NOBLES_DIR)
-	if dir == null:
-		return
-	dir.list_dir_begin()
-	while true:
-		var fn := dir.get_next()
-		if fn == "":
-			break
-		if dir.current_is_dir() or not fn.ends_with(".gd"):
+	var fns: Array[String] = []
+	if ResourceLoader.has_method(&"list_directory"):
+		for fn in ResourceLoader.list_directory(NOBLES_DIR):
+			if str(fn).ends_with("/"):
+				continue
+			if str(fn).ends_with(".gd"):
+				fns.append(str(fn))
+	if fns.is_empty():
+		var dir := DirAccess.open(NOBLES_DIR)
+		if dir == null:
+			return
+		dir.list_dir_begin()
+		while true:
+			var fn2 := dir.get_next()
+			if fn2 == "":
+				break
+			if dir.current_is_dir() or not fn2.ends_with(".gd"):
+				continue
+			fns.append(fn2)
+		dir.list_dir_end()
+	var seen: Dictionary = {}
+	for fn in fns:
+		if seen.has(fn):
 			continue
+		seen[fn] = true
 		var script := load("%s/%s" % [NOBLES_DIR, fn])
 		if script == null:
 			continue
