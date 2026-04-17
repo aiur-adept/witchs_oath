@@ -69,7 +69,7 @@ You may only have 4 copies of a given incantation. For example you can have 4x s
 
 *Seek* X: draw X cards from your deck
 
-*Insight* X: rearrange the top X cards of a chosen player's deck.
+*Insight* X: rearrange the top X cards of a chosen player's deck or put any number of them to the bottom.
 
 *Burn* X: discard the top 2*X cards of a chosen player's deck
 
@@ -125,6 +125,6 @@ You may only have 4 copies of a given incantation. For example you can have 4x s
 
 *Phaedra, Temple of Illusion*: once per turn you may view the top card of your deck and choose whether to send it to the bottom.
 
-*Delpha, Temple of Oracles*: once per turn, you may sacrifice a ritual with power N to search your library for a ritual with power up to N+2 and put it onto your field.
+*Delpha, Temple of Oracles*: once per turn you may burn yourself X (discard 2X from your deck) to play an additional Ritual from your crypt.
 
-*Gotha, Temple of Illness*: 
+*Gotha, Temple of Illness*: skip your draw step. once per turn you may discard a card and draw cards equal to its power/cost.

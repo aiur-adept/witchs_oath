@@ -765,13 +765,15 @@ func execute_incantation_effect(p: int, verb: String, value: int, wrath_resolved
 			var tgt := int(ctx.get("insight_target", -1))
 			if tgt != p and tgt != opp:
 				return "illegal_target"
-			var perm: Array = ctx.get("insight_perm", []) as Array
 			var eff := insight_effective_n(p, value)
 			var deck: Array = _players[tgt]["deck"]
 			var take := mini(eff, deck.size())
-			if take >= 2 and not _insight_perm_valid(take, perm):
+			var parsed: Dictionary = _parse_insight_ctx(take, ctx)
+			if not bool(parsed.get("ok", false)):
 				return "illegal_insight_perm"
-			_apply_insight_reorder(tgt, eff, perm)
+			var top_a: Array = parsed["top"] as Array
+			var bot_a: Array = parsed["bottom"] as Array
+			_apply_insight(tgt, eff, top_a, bot_a)
 			return "ok"
 		"burn":
 			var mt := int(ctx.get("mill_target", -1))
@@ -813,10 +815,10 @@ func _validate_play_ctx(p: int, verb: String, value: int, wrath_mids: Array, ctx
 			var tgt := int(ctx.get("insight_target", -1))
 			if tgt != p and tgt != opp:
 				return "illegal_target"
-			var perm: Array = ctx.get("insight_perm", []) as Array
 			var eff := insight_effective_n(p, value)
 			var take := mini(eff, _players[tgt]["deck"].size())
-			if take >= 2 and not _insight_perm_valid(take, perm):
+			var parsed: Dictionary = _parse_insight_ctx(take, ctx)
+			if not bool(parsed.get("ok", false)):
 				return "illegal_insight_perm"
 			return "ok"
 		"burn":
@@ -1281,12 +1283,12 @@ func activate_noble(p: int, noble_mid: int) -> String:
 	return "ok"
 
 
-func activate_noble_with_insight(p: int, noble_mid: int, insight_target: int, insight_perm: Array = []) -> String:
+func activate_noble_with_insight(p: int, noble_mid: int, insight_target: int, insight_top: Array = [], insight_bottom: Array = []) -> String:
 	if not can_activate_noble(p, noble_mid):
 		return "illegal"
 	var noble := _find_noble_on_field(p, noble_mid)
 	if str(noble.get("noble_id", "")) == "indrr_incantation":
-		var ctx := {"insight_target": insight_target, "insight_perm": insight_perm}
+		var ctx := {"insight_target": insight_target, "insight_top": insight_top, "insight_bottom": insight_bottom}
 		if _validate_play_ctx(p, "insight", 2, [], ctx) != "ok":
 			return "illegal"
 		execute_incantation_effect(p, "insight", 2, [], ctx)
@@ -1383,7 +1385,7 @@ func insight_peek_top_cards(target: int, x: int) -> Array:
 	return out
 
 
-func _insight_perm_valid(take: int, perm: Array) -> bool:
+func _insight_perm_valid_legacy(take: int, perm: Array) -> bool:
 	if perm.size() != take:
 		return false
 	var seen: Dictionary = {}
@@ -1395,17 +1397,44 @@ func _insight_perm_valid(take: int, perm: Array) -> bool:
 	return seen.size() == take
 
 
-func _apply_insight_reorder(target: int, x: int, perm: Array) -> void:
+func _insight_split_valid(take: int, top: Array, bottom: Array) -> bool:
+	if top.size() + bottom.size() != take:
+		return false
+	var seen: Dictionary = {}
+	for x in top:
+		var v := int(x)
+		if v < 0 or v >= take or seen.has(v):
+			return false
+		seen[v] = true
+	for x in bottom:
+		var v := int(x)
+		if v < 0 or v >= take or seen.has(v):
+			return false
+		seen[v] = true
+	return seen.size() == take
+
+
+func _parse_insight_ctx(take: int, ctx: Dictionary) -> Dictionary:
+	if take == 0:
+		return {"ok": true, "top": [], "bottom": []}
+	if ctx.has("insight_top") or ctx.has("insight_bottom"):
+		var top: Array = ctx.get("insight_top", []) as Array
+		var bot: Array = ctx.get("insight_bottom", []) as Array
+		if not _insight_split_valid(take, top, bot):
+			return {"ok": false}
+		return {"ok": true, "top": top, "bottom": bot}
+	var perm: Array = ctx.get("insight_perm", []) as Array
+	if not _insight_perm_valid_legacy(take, perm):
+		return {"ok": false}
+	return {"ok": true, "top": perm, "bottom": []}
+
+
+func _apply_insight(target: int, eff: int, top: Array, bottom: Array) -> void:
 	var pl: Dictionary = _players[target]
 	var deck: Array = pl["deck"]
-	var take := mini(x, deck.size())
+	var take := mini(eff, deck.size())
 	if take == 0:
 		_log("Insight on P%d (empty deck)." % target)
-		return
-	if take == 1:
-		_log("Insight 1 on P%d deck (single card)." % target)
-		return
-	if not _insight_perm_valid(take, perm):
 		return
 	var peek: Array = []
 	peek.resize(take)
@@ -1413,13 +1442,25 @@ func _apply_insight_reorder(target: int, x: int, perm: Array) -> void:
 		peek[i] = deck[deck.size() - 1 - i]
 	for _i in take:
 		deck.pop_back()
+	var ks := top.size()
 	var new_seq: Array = []
-	new_seq.resize(take)
-	for i in take:
-		new_seq[i] = peek[int(perm[i])]
-	for k in range(take - 1, -1, -1):
+	new_seq.resize(ks)
+	for i in ks:
+		new_seq[i] = peek[int(top[i])]
+	for k in range(ks - 1, -1, -1):
 		deck.append(new_seq[k])
-	_log("Insight %d on P%d deck (reordered)." % [take, target])
+	for bi in bottom:
+		deck.insert(0, peek[int(bi)])
+	var nb := bottom.size()
+	if nb == 0:
+		if take == 1:
+			_log("Insight 1 on P%d deck (single card)." % target)
+		else:
+			_log("Insight %d on P%d deck (reordered on top)." % [take, target])
+	elif ks == 0:
+		_log("Insight %d on P%d deck (%d to bottom)." % [take, target, nb])
+	else:
+		_log("Insight %d on P%d deck (%d on top, %d to bottom)." % [take, target, ks, nb])
 
 
 func _mill(target: int, x: int) -> void:

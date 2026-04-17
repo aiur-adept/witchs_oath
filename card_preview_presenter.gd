@@ -2,6 +2,8 @@ extends RefCounted
 class_name CardPreviewPresenter
 
 const CardTraits = preload("res://card_traits.gd")
+const CARD_TEXT_FONT: Font = preload("res://fonts/Macondo-Regular.ttf")
+const PREVIEW_SCALE := 1.618
 
 
 static func build_preview_panel(host: Control, config: Dictionary = {}) -> Dictionary:
@@ -12,26 +14,33 @@ static func build_preview_panel(host: Control, config: Dictionary = {}) -> Dicti
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var z_index := int(config.get("z_index", 100))
 	root.z_index = z_index
+	var ui := float(config.get("ui_scale", PREVIEW_SCALE))
+	var pad_lr := int(round(10.0 * ui))
+	var pad_tb := int(round(8.0 * ui))
+	var sep := maxi(1, int(round(4.0 * ui)))
+	var corner := int(round(8.0 * ui))
+	var border_w := maxi(1, int(round(2.0 * ui)))
+	var edge := roundf(18.0 * ui)
 	if mode == "corner":
 		root.anchor_left = 1.0
 		root.anchor_top = 1.0
 		root.anchor_right = 1.0
 		root.anchor_bottom = 1.0
-		var card_scale := float(config.get("card_scale", 1.0))
+		var card_scale := float(config.get("card_scale", PREVIEW_SCALE))
 		var card_aspect := float(config.get("card_aspect", 0.7))
 		var card_h := 210.0 * card_scale * 1.41421356
 		var card_w := card_h * card_aspect
-		root.offset_left = -18.0 - card_w
-		root.offset_top = -18.0 - card_h
-		root.offset_right = -18.0
-		root.offset_bottom = -18.0
+		root.offset_left = -edge - card_w
+		root.offset_top = -edge - card_h
+		root.offset_right = -edge
+		root.offset_bottom = -edge
 		root.custom_minimum_size = Vector2(card_w, card_h)
 	else:
-		root.custom_minimum_size = Vector2(float(config.get("width", 240.0)), 0.0)
+		root.custom_minimum_size = Vector2(float(config.get("width", 240.0 * ui)), 0.0)
 
 	var sb := StyleBoxFlat.new()
-	sb.set_corner_radius_all(8)
-	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(corner)
+	sb.set_border_width_all(border_w)
 	sb.bg_color = Color(0.03, 0.03, 0.05, 0.95)
 	sb.border_color = Color(0.8, 0.83, 0.9)
 	root.add_theme_stylebox_override("panel", sb)
@@ -39,30 +48,38 @@ static func build_preview_panel(host: Control, config: Dictionary = {}) -> Dicti
 
 	var pad := MarginContainer.new()
 	pad.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	pad.add_theme_constant_override("margin_left", 10)
-	pad.add_theme_constant_override("margin_top", 8)
-	pad.add_theme_constant_override("margin_right", 10)
-	pad.add_theme_constant_override("margin_bottom", 8)
+	pad.add_theme_constant_override("margin_left", pad_lr)
+	pad.add_theme_constant_override("margin_top", pad_tb)
+	pad.add_theme_constant_override("margin_right", pad_lr)
+	pad.add_theme_constant_override("margin_bottom", pad_tb)
 	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(pad)
 
 	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 4)
+	col.add_theme_constant_override("separation", sep)
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pad.add_child(col)
 
+	var title_sz := int(round(15.0 * ui))
+	var type_sz := int(round(13.0 * ui))
+	var body_sz := int(round(16.0 * ui))
+
 	var title := Label.new()
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	title.add_theme_font_size_override("font_size", 15)
+	title.add_theme_font_override("font", CARD_TEXT_FONT)
+	title.add_theme_font_size_override("font_size", title_sz)
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(title)
 
 	var type_line := Label.new()
-	type_line.add_theme_font_size_override("font_size", 13)
+	type_line.add_theme_font_override("font", CARD_TEXT_FONT)
+	type_line.add_theme_font_size_override("font_size", type_sz)
 	type_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(type_line)
 
 	var body := RichTextLabel.new()
+	body.add_theme_font_override("normal_font", CARD_TEXT_FONT)
+	body.add_theme_font_size_override("normal_font_size", body_sz)
 	body.fit_content = true
 	body.scroll_active = false
 	body.bbcode_enabled = false
@@ -92,6 +109,7 @@ static func show_preview(preview: Dictionary, card: Dictionary, mouse_position: 
 	if str(preview.get("mode", "corner")) != "corner":
 		root.global_position = mouse_position + Vector2(18, 18)
 	root.visible = true
+	root.move_to_front()
 
 
 static func hide_preview(preview: Dictionary) -> void:
@@ -137,7 +155,7 @@ static func card_rules_text(card: Dictionary) -> String:
 			var noun := "card" if n == 1 else "cards"
 			return "Seek %d: draw %d %s." % [n, n, noun]
 		"insight":
-			return "Insight %d: reorder the top %d card(s) of either deck." % [n, n]
+			return "Insight %d: rearrange the top %d card(s) of a chosen deck and/or put any to the bottom." % [n, n]
 		"burn":
 			return "Burn %d: discard the top %d card(s) of a chosen player's deck." % [n, n * 2]
 		"woe":

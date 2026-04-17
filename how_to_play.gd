@@ -1,10 +1,11 @@
 extends Control
 
 const CARD_SCALE := 1.618
-const RITUAL_CARD_ASPECT := 2.5 / 3.5
-const RITUAL_CARD_H := 72.0 * CARD_SCALE
 const HAND_CARD_W := 72.0 * CARD_SCALE
 const HAND_CARD_H := 102.0 * CARD_SCALE
+const CARD_TEXT_FONT: Font = preload("res://fonts/Macondo-Regular.ttf")
+const CornerPipDraw = preload("res://corner_pip_draw.gd")
+const HAND_CARD_FONT_SIZE := 32
 
 var _hover_preview: Dictionary = {}
 
@@ -22,7 +23,7 @@ func _on_back_pressed() -> void:
 func _build_hover_preview_panel() -> void:
 	_hover_preview = CardPreviewPresenter.build_preview_panel(self, {
 		"mode": "corner",
-		"z_index": 220
+		"z_index": 4096
 	})
 
 
@@ -108,8 +109,8 @@ func _spacer(w: float) -> Control:
 
 
 func _make_ritual_card(value: int, active: bool) -> Control:
-	var w := RITUAL_CARD_H * RITUAL_CARD_ASPECT
-	var h := RITUAL_CARD_H
+	var w := HAND_CARD_W
+	var h := HAND_CARD_H
 	var ritual_gold := Color(0.95, 0.78, 0.24)
 	var panel := Panel.new()
 	panel.custom_minimum_size = Vector2(w, h)
@@ -135,8 +136,9 @@ func _make_ritual_card(value: int, active: bool) -> Control:
 	lbl.text = str(value)
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.add_theme_font_override("font", CARD_TEXT_FONT)
 	lbl.add_theme_color_override("font_color", ritual_gold)
-	lbl.add_theme_font_size_override("font_size", 26)
+	lbl.add_theme_font_size_override("font_size", HAND_CARD_FONT_SIZE)
 	cc.add_child(lbl)
 	if not active:
 		panel.modulate = Color(0.58, 0.58, 0.62)
@@ -146,7 +148,7 @@ func _make_ritual_card(value: int, active: bool) -> Control:
 func _make_noble_card(noble: Dictionary) -> Control:
 	var btn := Button.new()
 	btn.disabled = true
-	btn.custom_minimum_size = Vector2(RITUAL_CARD_H * RITUAL_CARD_ASPECT, RITUAL_CARD_H)
+	btn.custom_minimum_size = Vector2(HAND_CARD_W, HAND_CARD_H)
 	btn.text = _short_noble_name(str(noble.get("name", "Noble")))
 	var sb := StyleBoxFlat.new()
 	sb.set_corner_radius_all(4)
@@ -155,6 +157,8 @@ func _make_noble_card(noble: Dictionary) -> Control:
 	sb.border_color = Color(0.84, 0.7, 1.0)
 	btn.add_theme_stylebox_override("normal", sb)
 	btn.add_theme_stylebox_override("disabled", sb)
+	btn.add_theme_font_override("font", CARD_TEXT_FONT)
+	btn.add_theme_font_size_override("font_size", HAND_CARD_FONT_SIZE)
 	btn.add_theme_color_override("font_color", Color(0.96, 0.93, 1.0))
 	btn.add_theme_color_override("font_disabled_color", Color(0.96, 0.93, 1.0))
 	var noble_view := noble.duplicate(true)
@@ -188,7 +192,8 @@ func _make_hand_card_widget(card: Dictionary) -> Control:
 	tap.add_theme_stylebox_override("disabled", sb)
 	tap.add_theme_color_override("font_color", Color(0.98, 0.98, 0.98))
 	tap.add_theme_color_override("font_disabled_color", Color(0.98, 0.98, 0.98))
-	tap.add_theme_font_size_override("font_size", 16)
+	tap.add_theme_font_override("font", CARD_TEXT_FONT)
+	tap.add_theme_font_size_override("font_size", HAND_CARD_FONT_SIZE)
 	var hover_card: Dictionary = card.duplicate(true)
 	shell.mouse_entered.connect(func() -> void:
 		_show_card_hover_preview(hover_card)
@@ -230,7 +235,7 @@ func _make_corner_pip_icon(count: int, filled: bool) -> TextureRect:
 	image.fill(Color(0, 0, 0, 0))
 	var dot_r: int = 4
 	if n == 1:
-		_draw_dot_on_image(image, center, dot_r, filled)
+		CornerPipDraw.draw_dot_on_image(image, center, dot_r, filled)
 	else:
 		var remaining: int = n
 		var ring: int = 1
@@ -243,7 +248,7 @@ func _make_corner_pip_icon(count: int, filled: bool) -> TextureRect:
 				var ang := TAU * (float(i) / float(take)) - PI / 2.0
 				var px := center.x + int(round(cos(ang) * radius))
 				var py := center.y + int(round(sin(ang) * radius))
-				_draw_dot_on_image(image, Vector2i(px, py), dot_r, filled)
+				CornerPipDraw.draw_dot_on_image(image, Vector2i(px, py), dot_r, filled)
 			remaining -= take
 			ring += 1
 	var tex := ImageTexture.create_from_image(image)
@@ -254,24 +259,6 @@ func _make_corner_pip_icon(count: int, filled: bool) -> TextureRect:
 	rect.custom_minimum_size = Vector2(icon_size, icon_size)
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return rect
-
-
-func _draw_dot_on_image(image: Image, center: Vector2i, radius: int, filled: bool) -> void:
-	var r2: int = radius * radius
-	var inner: int = maxi(0, radius - 1)
-	var inner2: int = inner * inner
-	for dy in range(-radius, radius + 1):
-		for dx in range(-radius, radius + 1):
-			var d2 := dx * dx + dy * dy
-			if d2 > r2:
-				continue
-			if not filled and d2 < inner2:
-				continue
-			var px := center.x + dx
-			var py := center.y + dy
-			if px < 0 or py < 0 or px >= image.get_width() or py >= image.get_height():
-				continue
-			image.set_pixel(px, py, Color(1, 1, 1, 0.98))
 
 
 func _card_type(card: Dictionary) -> String:

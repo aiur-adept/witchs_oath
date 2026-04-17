@@ -2,21 +2,27 @@ extends Control
 
 const IncludedDecks = preload("res://included_decks.gd")
 const CardTraits = preload("res://card_traits.gd")
+const CornerPipDraw = preload("res://corner_pip_draw.gd")
+const CARD_TEXT_FONT: Font = preload("res://fonts/Macondo-Regular.ttf")
 
 class InsightDnDSlot extends Panel:
 	var slot_index: int = 0
+	var insight_zone: String = "top"
+	var can_drag: bool = true
 	var game: Control
 	func _get_drag_data(_at_position: Vector2) -> Variant:
+		if not can_drag:
+			return null
 		var px := ColorRect.new()
-		px.custom_minimum_size = Vector2(50.0 * CARD_SCALE, RITUAL_CARD_H)
+		px.custom_minimum_size = Vector2(50.0 * CARD_SCALE, HAND_CARD_H)
 		px.color = Color(0.25, 0.4, 0.65, 0.92)
 		set_drag_preview(px)
-		return {"insight_slot": slot_index}
+		return {"insight_slot": slot_index, "insight_zone": insight_zone}
 	func _can_drop_data(_at_position: Vector2, data: Variant) -> bool:
-		return game != null and typeof(data) == TYPE_DICTIONARY and data.has("insight_slot")
+		return game != null and typeof(data) == TYPE_DICTIONARY and data.has("insight_slot") and data.has("insight_zone")
 	func _drop_data(_at_position: Vector2, data: Variant) -> void:
 		if game != null and typeof(data) == TYPE_DICTIONARY:
-			game._insight_swap_slots(int(data["insight_slot"]), slot_index)
+			game._insight_handle_drop(str(data.get("insight_zone", "")), int(data["insight_slot"]), insight_zone, slot_index)
 
 
 ## Normal play: 1p vs CPU in one process (mock client/server — no second executable).
@@ -30,10 +36,9 @@ const SELECTED_DECK_PATH_FILE := "user://selected_deck_path.txt"
 const PLAY_MODE_FILE := "user://arcana_play_mode.txt"
 const CPU_ACTION_SEC := 1.618
 const CARD_SCALE := 1.618
-const RITUAL_CARD_ASPECT := 2.5 / 3.5
-const RITUAL_CARD_H := 72.0 * CARD_SCALE
 const HAND_CARD_W := 72.0 * CARD_SCALE
 const HAND_CARD_H := 102.0 * CARD_SCALE
+const HAND_CARD_FONT_SIZE := 32
 const UI_BUTTON_MIN_HEIGHT := 48.0
 const UI_BUTTON_PAD_X := 18.0
 const UI_BUTTON_PAD_Y := 10.0
@@ -109,9 +114,11 @@ var _insight_noble_mid: int = -1
 var _insight_n: int = 0
 var _insight_sac: Array = []
 var _insight_target: int = 0
-var _insight_order: Array = []
+var _insight_top_order: Array = []
+var _insight_bottom_order: Array = []
 var _insight_overlay: Control
 var _insight_cards_row: HBoxContainer
+var _insight_cards_row_bottom: HBoxContainer
 var _insight_hint_label: Label
 var _insight_btn_confirm: Button
 var _insight_btn_yours: Button
@@ -395,7 +402,7 @@ func _build_insight_overlay() -> void:
 	var inner := VBoxContainer.new()
 	cc.add_child(inner)
 	var title := Label.new()
-	title.text = "Insight — reorder top of deck"
+	title.text = "Insight — top of deck and bottom of library"
 	inner.add_child(title)
 	var h := HBoxContainer.new()
 	_insight_btn_yours = Button.new()
@@ -408,14 +415,23 @@ func _build_insight_overlay() -> void:
 	h.add_child(_insight_btn_opps)
 	inner.add_child(h)
 	_insight_hint_label = Label.new()
-	_insight_hint_label.custom_minimum_size = Vector2(420, 0)
+	_insight_hint_label.custom_minimum_size = Vector2(480, 0)
 	inner.add_child(_insight_hint_label)
+	var lab_top := Label.new()
+	lab_top.text = "Top (next draw left)"
+	inner.add_child(lab_top)
 	_insight_cards_row = HBoxContainer.new()
 	_insight_cards_row.add_theme_constant_override("separation", 8)
 	inner.add_child(_insight_cards_row)
+	var lab_bot := Label.new()
+	lab_bot.text = "Bottom of library (left shallow → right deep)"
+	inner.add_child(lab_bot)
+	_insight_cards_row_bottom = HBoxContainer.new()
+	_insight_cards_row_bottom.add_theme_constant_override("separation", 8)
+	inner.add_child(_insight_cards_row_bottom)
 	var row2 := HBoxContainer.new()
 	_insight_btn_confirm = Button.new()
-	_insight_btn_confirm.text = "Confirm order"
+	_insight_btn_confirm.text = "Confirm"
 	_apply_ui_button_padding(_insight_btn_confirm)
 	row2.add_child(_insight_btn_confirm)
 	inner.add_child(row2)
@@ -839,7 +855,7 @@ func _finalize_revive_wrath_submit(wrath_mids: Array) -> void:
 func _build_hover_preview_panel() -> void:
 	_hover_preview = CardPreviewPresenter.build_preview_panel(self, {
 		"mode": "corner",
-		"z_index": 220
+		"z_index": 4096
 	})
 
 
@@ -1890,14 +1906,14 @@ func _submit_dethrone_play(hand_idx: int, noble_mids: Array, sacrifice_mids: Arr
 	_broadcast_sync(true)
 
 
-func _submit_noble_activate_with_insight(noble_mid: int, insight_target: int, insight_perm: Array) -> void:
+func _submit_noble_activate_with_insight(noble_mid: int, insight_target: int, insight_top: Array, insight_bottom: Array) -> void:
 	if _is_network_client():
-		submit_activate_noble_with_insight.rpc_id(1, noble_mid, insight_target, insight_perm)
+		submit_activate_noble_with_insight.rpc_id(1, noble_mid, insight_target, insight_top, insight_bottom)
 		_clear_insight_ui()
 		return
 	if _match == null:
 		return
-	if _match.activate_noble_with_insight(_my_player_for_action(), noble_mid, insight_target, insight_perm) != "ok":
+	if _match.activate_noble_with_insight(_my_player_for_action(), noble_mid, insight_target, insight_top, insight_bottom) != "ok":
 		status_label.text = "Could not activate noble."
 		return
 	_clear_insight_ui()
@@ -1915,7 +1931,7 @@ func _begin_insight_ui(hand_idx: int, n: int, sac_mids: Array, noble_mid: int = 
 		return
 	_insight_open = true
 	_insight_target = int(_last_snap.get("you", 0))
-	_insight_order.clear()
+	_insight_reset_orders_for_current_deck()
 	_insight_overlay.visible = true
 	end_turn_button.disabled = true
 	discard_draw_button.disabled = true
@@ -1924,6 +1940,7 @@ func _begin_insight_ui(hand_idx: int, n: int, sac_mids: Array, noble_mid: int = 
 
 
 func _clear_insight_ui() -> void:
+	_hide_card_hover_preview()
 	if _insight_overlay:
 		_insight_overlay.visible = false
 	_insight_open = false
@@ -1931,9 +1948,22 @@ func _clear_insight_ui() -> void:
 	_insight_noble_mid = -1
 	_insight_revive_crypt_idx = -1
 	_insight_sac.clear()
-	_insight_order.clear()
+	_insight_top_order.clear()
+	_insight_bottom_order.clear()
 	for c in _insight_cards_row.get_children():
 		c.queue_free()
+	for c in _insight_cards_row_bottom.get_children():
+		c.queue_free()
+
+
+func _insight_reset_orders_for_current_deck() -> void:
+	if _match == null:
+		return
+	var peek: Array = _match.insight_peek_top_cards(_insight_target, _insight_n)
+	_insight_top_order.clear()
+	_insight_bottom_order.clear()
+	for i in peek.size():
+		_insight_top_order.append(i)
 
 
 func _insight_refresh_insight_panel() -> void:
@@ -1941,66 +1971,126 @@ func _insight_refresh_insight_panel() -> void:
 		return
 	for c in _insight_cards_row.get_children():
 		c.queue_free()
-	_insight_order.clear()
+	for c in _insight_cards_row_bottom.get_children():
+		c.queue_free()
 	var peek: Array = _match.insight_peek_top_cards(_insight_target, _insight_n)
 	var take: int = peek.size()
-	for i in take:
-		_insight_order.append(i)
+	if _insight_top_order.size() + _insight_bottom_order.size() != take:
+		_insight_reset_orders_for_current_deck()
+		peek = _match.insight_peek_top_cards(_insight_target, _insight_n)
+		take = peek.size()
 	var insight_card_w := 54.0 * CARD_SCALE
 	var insight_card_h := 78.0 * CARD_SCALE
-	for slot in take:
-		var p: InsightDnDSlot = InsightDnDSlot.new()
-		p.game = self
-		p.slot_index = slot
-		p.custom_minimum_size = Vector2(insight_card_w, insight_card_h)
-		var sb := StyleBoxFlat.new()
-		sb.set_border_width_all(2)
-		sb.bg_color = Color(0.12, 0.14, 0.2)
-		sb.border_color = Color(0.7, 0.75, 0.95)
-		p.add_theme_stylebox_override("panel", sb)
-		var cctr := CenterContainer.new()
-		cctr.set_anchors_preset(Control.PRESET_FULL_RECT)
-		cctr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		p.add_child(cctr)
-		var lbl := Label.new()
-		lbl.name = "CardLbl"
-		lbl.text = _card_label(peek[_insight_order[slot]])
-		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		lbl.add_theme_font_size_override("font_size", 15)
-		cctr.add_child(lbl)
-		_insight_cards_row.add_child(p)
+	if _insight_top_order.is_empty() and take > 0:
+		var ph: InsightDnDSlot = _insight_make_insight_slot(peek, -1, "top", 0, insight_card_w, insight_card_h, true)
+		_insight_cards_row.add_child(ph)
+	else:
+		for si in range(_insight_top_order.size()):
+			var oi: int = int(_insight_top_order[si])
+			var p: InsightDnDSlot = _insight_make_insight_slot(peek, oi, "top", si, insight_card_w, insight_card_h, false)
+			_insight_cards_row.add_child(p)
+		var tail_t: InsightDnDSlot = _insight_make_insight_slot(peek, -1, "top", _insight_top_order.size(), insight_card_w * 0.45, insight_card_h, true)
+		var lt := tail_t.find_child("CardLbl", true, false)
+		if lt:
+			lt.text = "+"
+		_insight_cards_row.add_child(tail_t)
+	if _insight_bottom_order.is_empty() and take > 0:
+		var phb: InsightDnDSlot = _insight_make_insight_slot(peek, -1, "bottom", 0, insight_card_w, insight_card_h, true)
+		_insight_cards_row_bottom.add_child(phb)
+	else:
+		for si in range(_insight_bottom_order.size()):
+			var oib: int = int(_insight_bottom_order[si])
+			var pb: InsightDnDSlot = _insight_make_insight_slot(peek, oib, "bottom", si, insight_card_w, insight_card_h, false)
+			_insight_cards_row_bottom.add_child(pb)
+		var tail_b: InsightDnDSlot = _insight_make_insight_slot(peek, -1, "bottom", _insight_bottom_order.size(), insight_card_w * 0.45, insight_card_h, true)
+		var lb := tail_b.find_child("CardLbl", true, false)
+		if lb:
+			lb.text = "+"
+		_insight_cards_row_bottom.add_child(tail_b)
 	if take == 0:
 		_insight_hint_label.text = "No cards left in that deck."
 	elif take == 1:
-		_insight_hint_label.text = "One card on top — confirm or switch deck."
+		_insight_hint_label.text = "Drag between top and bottom rows, or swap within a row. Confirm when done."
 	else:
-		_insight_hint_label.text = "Next draw is leftmost. Drag a card onto another to swap."
+		_insight_hint_label.text = "Top row: next draw is left. Bottom row: left shallow, right deep. Drag between rows or swap."
 	_insight_btn_confirm.disabled = false
 
 
-func _insight_swap_slots(a: int, b: int) -> void:
-	if a == b or not _insight_open or _match == null:
+func _insight_make_insight_slot(peek: Array, orig_idx: int, zone: String, slot_idx: int, cw: float, ch: float, empty_ph: bool) -> InsightDnDSlot:
+	var p: InsightDnDSlot = InsightDnDSlot.new()
+	p.game = self
+	p.insight_zone = zone
+	p.slot_index = slot_idx
+	p.can_drag = not empty_ph
+	p.custom_minimum_size = Vector2(cw, ch)
+	var sb := StyleBoxFlat.new()
+	sb.set_border_width_all(2)
+	sb.bg_color = Color(0.12, 0.14, 0.2) if not empty_ph else Color(0.1, 0.11, 0.14)
+	sb.border_color = Color(0.7, 0.75, 0.95) if zone == "top" else Color(0.55, 0.72, 0.6)
+	p.add_theme_stylebox_override("panel", sb)
+	var cctr := CenterContainer.new()
+	cctr.set_anchors_preset(Control.PRESET_FULL_RECT)
+	cctr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.add_child(cctr)
+	var lbl := Label.new()
+	lbl.name = "CardLbl"
+	if empty_ph:
+		lbl.text = "…" if zone == "top" else "…"
+	else:
+		lbl.text = _card_label(peek[orig_idx])
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.add_theme_font_override("font", CARD_TEXT_FONT)
+	lbl.add_theme_font_size_override("font_size", 15)
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cctr.add_child(lbl)
+	if not empty_ph and orig_idx >= 0 and typeof(peek[orig_idx]) == TYPE_DICTIONARY:
+		var hc: Dictionary = (peek[orig_idx] as Dictionary).duplicate(true)
+		p.mouse_entered.connect(func() -> void:
+			_show_card_hover_preview(hc)
+		)
+		p.mouse_exited.connect(func() -> void:
+			_hide_card_hover_preview()
+		)
+	return p
+
+
+func _insight_handle_drop(from_z: String, from_i: int, to_z: String, to_i: int) -> void:
+	if not _insight_open or _match == null:
 		return
-	if a < 0 or b < 0 or a >= _insight_order.size() or b >= _insight_order.size():
+	var arr_f: Array = _insight_top_order if from_z == "top" else _insight_bottom_order
+	var arr_t: Array = _insight_top_order if to_z == "top" else _insight_bottom_order
+	if from_i < 0 or from_i >= arr_f.size():
 		return
-	var t: Variant = _insight_order[a]
-	_insight_order[a] = _insight_order[b]
-	_insight_order[b] = t
-	var peek: Array = _match.insight_peek_top_cards(_insight_target, _insight_n)
-	for child in _insight_cards_row.get_children():
-		if child is InsightDnDSlot:
-			var ch: InsightDnDSlot = child
-			var lbl := child.find_child("CardLbl", true, false)
-			if lbl:
-				var oi: int = int(_insight_order[ch.slot_index])
-				lbl.text = _card_label(peek[oi])
+	if to_i < 0:
+		return
+	if from_z == to_z:
+		if from_i == to_i:
+			return
+		if to_i > arr_t.size():
+			return
+		if to_i == arr_t.size():
+			var tv: Variant = arr_f[from_i]
+			arr_f.remove_at(from_i)
+			arr_f.append(tv)
+			_insight_refresh_insight_panel()
+			return
+		var t: Variant = arr_f[from_i]
+		arr_f[from_i] = arr_f[to_i]
+		arr_f[to_i] = t
+	else:
+		var v: Variant = arr_f[from_i]
+		arr_f.remove_at(from_i)
+		var ins: int = clampi(to_i, 0, arr_t.size())
+		arr_t.insert(ins, v)
+	_insight_refresh_insight_panel()
 
 
 func _on_insight_target_yours() -> void:
 	if not _insight_open:
 		return
 	_insight_target = int(_last_snap.get("you", 0))
+	_insight_reset_orders_for_current_deck()
 	_insight_refresh_insight_panel()
 
 
@@ -2008,6 +2098,7 @@ func _on_insight_target_opps() -> void:
 	if not _insight_open:
 		return
 	_insight_target = 1 - int(_last_snap.get("you", 0))
+	_insight_reset_orders_for_current_deck()
 	_insight_refresh_insight_panel()
 
 
@@ -2016,36 +2107,44 @@ func _on_insight_confirm_pressed() -> void:
 		return
 	var peek: Array = _match.insight_peek_top_cards(_insight_target, _insight_n)
 	var take: int = peek.size()
-	var perm: Array = []
+	var top_a: Array = []
+	var bot_a: Array = []
 	if take == 0:
-		perm = []
+		pass
 	else:
-		var ok := _insight_order.size() == take
+		var ok := _insight_top_order.size() + _insight_bottom_order.size() == take
 		if ok:
 			var seen: Dictionary = {}
-			for x in _insight_order:
+			for x in _insight_top_order:
 				var v := int(x)
 				if v < 0 or v >= take or seen.has(v):
 					ok = false
 					break
 				seen[v] = true
+			for x in _insight_bottom_order:
+				var v2 := int(x)
+				if v2 < 0 or v2 >= take or seen.has(v2):
+					ok = false
+					break
+				seen[v2] = true
 			ok = ok and seen.size() == take
 		if ok:
-			perm = _insight_order.duplicate()
+			top_a = _insight_top_order.duplicate()
+			bot_a = _insight_bottom_order.duplicate()
 		else:
 			for i in take:
-				perm.append(i)
+				top_a.append(i)
 	if _insight_noble_mid >= 0:
-		_submit_noble_activate_with_insight(_insight_noble_mid, _insight_target, perm)
+		_submit_noble_activate_with_insight(_insight_noble_mid, _insight_target, top_a, bot_a)
 		return
 	if _insight_revive_crypt_idx >= 0:
-		var ctxr := {"revive_steps": [{"revive_skip": false, "revive_crypt_idx": _insight_revive_crypt_idx, "nested": {"insight_target": _insight_target, "insight_perm": perm}}]}
+		var ctxr := {"revive_steps": [{"revive_skip": false, "revive_crypt_idx": _insight_revive_crypt_idx, "nested": {"insight_target": _insight_target, "insight_top": top_a, "insight_bottom": bot_a}}]}
 		if _revive_ui_for_noble_mid >= 0:
 			_finalize_revive_cast(ctxr)
 		else:
 			_submit_inc_play_full(_insight_sac, [], ctxr)
 		return
-	_submit_inc_play_full(_insight_sac, [], {"insight_target": _insight_target, "insight_perm": perm})
+	_submit_inc_play_full(_insight_sac, [], {"insight_target": _insight_target, "insight_top": top_a, "insight_bottom": bot_a})
 
 
 func _on_sacrifice_confirm_pressed() -> void:
@@ -2218,6 +2317,15 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 
+func _stylebox_field_hover_glow(base: StyleBoxFlat) -> StyleBoxFlat:
+	var h := base.duplicate() as StyleBoxFlat
+	var c := base.border_color
+	h.shadow_size = 12
+	h.shadow_offset = Vector2.ZERO
+	h.shadow_color = Color(c.r, c.g, c.b, 0.48)
+	return h
+
+
 func _rebuild_ritual_field(row: HBoxContainer, field: Variant, ours: bool) -> void:
 	for c in row.get_children():
 		c.queue_free()
@@ -2261,8 +2369,8 @@ func _rebuild_ritual_field(row: HBoxContainer, field: Variant, ours: bool) -> vo
 
 func _make_ritual_stack(cards: Array, ours: bool, pick_mode: int) -> Control:
 	var shift := 12.0 * CARD_SCALE
-	var w := RITUAL_CARD_H * RITUAL_CARD_ASPECT
-	var h := RITUAL_CARD_H
+	var w := HAND_CARD_W
+	var h := HAND_CARD_H
 	var count := cards.size()
 	var stack := Control.new()
 	stack.custom_minimum_size = Vector2(w + shift * maxi(0, count - 1), h)
@@ -2270,15 +2378,13 @@ func _make_ritual_stack(cards: Array, ours: bool, pick_mode: int) -> Control:
 		var d: Dictionary = cards[i]
 		var mid: int = int(d.get("mid", -1))
 		var picked := (pick_mode == 1 and (_sacrifice_selected_mids.has(mid) or _smrsk_selected_mid == mid)) or (pick_mode == 2 and _wrath_selected_mids.has(mid))
-		var is_front := i == count - 1
 		var card := _make_ritual_card(
 			int(d.get("value", 0)),
 			ours,
 			bool(d.get("active", true)),
 			mid,
 			pick_mode,
-			picked,
-			is_front
+			picked
 		)
 		card.position = Vector2(shift * i, 0)
 		card.z_index = i
@@ -2287,8 +2393,8 @@ func _make_ritual_stack(cards: Array, ours: bool, pick_mode: int) -> Control:
 
 
 func _make_ritual_card(value: int, ours: bool, active: bool, ritual_mid: int = -1, pick_mode: int = 0, picked: bool = false, dim_when_inactive: bool = true) -> Control:
-	var w := RITUAL_CARD_H * RITUAL_CARD_ASPECT
-	var h := RITUAL_CARD_H
+	var w := HAND_CARD_W
+	var h := HAND_CARD_H
 	var ritual_gold := Color(0.95, 0.78, 0.24)
 	var ritual_gold_strong := Color(1.0, 0.86, 0.35)
 	var panel := Panel.new()
@@ -2310,6 +2416,7 @@ func _make_ritual_card(value: int, ours: bool, active: bool, ritual_mid: int = -
 		else:
 			sb.border_color = ritual_gold
 	panel.add_theme_stylebox_override("panel", sb)
+	var sb_hover := _stylebox_field_hover_glow(sb)
 	if pick_mode == 1 and ritual_mid >= 0:
 		var mid_cap := ritual_mid
 		panel.gui_input.connect(func(ev: InputEvent) -> void:
@@ -2328,9 +2435,11 @@ func _make_ritual_card(value: int, ours: bool, active: bool, ritual_mid: int = -
 		)
 	var rv := value
 	panel.mouse_entered.connect(func() -> void:
+		panel.add_theme_stylebox_override("panel", sb_hover)
 		_show_card_hover_preview({"type": "ritual", "value": rv})
 	)
 	panel.mouse_exited.connect(func() -> void:
+		panel.add_theme_stylebox_override("panel", sb)
 		_hide_card_hover_preview()
 	)
 	var cc := CenterContainer.new()
@@ -2341,8 +2450,9 @@ func _make_ritual_card(value: int, ours: bool, active: bool, ritual_mid: int = -
 	lbl.text = str(value)
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.add_theme_font_override("font", CARD_TEXT_FONT)
 	lbl.add_theme_color_override("font_color", ritual_gold_strong if picked else ritual_gold)
-	lbl.add_theme_font_size_override("font_size", 26)
+	lbl.add_theme_font_size_override("font_size", HAND_CARD_FONT_SIZE)
 	cc.add_child(lbl)
 	if not active and dim_when_inactive:
 		panel.modulate = Color(0.58, 0.58, 0.62)
@@ -2351,18 +2461,29 @@ func _make_ritual_card(value: int, ours: bool, active: bool, ritual_mid: int = -
 
 func _make_noble_card(noble: Dictionary, ours: bool) -> Control:
 	var btn := Button.new()
-	btn.custom_minimum_size = Vector2(RITUAL_CARD_H * RITUAL_CARD_ASPECT, RITUAL_CARD_H)
+	btn.custom_minimum_size = Vector2(HAND_CARD_W, HAND_CARD_H)
 	var noble_name := _short_noble_name(str(noble.get("name", "Noble")))
 	var used_turn := int(noble.get("used_turn", -1))
 	var exhausted := used_turn == int(_last_snap.get("turn_number", -999))
 	btn.text = noble_name
+	btn.add_theme_font_override("font", CARD_TEXT_FONT)
+	btn.add_theme_font_size_override("font_size", HAND_CARD_FONT_SIZE)
+	var noble_bg := Color(0.13, 0.1, 0.18)
+	var noble_border := Color(0.84, 0.7, 1.0)
+	var noble_fg := Color(0.96, 0.93, 1.0)
+	var noble_bg_used := Color(0.07, 0.055, 0.11)
+	var noble_border_used := Color(0.48, 0.38, 0.62)
+	var noble_fg_used := Color(0.65, 0.58, 0.78)
 	var sb := StyleBoxFlat.new()
 	sb.set_corner_radius_all(4)
 	sb.set_border_width_all(2)
-	sb.bg_color = Color(0.13, 0.1, 0.18) if ours else Color(0.86, 0.84, 0.91)
-	sb.border_color = Color(0.84, 0.7, 1.0) if ours else Color(0.35, 0.28, 0.5)
+	sb.bg_color = noble_bg_used if exhausted else noble_bg
+	sb.border_color = noble_border_used if exhausted else noble_border
 	btn.add_theme_stylebox_override("normal", sb)
-	btn.add_theme_color_override("font_color", Color(0.96, 0.93, 1.0) if ours else Color(0.17, 0.12, 0.24))
+	btn.add_theme_color_override("font_color", noble_fg_used if exhausted else noble_fg)
+	var sb_dis := sb.duplicate()
+	btn.add_theme_stylebox_override("disabled", sb_dis)
+	btn.add_theme_color_override("font_disabled_color", noble_fg_used if exhausted else noble_fg)
 	var mid := int(noble.get("mid", -1))
 	var noble_hid := str(noble.get("noble_id", ""))
 	var can_pick_dethrone := not ours and _sacrifice_selecting and _inc_pick_phase == INC_PICK_DETHRONE
@@ -2381,13 +2502,19 @@ func _make_noble_card(noble: Dictionary, ours: bool) -> Control:
 		)
 	else:
 		btn.disabled = true
+	var normal_sb: StyleBoxFlat = sb
 	if can_pick_dethrone and _dethrone_selected_mid == mid:
 		var sb_sel := sb.duplicate()
 		sb_sel.border_color = Color(1.0, 0.45, 0.45)
 		sb_sel.set_border_width_all(3)
+		normal_sb = sb_sel
 		btn.add_theme_stylebox_override("normal", sb_sel)
-	if exhausted:
-		btn.modulate = Color(0.62, 0.62, 0.62, 1.0)
+		btn.add_theme_stylebox_override("disabled", sb_sel)
+	var sb_hover := _stylebox_field_hover_glow(normal_sb)
+	btn.add_theme_stylebox_override("hover", sb_hover)
+	btn.add_theme_stylebox_override("pressed", sb_hover)
+	btn.add_theme_stylebox_override("hover_pressed", sb_hover)
+	btn.add_theme_stylebox_override("focus", normal_sb)
 	var noble_view := noble.duplicate(true)
 	noble_view["type"] = "noble"
 	btn.mouse_entered.connect(func() -> void:
@@ -2587,6 +2714,14 @@ func _make_hand_card_widget(card: Variant, disabled: bool, picked: bool, stack_c
 	var shell := Control.new()
 	shell.custom_minimum_size = Vector2(w + shift * depth, h)
 	shell.mouse_filter = Control.MOUSE_FILTER_PASS
+	var ctype := _card_type(card)
+	var is_ritual := ctype == "ritual"
+	var is_noble := ctype == "noble"
+	var ritual_gold := Color(0.95, 0.78, 0.24)
+	var ritual_gold_strong := Color(1.0, 0.86, 0.35)
+	var noble_purple := Color(0.84, 0.7, 1.0)
+	var noble_purple_strong := Color(0.95, 0.82, 1.0)
+	var noble_bg := Color(0.13, 0.1, 0.18)
 	for i in depth:
 		var back := Panel.new()
 		back.position = Vector2(i * shift, 0)
@@ -2595,8 +2730,12 @@ func _make_hand_card_widget(card: Variant, disabled: bool, picked: bool, stack_c
 		var bsb := StyleBoxFlat.new()
 		bsb.set_corner_radius_all(3)
 		bsb.set_border_width_all(2)
-		bsb.bg_color = Color(0.11, 0.11, 0.14)
-		bsb.border_color = Color(0.46, 0.46, 0.52)
+		if is_noble:
+			bsb.bg_color = Color(0.11, 0.09, 0.15)
+			bsb.border_color = Color(0.5, 0.42, 0.62)
+		else:
+			bsb.bg_color = Color(0.11, 0.11, 0.14)
+			bsb.border_color = Color(0.46, 0.46, 0.52)
 		back.add_theme_stylebox_override("panel", bsb)
 		shell.add_child(back)
 	var tap := Button.new()
@@ -2605,30 +2744,63 @@ func _make_hand_card_widget(card: Variant, disabled: bool, picked: bool, stack_c
 	tap.position = Vector2(depth * shift, 0)
 	tap.size = Vector2(w, h)
 	tap.disabled = disabled
+	tap.add_theme_font_override("font", CARD_TEXT_FONT)
 	var sb := StyleBoxFlat.new()
 	sb.set_corner_radius_all(3)
 	sb.set_border_width_all(3 if picked else 2)
-	sb.bg_color = Color(0.04, 0.04, 0.06)
-	var is_ritual := _card_type(card) == "ritual"
-	var ritual_gold := Color(0.95, 0.78, 0.24)
-	var ritual_gold_strong := Color(1.0, 0.86, 0.35)
-	sb.border_color = (ritual_gold_strong if picked else ritual_gold) if is_ritual else (Color(0.7, 0.9, 1.0) if picked else Color(0.92, 0.92, 0.95))
+	sb.bg_color = noble_bg if is_noble else Color(0.04, 0.04, 0.06)
+	if is_ritual:
+		sb.border_color = ritual_gold_strong if picked else ritual_gold
+	elif is_noble:
+		sb.border_color = noble_purple_strong if picked else noble_purple
+	else:
+		sb.border_color = Color(0.7, 0.9, 1.0) if picked else Color(0.92, 0.92, 0.95)
 	tap.add_theme_stylebox_override("normal", sb)
 	var sb_hover := sb.duplicate()
-	sb_hover.border_color = (ritual_gold_strong if picked else Color(1.0, 0.9, 0.48)) if is_ritual else (Color(0.84, 0.96, 1.0) if picked else Color(1.0, 1.0, 1.0))
+	if is_ritual:
+		sb_hover.border_color = ritual_gold_strong if picked else Color(1.0, 0.9, 0.48)
+	elif is_noble:
+		sb_hover.border_color = noble_purple_strong if picked else Color(0.92, 0.82, 1.0)
+	else:
+		sb_hover.border_color = Color(0.84, 0.96, 1.0) if picked else Color(1.0, 1.0, 1.0)
 	tap.add_theme_stylebox_override("hover", sb_hover)
 	var sb_pressed := sb.duplicate()
-	sb_pressed.bg_color = Color(0.08, 0.08, 0.12)
+	sb_pressed.bg_color = Color(0.17, 0.14, 0.22) if is_noble else Color(0.08, 0.08, 0.12)
 	tap.add_theme_stylebox_override("pressed", sb_pressed)
 	var sb_dis := sb.duplicate()
-	sb_dis.bg_color = Color(0.08, 0.08, 0.1)
-	sb_dis.border_color = Color(0.56, 0.5, 0.32) if is_ritual else Color(0.45, 0.45, 0.5)
+	sb_dis.bg_color = Color(0.1, 0.08, 0.14) if is_noble else Color(0.08, 0.08, 0.1)
+	if is_ritual:
+		sb_dis.border_color = Color(0.56, 0.5, 0.32)
+	elif is_noble:
+		sb_dis.border_color = Color(0.45, 0.38, 0.58)
+	else:
+		sb_dis.border_color = Color(0.45, 0.45, 0.5)
 	tap.add_theme_stylebox_override("disabled", sb_dis)
-	tap.add_theme_color_override("font_color", ritual_gold if is_ritual else Color(0.98, 0.98, 0.98))
-	tap.add_theme_color_override("font_hover_color", Color(1.0, 0.9, 0.48) if is_ritual else Color(0.98, 0.98, 0.98))
-	tap.add_theme_color_override("font_pressed_color", ritual_gold_strong if is_ritual else Color(0.98, 0.98, 0.98))
-	tap.add_theme_color_override("font_disabled_color", Color(0.62, 0.56, 0.38) if is_ritual else Color(0.7, 0.7, 0.76))
-	tap.add_theme_font_size_override("font_size", 16)
+	if is_ritual:
+		tap.add_theme_color_override("font_color", ritual_gold)
+	elif is_noble:
+		tap.add_theme_color_override("font_color", Color(0.96, 0.93, 1.0))
+	else:
+		tap.add_theme_color_override("font_color", Color(0.98, 0.98, 0.98))
+	if is_ritual:
+		tap.add_theme_color_override("font_hover_color", Color(1.0, 0.9, 0.48))
+	elif is_noble:
+		tap.add_theme_color_override("font_hover_color", Color(1.0, 0.96, 1.0))
+	else:
+		tap.add_theme_color_override("font_hover_color", Color(0.98, 0.98, 0.98))
+	if is_ritual:
+		tap.add_theme_color_override("font_pressed_color", ritual_gold_strong)
+	elif is_noble:
+		tap.add_theme_color_override("font_pressed_color", noble_purple_strong)
+	else:
+		tap.add_theme_color_override("font_pressed_color", Color(0.98, 0.98, 0.98))
+	if is_ritual:
+		tap.add_theme_color_override("font_disabled_color", Color(0.62, 0.56, 0.38))
+	elif is_noble:
+		tap.add_theme_color_override("font_disabled_color", Color(0.58, 0.52, 0.68))
+	else:
+		tap.add_theme_color_override("font_disabled_color", Color(0.7, 0.7, 0.76))
+	tap.add_theme_font_size_override("font_size", HAND_CARD_FONT_SIZE)
 	var hover_card: Dictionary = card.duplicate(true) if typeof(card) == TYPE_DICTIONARY else {}
 	shell.mouse_entered.connect(func() -> void:
 		_show_card_hover_preview(hover_card)
@@ -2651,11 +2823,12 @@ func _make_hand_card_widget(card: Variant, disabled: bool, picked: bool, stack_c
 	if stack_count > 1:
 		var badge := Label.new()
 		badge.text = "x%d" % stack_count
-		badge.position = Vector2(depth * shift + w - 26, 4)
+		badge.position = Vector2(depth * shift + w - 52, 4)
 		badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		badge.custom_minimum_size = Vector2(22, 16)
-		badge.add_theme_font_size_override("font_size", 12)
+		badge.custom_minimum_size = Vector2(44, 32)
+		badge.add_theme_font_override("font", CARD_TEXT_FONT)
+		badge.add_theme_font_size_override("font_size", 24)
 		badge.add_theme_color_override("font_color", Color(0.95, 0.95, 0.99))
 		shell.add_child(badge)
 	if _selecting_end_discard and picked_count > 0:
@@ -2664,8 +2837,9 @@ func _make_hand_card_widget(card: Variant, disabled: bool, picked: bool, stack_c
 		pick_badge.position = Vector2(depth * shift + 4, 4)
 		pick_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		pick_badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		pick_badge.custom_minimum_size = Vector2(24, 16)
-		pick_badge.add_theme_font_size_override("font_size", 12)
+		pick_badge.custom_minimum_size = Vector2(48, 32)
+		pick_badge.add_theme_font_override("font", CARD_TEXT_FONT)
+		pick_badge.add_theme_font_size_override("font_size", 24)
 		pick_badge.add_theme_color_override("font_color", Color(1.0, 0.86, 0.86))
 		shell.add_child(pick_badge)
 	elif bool(_last_snap.get("woe_pending_you_respond", false)) and picked:
@@ -2674,8 +2848,9 @@ func _make_hand_card_widget(card: Variant, disabled: bool, picked: bool, stack_c
 		woe_badge.position = Vector2(depth * shift + 6, 4)
 		woe_badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		woe_badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		woe_badge.custom_minimum_size = Vector2(16, 16)
-		woe_badge.add_theme_font_size_override("font_size", 12)
+		woe_badge.custom_minimum_size = Vector2(32, 32)
+		woe_badge.add_theme_font_override("font", CARD_TEXT_FONT)
+		woe_badge.add_theme_font_size_override("font_size", 24)
 		woe_badge.add_theme_color_override("font_color", Color(1.0, 0.75, 0.75))
 		shell.add_child(woe_badge)
 	return shell
@@ -2718,7 +2893,7 @@ func _make_corner_pip_icon(count: int, filled: bool) -> TextureRect:
 	image.fill(Color(0, 0, 0, 0))
 	var dot_r: int = 4
 	if n == 1:
-		_draw_dot_on_image(image, center, dot_r, filled)
+		CornerPipDraw.draw_dot_on_image(image, center, dot_r, filled)
 	else:
 		var remaining: int = n
 		var ring: int = 1
@@ -2731,7 +2906,7 @@ func _make_corner_pip_icon(count: int, filled: bool) -> TextureRect:
 				var ang := TAU * (float(i) / float(take)) - PI / 2.0
 				var px := center.x + int(round(cos(ang) * radius))
 				var py := center.y + int(round(sin(ang) * radius))
-				_draw_dot_on_image(image, Vector2i(px, py), dot_r, filled)
+				CornerPipDraw.draw_dot_on_image(image, Vector2i(px, py), dot_r, filled)
 			remaining -= take
 			ring += 1
 	var tex := ImageTexture.create_from_image(image)
@@ -2742,24 +2917,6 @@ func _make_corner_pip_icon(count: int, filled: bool) -> TextureRect:
 	rect.custom_minimum_size = Vector2(icon_size, icon_size)
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return rect
-
-
-func _draw_dot_on_image(image: Image, center: Vector2i, radius: int, filled: bool) -> void:
-	var r2: int = radius * radius
-	var inner: int = maxi(0, radius - 1)
-	var inner2: int = inner * inner
-	for dy in range(-radius, radius + 1):
-		for dx in range(-radius, radius + 1):
-			var d2 := dx * dx + dy * dy
-			if d2 > r2:
-				continue
-			if not filled and d2 < inner2:
-				continue
-			var px := center.x + dx
-			var py := center.y + dy
-			if px < 0 or py < 0 or px >= image.get_width() or py >= image.get_height():
-				continue
-			image.set_pixel(px, py, Color(1, 1, 1, 0.98))
 
 
 func _hand_card_stack_key(card: Variant) -> String:
@@ -3357,7 +3514,7 @@ func _run_cpu_turn() -> void:
 				var perm_i: Array = []
 				for ii in peek2.size():
 					perm_i.append(ii)
-				ok_act = _match.activate_noble_with_insight(1, nmid, tgt_i, perm_i) == "ok"
+				ok_act = _match.activate_noble_with_insight(1, nmid, tgt_i, perm_i, []) == "ok"
 			elif nid2 == "aeoiu_rituals":
 				var rgc: Array = _filtered_crypt_cards(_your_crypt_cards_from_snap(snap), ["ritual"])
 				if rgc.is_empty():
@@ -3468,7 +3625,7 @@ func _run_cpu_turn() -> void:
 					var prm: Array = []
 					for ii in pk.size():
 						prm.append(ii)
-					ictx = {"insight_target": tgt0, "insight_perm": prm}
+					ictx = {"insight_target": tgt0, "insight_top": prm, "insight_bottom": []}
 				"revive":
 					ictx = {"revive_steps": [{"revive_skip": true}]}
 				_:
@@ -3659,13 +3816,13 @@ func submit_activate_noble(noble_mid: int) -> void:
 
 
 @rpc("any_peer", "reliable")
-func submit_activate_noble_with_insight(noble_mid: int, insight_target: int, insight_perm: Array = []) -> void:
+func submit_activate_noble_with_insight(noble_mid: int, insight_target: int, insight_top: Array = [], insight_bottom: Array = []) -> void:
 	if not multiplayer.is_server():
 		return
 	if _match == null:
 		return
 	var pl := _peer_to_player(_sender_peer())
-	if _match.activate_noble_with_insight(pl, noble_mid, insight_target, insight_perm) == "ok":
+	if _match.activate_noble_with_insight(pl, noble_mid, insight_target, insight_top, insight_bottom) == "ok":
 		_broadcast_sync(true)
 
 

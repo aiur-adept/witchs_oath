@@ -55,7 +55,8 @@ var _gallery_entries: Array[Dictionary] = []
 func _ready() -> void:
 	_hover_preview = CardPreviewPresenter.build_preview_panel(self, {
 		"mode": "corner",
-		"name": "DeckCardHoverPreview"
+		"name": "DeckCardHoverPreview",
+		"z_index": 4096
 	})
 	_gallery_entries = _build_gallery_entries()
 	_render_gallery()
