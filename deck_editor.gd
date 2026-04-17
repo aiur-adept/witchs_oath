@@ -33,7 +33,8 @@ const NOBLE_DEFS := [
 const TEMPLE_DEFS := [
 	{"id": "phaedra_illusion", "name": "Phaedra, Temple of Illusion", "cost": 7},
 	{"id": "delpha_oracles", "name": "Delpha, Temple of Oracles", "cost": 7},
-	{"id": "gotha_illness", "name": "Gotha, Temple of Illness", "cost": 7}
+	{"id": "gotha_illness", "name": "Gotha, Temple of Illness", "cost": 7},
+	{"id": "ytria_cycles", "name": "Ytria, Temple of Cycles", "cost": 9}
 ]
 const MAX_TEMPLE_COPIES := 3
 

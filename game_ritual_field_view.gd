@@ -276,6 +276,9 @@ func make_temple_card(temple: Dictionary, ours: bool) -> Control:
 		var cr: Array = game._last_snap.get("your_ritual_crypt_cards", []) as Array
 		var deck_n := int(game._last_snap.get("your_deck", 0))
 		can_activate = can_activate and cr.size() > 0 and deck_n >= 2
+	if tid == "ytria_cycles":
+		var hand_n := (game._last_snap.get("your_hand", []) as Array).size()
+		can_activate = can_activate and hand_n > 0
 	if can_activate:
 		btn.pressed.connect(func() -> void:
 			game._on_temple_activate_pressed(mid)

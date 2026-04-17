@@ -2544,7 +2544,13 @@ func _temple_field_input_ok() -> bool:
 
 func _enter_temple_sacrifice_mode(hand_idx: int) -> void:
 	_sacrifice_for_temple = true
-	_enter_sacrifice_mode(hand_idx, 7, "Temple")
+	var cost := 7
+	var hand: Array = _last_snap.get("your_hand", []) as Array
+	if hand_idx >= 0 and hand_idx < hand.size():
+		var c: Dictionary = hand[hand_idx] as Dictionary
+		if str(c.get("temple_id", "")) == "ytria_cycles":
+			cost = 9
+	_enter_sacrifice_mode(hand_idx, cost, "Temple")
 
 
 func _on_temple_activate_pressed(temple_mid: int) -> void:
@@ -2564,6 +2570,14 @@ func _on_temple_activate_pressed(temple_mid: int) -> void:
 			_gotha_temple_mid = temple_mid
 			status_label.text = "Gotha: tap a card in your hand to discard and draw that many."
 			_rebuild_hand(_last_snap.get("your_hand", []))
+			return
+		if tid == "ytria_cycles":
+			if _is_network_client():
+				submit_temple_ytria.rpc_id(1, temple_mid)
+			else:
+				if _match == null or _match.apply_temple_ytria(_my_player_for_action(), temple_mid) != "ok":
+					status_label.text = "Could not activate Ytria."
+			_broadcast_sync(true)
 			return
 		break
 
@@ -3525,6 +3539,17 @@ func submit_temple_gotha(temple_mid: int, hand_idx: int) -> void:
 		return
 	var pl := _peer_to_player(_sender_peer())
 	if _match.apply_temple_gotha(pl, temple_mid, hand_idx) == "ok":
+		_broadcast_sync(true)
+
+
+@rpc("any_peer", "reliable")
+func submit_temple_ytria(temple_mid: int) -> void:
+	if not multiplayer.is_server():
+		return
+	if _match == null:
+		return
+	var pl := _peer_to_player(_sender_peer())
+	if _match.apply_temple_ytria(pl, temple_mid) == "ok":
 		_broadcast_sync(true)
 
 

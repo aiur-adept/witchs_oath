@@ -12,6 +12,7 @@ const TEMPLE_PLAY_COST := 7
 const TEMPLE_PHAEDRA := "phaedra_illusion"
 const TEMPLE_DELPHA := "delpha_oracles"
 const TEMPLE_GOTHA := "gotha_illness"
+const TEMPLE_YTRIA := "ytria_cycles"
 
 enum Phase { MAIN, GAME_OVER }
 
@@ -529,7 +530,13 @@ func play_noble(p: int, hand_idx: int) -> String:
 
 
 func _valid_temple_id(tid: String) -> bool:
-	return tid == TEMPLE_PHAEDRA or tid == TEMPLE_DELPHA or tid == TEMPLE_GOTHA
+	return tid == TEMPLE_PHAEDRA or tid == TEMPLE_DELPHA or tid == TEMPLE_GOTHA or tid == TEMPLE_YTRIA
+
+
+func _temple_play_cost_for_id(tid: String) -> int:
+	if tid == TEMPLE_YTRIA:
+		return 9
+	return TEMPLE_PLAY_COST
 
 
 func can_play_temple(p: int, hand_idx: int) -> bool:
@@ -545,7 +552,7 @@ func can_play_temple(p: int, hand_idx: int) -> bool:
 	var tid := str((c as Dictionary).get("temple_id", ""))
 	if not _valid_temple_id(tid):
 		return false
-	return _can_sacrifice(p, TEMPLE_PLAY_COST)
+	return _can_sacrifice(p, _temple_play_cost_for_id(tid))
 
 
 func play_temple(p: int, hand_idx: int, sacrifice_mids: Array) -> String:
@@ -555,14 +562,15 @@ func play_temple(p: int, hand_idx: int, sacrifice_mids: Array) -> String:
 	var tid := str((c as Dictionary).get("temple_id", ""))
 	if not _valid_temple_id(tid):
 		return "illegal"
+	var temple_cost := _temple_play_cost_for_id(tid)
 	var mids: Dictionary = {}
 	for m in sacrifice_mids:
 		mids[int(m)] = true
-	if not _sacrifice_valid(p, TEMPLE_PLAY_COST, mids):
+	if not _sacrifice_valid(p, temple_cost, mids):
 		mids.clear()
-		for mid in _greedy_sacrifice_mids_for_player(p, TEMPLE_PLAY_COST):
+		for mid in _greedy_sacrifice_mids_for_player(p, temple_cost):
 			mids[int(mid)] = true
-		if not _sacrifice_valid(p, TEMPLE_PLAY_COST, mids):
+		if not _sacrifice_valid(p, temple_cost, mids):
 			return "illegal_sacrifice"
 	_apply_sacrifice(p, mids)
 	var pl: Dictionary = _players[p]
@@ -573,6 +581,7 @@ func play_temple(p: int, hand_idx: int, sacrifice_mids: Array) -> String:
 		"mid": tmid,
 		"temple_id": tid,
 		"name": str((c as Dictionary).get("name", tid)),
+		"cost": temple_cost,
 		"used_turn": -1
 	}
 	_temple_field_safe(p).append(entry)
@@ -1267,6 +1276,9 @@ func can_activate_temple(p: int, temple_mid: int) -> bool:
 			return false
 		if (pl["field"] as Array).is_empty():
 			return false
+	if tid == TEMPLE_YTRIA:
+		if (_players[p]["hand"] as Array).is_empty():
+			return false
 	return true
 
 
@@ -1371,6 +1383,26 @@ func apply_temple_gotha(p: int, temple_mid: int, hand_idx: int) -> String:
 	_draw_n(p, n)
 	_mark_temple_used_this_turn(p, temple_mid)
 	_log("P%d activates Gotha (discard for %d)." % [p, n])
+	_check_power_win(p)
+	return "ok"
+
+
+func apply_temple_ytria(p: int, temple_mid: int) -> String:
+	if not can_activate_temple(p, temple_mid):
+		return "illegal"
+	var t := _find_temple_on_field(p, temple_mid)
+	if str(t.get("temple_id", "")) != TEMPLE_YTRIA:
+		return "illegal"
+	var pl: Dictionary = _players[p]
+	var hand: Array = pl["hand"]
+	var draw_n := hand.size()
+	if draw_n < 1:
+		return "illegal"
+	for i in range(hand.size() - 1, -1, -1):
+		_move_hand_card_to_discard(pl, hand, i)
+	_draw_n(p, draw_n)
+	_mark_temple_used_this_turn(p, temple_mid)
+	_log("P%d activates Ytria (discard %d, draw %d)." % [p, draw_n, draw_n])
 	_check_power_win(p)
 	return "ok"
 

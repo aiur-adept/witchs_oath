@@ -130,3 +130,7 @@ You may have up to 3 temples of each name.
 *Delpha, Temple of Oracles*: once per turn you may Burn yourself X (discard 2X from your deck) to play an additional Ritual from your crypt.
 
 *Gotha, Temple of Illness*: skip your draw step. once per turn you may discard a card and draw cards equal to its power/cost.
+
+#### Cost 9
+
+*Ytria, Temple of Cycles*: once per turn you may discard your hand to draw that many cards.
