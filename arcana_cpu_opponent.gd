@@ -67,6 +67,15 @@ func run_turn(host: Node) -> void:
 				idxsw.append(wi)
 			host._try_submit_woe_discard(1, idxsw, true)
 			continue
+		if bool(snap.get("eyrie_pending_you_respond", false)):
+			var picks: Array = []
+			var cands: Array = snap.get("eyrie_bird_candidates", []) as Array
+			var rem := int(snap.get("eyrie_pending_remaining", 0))
+			for ci in mini(rem, cands.size()):
+				picks.append(int((cands[ci] as Dictionary).get("deck_idx", -1)))
+			if host._match.apply_eyrie_submit(1, picks) == "ok":
+				host._broadcast_sync(false)
+			continue
 		if bool(snap.get("scion_pending_you_respond", false)):
 			var st := str(snap.get("scion_pending_type", ""))
 			var sid := int(snap.get("scion_pending_id", -1))
@@ -127,7 +136,9 @@ func run_turn(host: Node) -> void:
 				continue
 			if not host._match.can_play_temple(1, i):
 				break
-			var sac_t: Array = greedy_sacrifice_mids(snap, 7)
+			var tid_t := str((hand[i] as Dictionary).get("temple_id", ""))
+			var cost_t: int = _GameSnapshotUtils.temple_cost_for_id(tid_t)
+			var sac_t: Array = greedy_sacrifice_mids(snap, cost_t)
 			var sum_t := 0
 			var fld_t: Array = snap.get("your_field", [])
 			for mid in sac_t:
@@ -135,7 +146,7 @@ func run_turn(host: Node) -> void:
 					if int(x.get("mid", 0)) == int(mid):
 						sum_t += int(x.get("value", 0))
 						break
-			if sum_t < 7:
+			if sum_t < cost_t:
 				break
 			if host._match.play_temple(1, i, sac_t) == "ok":
 				host._broadcast_sync(false)
@@ -143,6 +154,29 @@ func run_turn(host: Node) -> void:
 			break
 		if played_temple:
 			continue
+		if host._has_nest_action_available(snap):
+			var nest_bid := -1
+			for bn in snap.get("your_birds", []) as Array:
+				var bnd := bn as Dictionary
+				if int(bnd.get("nest_temple_mid", -1)) >= 0:
+					continue
+				nest_bid = int(bnd.get("mid", -1))
+				break
+			if nest_bid >= 0:
+				var did_nest := false
+				for tn in snap.get("your_temples", []) as Array:
+					var tdn := tn as Dictionary
+					if not host._temple_has_nest_room(snap, tdn):
+						continue
+					var tmid_n := int(tdn.get("mid", -1))
+					if host._match.nest_bird(1, nest_bid, tmid_n) == "ok":
+						host._broadcast_sync(false)
+						await host.get_tree().create_timer(CPU_ACTION_SEC).timeout
+						did_nest = true
+					break
+				if did_nest:
+					snap = host._match.snapshot(1)
+					continue
 		var noble_field: Array = snap.get("your_nobles", [])
 		for nn in noble_field:
 			var nmid := int(nn.get("mid", -1))
@@ -289,10 +323,23 @@ func run_turn(host: Node) -> void:
 		if not bool(snap.get("your_bird_fight_used", false)):
 			var your_birds: Array = snap.get("your_birds", []) as Array
 			var opp_birds: Array = snap.get("opp_birds", []) as Array
-			if not your_birds.is_empty() and not opp_birds.is_empty():
-				var att_mid := int(your_birds[0].get("mid", -1))
-				var def_mid := int(opp_birds[0].get("mid", -1))
-				var def_power := int(opp_birds[0].get("power", 0))
+			var att_mid := -1
+			for yb in your_birds:
+				var ybd := yb as Dictionary
+				if int(ybd.get("nest_temple_mid", -1)) >= 0:
+					continue
+				att_mid = int(ybd.get("mid", -1))
+				break
+			var def_mid := -1
+			var def_power := 0
+			for ob in opp_birds:
+				var obd := ob as Dictionary
+				if int(obd.get("nest_temple_mid", -1)) >= 0:
+					continue
+				def_mid = int(obd.get("mid", -1))
+				def_power = int(obd.get("power", 0))
+				break
+			if att_mid >= 0 and def_mid >= 0:
 				var assign := {att_mid: def_power}
 				host._try_resolve_bird_fight(1, [att_mid], def_mid, assign, false)
 				await host.get_tree().create_timer(CPU_ACTION_SEC).timeout

@@ -101,6 +101,12 @@ Bird lane example:
 - Damage on each side is divided among that side's chosen Birds as that side's controller decides.
 - After damage is assigned, each Bird that has damage greater than or equal to its power is discarded.
 
+### 6A.4 Bird Nesting
+
+- Birds have the ability nest. A temple on your field may nest X birds in it where X is its cost. 
+- Each bird nested in a temple adds an additional +1 to ritual power and cannot be involved in fighting.
+- An un-nested bird is "wild".
+
 ## 6) Playing Cards and Paying Costs
 
 ### 6.1 Incantations
@@ -149,7 +155,7 @@ It destroys one target opposing noble.
 
 Game ends immediately when any of the following occurs:
 
-1. A player reaches **20 or more ritual power**.
+1. A player reaches **20 or more match power**.
 2. A player attempts to draw from an empty deck.
 
 If empty-deck draw is attempted:
@@ -217,7 +223,12 @@ All noble static abilities apply while that noble remains on the field.
 
 Temple activations are once per turn per temple.
 
-### 11.1 Cost 7 temples
+### 11.1 Cost 6 temples
+
+**Eyrie, Temple of Feathers**:
+  - When this Temple enters, search your deck for two bird cards and put them onto your field, then shuffle your deck.
+
+### 11.2 Cost 7 temples
 
 - **Phaedra, Temple of Illusion**:
   - Insight 1, then draw 1.
@@ -228,7 +239,7 @@ Temple activations are once per turn per temple.
   - Static: Skip your turn-start draw.
   - Activated: Discard one non-temple card, then draw cards equal to that card's value/cost.
 
-### 11.2 Cost 9 temple
+### 11.3 Cost 9 temple
 
 - **Ytria, Temple of Cycles**:
   - Discard your hand, then draw that many cards.
@@ -247,9 +258,8 @@ Temple activations are once per turn per temple.
 
 For legal deck construction:
 
-- Base deck: exactly **19 Ritual** cards and **21 non-Ritual, non-Bird** cards (**40 cards total**).
-- You may add up to **10 Bird** cards, for a maximum deck size of **50** cards.
+- Base deck: exactly **19 Ritual** cards and **21 non-Ritual** cards (**40 cards total**).
 - At most **9 rituals of any one value** (for example, no more than 9 copies of value-4 rituals).
-- At most **4 copies** of any named incantation card.
+- At most **4 copies** of any named incantation or bird card.
 - At most **1 copy** of any named temple card.
 - For nobles, at most **1** card per noble first name (for example, max 1 "Yrss").

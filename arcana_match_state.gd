@@ -9,10 +9,13 @@ const WIN_POWER := 20
 const NOBLES_DIR := "res://nobles"
 
 const TEMPLE_PLAY_COST := 7
+const TEMPLE_EYRIE_COST := 6
+const EYRIE_SEARCH_COUNT := 2
 const TEMPLE_PHAEDRA := "phaedra_illusion"
 const TEMPLE_DELPHA := "delpha_oracles"
 const TEMPLE_GOTHA := "gotha_illness"
 const TEMPLE_YTRIA := "ytria_cycles"
+const TEMPLE_EYRIE := "eyrie_feathers"
 
 enum Phase { MAIN, GAME_OVER }
 
@@ -47,6 +50,9 @@ var _woe_pending_revive_wrapper: Variant = null
 var _woe_pending_noble_mid: int = -1
 var _scion_pending: Dictionary = {}
 var _scion_pending_next_id: int = 1
+
+var _eyrie_pending_player: int = -1
+var _eyrie_pending_remaining: int = 0
 
 
 func _card_kind(c: Variant) -> String:
@@ -237,10 +243,10 @@ func _check_power_win(p: int) -> void:
 		return
 	if _is_mulligan_active():
 		return
-	if ritual_power(p) >= WIN_POWER:
+	if match_power(p) >= WIN_POWER:
 		winner = p
 		phase = Phase.GAME_OVER
-		_log("P%d reached %d ritual power." % [p, WIN_POWER])
+		_log("P%d reached %d match power." % [p, WIN_POWER])
 
 
 func concede(p: int) -> String:
@@ -341,7 +347,17 @@ func ritual_power(p: int) -> int:
 	for i in field.size():
 		if bool(act[i]):
 			s += int(field[i]["value"])
+	s += _nested_bird_count(p)
 	return s
+
+
+func _nested_bird_count(p: int) -> int:
+	var birds: Array = _players[p]["bird_field"]
+	var n := 0
+	for b in birds:
+		if _bird_nest_temple_mid(b as Dictionary) >= 0:
+			n += 1
+	return n
 
 
 func match_power(p: int) -> int:
@@ -389,11 +405,42 @@ func _active_mask(field: Array) -> Array:
 	return active_mask_for_field(field)
 
 
+func _bird_nest_temple_mid(b: Dictionary) -> int:
+	return int(b.get("nest_temple_mid", -1))
+
+
+func _temple_nest_capacity(t: Dictionary) -> int:
+	var cap := int(t.get("cost", 0))
+	if cap <= 0:
+		cap = _temple_play_cost_for_id(str(t.get("temple_id", "")))
+	return cap
+
+
+func _remove_bird_from_temple_nest(p: int, temple_mid: int, bird_mid: int) -> void:
+	var tf: Array = _temple_field_safe(p)
+	for i in tf.size():
+		var td: Dictionary = tf[i]
+		if int(td.get("mid", -1)) != temple_mid:
+			continue
+		var nm: Array = (td.get("nested_bird_mids", []) as Array).duplicate()
+		var nn: Array = []
+		for m in nm:
+			if int(m) != bird_mid:
+				nn.append(m)
+		td["nested_bird_mids"] = nn
+		td["nested"] = not nn.is_empty()
+		tf[i] = td
+		break
+
+
 func _bird_lane_value(p: int) -> int:
 	var birds: Array = _players[p]["bird_field"]
 	var s := 0
 	for b in birds:
-		s += int((b as Dictionary).get("power", 0))
+		var bd := b as Dictionary
+		if _bird_nest_temple_mid(bd) >= 0:
+			continue
+		s += int(bd.get("power", 0))
 	return s
 
 
@@ -434,6 +481,11 @@ func _extra_incantation_lanes_from_nobles(p: int) -> Array:
 func snapshot(for_player: int) -> Dictionary:
 	var opp := 1 - for_player
 	var scion_for_player := _scion_pending_player_view(for_player)
+	var eyrie_you := _eyrie_waiting_on_response() and _eyrie_pending_player == for_player
+	var eyrie_waiting_opp := _eyrie_waiting_on_response() and _eyrie_pending_player != for_player
+	var eyrie_candidates: Array = []
+	if eyrie_you:
+		eyrie_candidates = _eyrie_snapshot_candidates(for_player)
 	return {
 		"phase": int(phase),
 		"turn_number": turn_number,
@@ -484,6 +536,10 @@ func snapshot(for_player: int) -> Dictionary:
 		"scion_pending_waiting": bool(scion_for_player.get("waiting", false)),
 		"scion_pending_type": str(scion_for_player.get("type", "")),
 		"scion_pending_id": int(scion_for_player.get("id", -1)),
+		"eyrie_pending_you_respond": eyrie_you,
+		"eyrie_pending_waiting": eyrie_waiting_opp,
+		"eyrie_pending_remaining": _eyrie_pending_remaining if eyrie_you else 0,
+		"eyrie_bird_candidates": eyrie_candidates,
 		"log": log_lines.duplicate(),
 		"goldfish": goldfish
 	}
@@ -495,6 +551,8 @@ func can_play_ritual(p: int, hand_idx: int) -> bool:
 	if _woe_waiting_on_response() and p == _woe_pending_instigator:
 		return false
 	if _scion_waiting_on_response() and p == int(_scion_pending.get("player", -1)):
+		return false
+	if _eyrie_waiting_on_response() and p == _eyrie_pending_player:
 		return false
 	var c: Variant = _card_at_hand(p, hand_idx)
 	return c != null and _card_kind(c) == "ritual"
@@ -521,6 +579,8 @@ func can_play_noble(p: int, hand_idx: int) -> bool:
 	if _woe_waiting_on_response() and p == _woe_pending_instigator:
 		return false
 	if _scion_waiting_on_response() and p == int(_scion_pending.get("player", -1)):
+		return false
+	if _eyrie_waiting_on_response() and p == _eyrie_pending_player:
 		return false
 	var c: Variant = _card_at_hand(p, hand_idx)
 	if c == null or _card_kind(c) != "noble":
@@ -566,6 +626,8 @@ func can_play_bird(p: int, hand_idx: int) -> bool:
 		return false
 	if _scion_waiting_on_response() and p == int(_scion_pending.get("player", -1)):
 		return false
+	if _eyrie_waiting_on_response() and p == _eyrie_pending_player:
+		return false
 	var c: Variant = _card_at_hand(p, hand_idx)
 	if c == null or _card_kind(c) != "bird":
 		return false
@@ -589,7 +651,8 @@ func play_bird(p: int, hand_idx: int) -> String:
 		"name": str(c.get("name", "Bird")),
 		"cost": int(c.get("cost", 0)),
 		"power": int(c.get("power", 0)),
-		"damage": 0
+		"damage": 0,
+		"nest_temple_mid": -1
 	}
 	pl["bird_field"].append(bird)
 	bird_played_this_turn = true
@@ -598,12 +661,14 @@ func play_bird(p: int, hand_idx: int) -> String:
 
 
 func _valid_temple_id(tid: String) -> bool:
-	return tid == TEMPLE_PHAEDRA or tid == TEMPLE_DELPHA or tid == TEMPLE_GOTHA or tid == TEMPLE_YTRIA
+	return tid == TEMPLE_PHAEDRA or tid == TEMPLE_DELPHA or tid == TEMPLE_GOTHA or tid == TEMPLE_YTRIA or tid == TEMPLE_EYRIE
 
 
 func _temple_play_cost_for_id(tid: String) -> int:
 	if tid == TEMPLE_YTRIA:
 		return 9
+	if tid == TEMPLE_EYRIE:
+		return TEMPLE_EYRIE_COST
 	return TEMPLE_PLAY_COST
 
 
@@ -613,6 +678,8 @@ func can_play_temple(p: int, hand_idx: int) -> bool:
 	if _woe_waiting_on_response() and p == _woe_pending_instigator:
 		return false
 	if _scion_waiting_on_response() and p == int(_scion_pending.get("player", -1)):
+		return false
+	if _eyrie_waiting_on_response() and p == _eyrie_pending_player:
 		return false
 	var c: Variant = _card_at_hand(p, hand_idx)
 	if c == null or _card_kind(c) != "temple":
@@ -650,11 +717,158 @@ func play_temple(p: int, hand_idx: int, sacrifice_mids: Array) -> String:
 		"temple_id": tid,
 		"name": str((c as Dictionary).get("name", tid)),
 		"cost": temple_cost,
-		"used_turn": -1
+		"used_turn": -1,
+		"nested": false,
+		"nested_bird_mids": []
 	}
 	_temple_field_safe(p).append(entry)
 	temple_played_this_turn = true
 	_log("P%d plays temple %s." % [p, entry["name"]])
+	if tid == TEMPLE_EYRIE:
+		_trigger_eyrie_enter(p)
+	return "ok"
+
+
+func _trigger_eyrie_enter(p: int) -> void:
+	var candidates := _eyrie_bird_candidate_indices(p)
+	if candidates.is_empty():
+		_log("P%d's Eyrie finds no birds; deck shuffled." % p)
+		_shuffle(_players[p]["deck"])
+		return
+	_eyrie_pending_player = p
+	_eyrie_pending_remaining = mini(EYRIE_SEARCH_COUNT, candidates.size())
+	_log("P%d's Eyrie searches the deck for up to %d bird(s)." % [p, _eyrie_pending_remaining])
+
+
+func _eyrie_snapshot_candidates(p: int) -> Array:
+	var deck: Array = _players[p]["deck"]
+	var out: Array = []
+	for i in deck.size():
+		var c: Dictionary = deck[i] as Dictionary
+		if _card_kind(c) != "bird":
+			continue
+		out.append({
+			"deck_idx": i,
+			"bird_id": str(c.get("bird_id", "")),
+			"name": str(c.get("name", "Bird")),
+			"cost": int(c.get("cost", 0)),
+			"power": int(c.get("power", 0))
+		})
+	return out
+
+
+func _eyrie_bird_candidate_indices(p: int) -> Array:
+	var deck: Array = _players[p]["deck"]
+	var out: Array = []
+	for i in deck.size():
+		if _card_kind(deck[i]) == "bird":
+			out.append(i)
+	return out
+
+
+func _eyrie_waiting_on_response() -> bool:
+	return _eyrie_pending_player >= 0
+
+
+func _eyrie_clear_pending() -> void:
+	_eyrie_pending_player = -1
+	_eyrie_pending_remaining = 0
+
+
+func can_submit_eyrie(p: int) -> bool:
+	return _eyrie_waiting_on_response() and p == _eyrie_pending_player
+
+
+func apply_eyrie_submit(p: int, deck_indices: Array) -> String:
+	if not can_submit_eyrie(p):
+		return "illegal"
+	var pl: Dictionary = _players[p]
+	var deck: Array = pl["deck"]
+	var max_pick := _eyrie_pending_remaining
+	var seen: Dictionary = {}
+	var chosen: Array = []
+	for it in deck_indices:
+		var idx := int(it)
+		if idx < 0 or idx >= deck.size() or seen.has(idx):
+			return "illegal"
+		if _card_kind(deck[idx]) != "bird":
+			return "illegal"
+		seen[idx] = true
+		chosen.append(idx)
+		if chosen.size() > max_pick:
+			return "illegal"
+	chosen.sort()
+	var bird_cards: Array = []
+	for i in range(chosen.size() - 1, -1, -1):
+		var di: int = int(chosen[i])
+		bird_cards.append(deck[di])
+		deck.remove_at(di)
+	bird_cards.reverse()
+	for c in bird_cards:
+		var mid := _next_bird_mid(pl)
+		var bird := {
+			"mid": mid,
+			"bird_id": str((c as Dictionary).get("bird_id", "")),
+			"name": str((c as Dictionary).get("name", "Bird")),
+			"cost": int((c as Dictionary).get("cost", 0)),
+			"power": int((c as Dictionary).get("power", 0)),
+			"damage": 0,
+			"nest_temple_mid": -1
+		}
+		pl["bird_field"].append(bird)
+		_log("P%d's Eyrie summons %s from deck." % [p, bird["name"]])
+	_shuffle(deck)
+	_eyrie_clear_pending()
+	_check_power_win(p)
+	return "ok"
+
+
+func can_nest_bird(p: int, bird_mid: int, temple_mid: int) -> bool:
+	if phase != Phase.MAIN or _is_mulligan_active() or p != current:
+		return false
+	if _woe_waiting_on_response() and p == _woe_pending_instigator:
+		return false
+	if _scion_waiting_on_response() and p == int(_scion_pending.get("player", -1)):
+		return false
+	if _eyrie_waiting_on_response() and p == _eyrie_pending_player:
+		return false
+	var b := _find_bird_on_field(p, bird_mid)
+	if b.is_empty():
+		return false
+	if _bird_nest_temple_mid(b) >= 0:
+		return false
+	var t := _find_temple_on_field(p, temple_mid)
+	if t.is_empty():
+		return false
+	var cap := _temple_nest_capacity(t)
+	var nest: Array = t.get("nested_bird_mids", []) as Array
+	return nest.size() < cap
+
+
+func nest_bird(p: int, bird_mid: int, temple_mid: int) -> String:
+	if not can_nest_bird(p, bird_mid, temple_mid):
+		return "illegal"
+	var pl: Dictionary = _players[p]
+	var birds: Array = pl["bird_field"]
+	for i in birds.size():
+		var bd: Dictionary = birds[i]
+		if int(bd.get("mid", -1)) != bird_mid:
+			continue
+		bd["nest_temple_mid"] = temple_mid
+		birds[i] = bd
+		break
+	var tf: Array = _temple_field_safe(p)
+	for j in tf.size():
+		var td: Dictionary = tf[j]
+		if int(td.get("mid", -1)) != temple_mid:
+			continue
+		var nm: Array = (td.get("nested_bird_mids", []) as Array).duplicate()
+		nm.append(bird_mid)
+		td["nested_bird_mids"] = nm
+		td["nested"] = true
+		tf[j] = td
+		break
+	_log("P%d nests a bird (mid %d) in temple (mid %d)." % [p, bird_mid, temple_mid])
 	return "ok"
 
 
@@ -857,6 +1071,8 @@ func can_play_incantation(p: int, hand_idx: int) -> bool:
 		return false
 	if _scion_waiting_on_response() and p == int(_scion_pending.get("player", -1)):
 		return false
+	if _eyrie_waiting_on_response() and p == _eyrie_pending_player:
+		return false
 	var c: Variant = _card_at_hand(p, hand_idx)
 	if c == null or _card_kind(c) != "incantation":
 		return false
@@ -874,6 +1090,8 @@ func can_play_dethrone(p: int, hand_idx: int) -> bool:
 	if _woe_waiting_on_response() and p == _woe_pending_instigator:
 		return false
 	if _scion_waiting_on_response() and p == int(_scion_pending.get("player", -1)):
+		return false
+	if _eyrie_waiting_on_response() and p == _eyrie_pending_player:
 		return false
 	var c: Variant = _card_at_hand(p, hand_idx)
 	if c == null or _card_kind(c) != "dethrone":
@@ -1358,12 +1576,16 @@ func can_activate_temple(p: int, temple_mid: int) -> bool:
 		return false
 	if _scion_waiting_on_response() and p == int(_scion_pending.get("player", -1)):
 		return false
+	if _eyrie_waiting_on_response() and p == _eyrie_pending_player:
+		return false
 	var t := _find_temple_on_field(p, temple_mid)
 	if t.is_empty():
 		return false
 	if int(t.get("used_turn", -1)) == turn_number:
 		return false
 	var tid := str(t.get("temple_id", ""))
+	if tid == TEMPLE_EYRIE:
+		return false
 	if tid == TEMPLE_DELPHA:
 		var pl: Dictionary = _players[p]
 		if _ritual_crypt_cards(pl).is_empty():
@@ -1612,6 +1834,8 @@ func can_activate_noble(p: int, noble_mid: int) -> bool:
 	if _woe_waiting_on_response() and p == _woe_pending_instigator:
 		return false
 	if _scion_waiting_on_response() and p == int(_scion_pending.get("player", -1)):
+		return false
+	if _eyrie_waiting_on_response() and p == _eyrie_pending_player:
 		return false
 	var noble := _find_noble_on_field(p, noble_mid)
 	if noble.is_empty():
@@ -1927,9 +2151,14 @@ func _destroy_birds_by_mids(target: int, mids: Array) -> void:
 	var keep: Array = []
 	for b in pl["bird_field"]:
 		var bd := b as Dictionary
-		if kill.has(int(bd.get("mid", -1))):
+		var bmid := int(bd.get("mid", -1))
+		if kill.has(bmid):
+			var ntm := _bird_nest_temple_mid(bd)
+			if ntm >= 0:
+				_remove_bird_from_temple_nest(target, ntm, bmid)
 			var to_crypt := bd.duplicate(true)
 			to_crypt.erase("damage")
+			to_crypt.erase("nest_temple_mid")
 			pl["crypt"].append(to_crypt)
 		else:
 			var kept := bd.duplicate(true)
@@ -1948,9 +2177,14 @@ func _destroy_birds_with_power_at_most(power: int) -> int:
 		var keep: Array = []
 		for b in pl["bird_field"]:
 			var bd := b as Dictionary
+			var bmid2 := int(bd.get("mid", -1))
 			if int(bd.get("power", 0)) <= power:
+				var ntm2 := _bird_nest_temple_mid(bd)
+				if ntm2 >= 0:
+					_remove_bird_from_temple_nest(p, ntm2, bmid2)
 				var to_crypt := bd.duplicate(true)
 				to_crypt.erase("damage")
+				to_crypt.erase("nest_temple_mid")
 				pl["crypt"].append(to_crypt)
 				total += 1
 			else:
@@ -1970,11 +2204,15 @@ func resolve_bird_fight(p: int, attacker_mids: Array, defender_mid: int, attacke
 		return "illegal"
 	if _scion_waiting_on_response() and p == int(_scion_pending.get("player", -1)):
 		return "illegal"
+	if _eyrie_waiting_on_response() and p == _eyrie_pending_player:
+		return "illegal"
 	if attacker_mids.is_empty():
 		return "illegal"
 	var opp := 1 - p
 	var target := _find_bird_on_field(opp, defender_mid)
 	if target.is_empty():
+		return "illegal_target"
+	if _bird_nest_temple_mid(target) >= 0:
 		return "illegal_target"
 	var selected_att: Dictionary = {}
 	var attack_power := 0
@@ -1984,6 +2222,8 @@ func resolve_bird_fight(p: int, attacker_mids: Array, defender_mid: int, attacke
 			return "illegal"
 		var b := _find_bird_on_field(p, mid)
 		if b.is_empty():
+			return "illegal"
+		if _bird_nest_temple_mid(b) >= 0:
 			return "illegal"
 		selected_att[mid] = true
 		attack_power += int(b.get("power", 0))
@@ -2049,6 +2289,8 @@ func can_discard_for_draw(p: int) -> bool:
 	if _woe_waiting_on_response() and p == _woe_pending_instigator:
 		return false
 	if _scion_waiting_on_response() and p == int(_scion_pending.get("player", -1)):
+		return false
+	if _eyrie_waiting_on_response() and p == _eyrie_pending_player:
 		return false
 	return true
 
@@ -2135,6 +2377,8 @@ func end_turn(p: int, discard_indices: Array) -> String:
 	if _woe_waiting_on_response() and p == _woe_pending_instigator:
 		return "illegal"
 	if _scion_waiting_on_response() and p == int(_scion_pending.get("player", -1)):
+		return "illegal"
+	if _eyrie_waiting_on_response() and p == _eyrie_pending_player:
 		return "illegal"
 	var pl: Dictionary = _players[p]
 	var hand: Array = pl["hand"]

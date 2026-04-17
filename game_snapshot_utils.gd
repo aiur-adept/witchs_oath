@@ -113,6 +113,8 @@ static func temple_cost_for_id(tid: String) -> int:
 	match tid:
 		"ytria_cycles":
 			return 9
+		"eyrie_feathers":
+			return 6
 		"phaedra_illusion", "delpha_oracles", "gotha_illness":
 			return 7
 		_:

@@ -137,6 +137,69 @@ scroll_active = false
 text = "Example shown above:
 Delpha, Temple of Oracles costs 7, so sacrificing 4-Ritual + 2-Ritual + 1-Ritual pays exactly."
 
+[node name="BirdsFightTitle" type="Label" parent="Margin/VBox/Scroll/ContentRoot"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Bird fight"
+
+[node name="BirdsFightText" type="RichTextLabel" parent="Margin/VBox/Scroll/ContentRoot"]
+layout_mode = 2
+bbcode_enabled = false
+fit_content = true
+scroll_active = false
+text = "Once per turn during your main phase, you may start a bird fight if both players have at least one bird on the field that is not nested in a temple.
+Choose any number of your birds as attackers, and exactly one opposing bird as the defender. Each side deals damage equal to its total bird power; you assign damage among your own birds on each side. Any bird whose damage is greater than or equal to its power is destroyed (sent to crypt).
+Nested birds cannot be attackers or defenders.
+
+Example (cards below): Finch attacks the opponent's Sparrow. Each has power 1, so each side deals 1 damage — both are destroyed.
+
+Second example: Kestrel and Shrike (power 2 each) attack Hawk (power 3). Your birds deal 4 damage total, so Hawk is destroyed. Hawk deals 3 damage for you to assign among your attackers — for example 2 to Kestrel and 1 to Shrike — so Kestrel is destroyed and Shrike survives."
+
+[node name="ExampleBirdFightSetupRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ExampleBirdFightOutcomeRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ExampleBirdFight2SetupRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ExampleBirdFight2OutcomeRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="BirdsNestTitle" type="Label" parent="Margin/VBox/Scroll/ContentRoot"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Nesting"
+
+[node name="BirdsNestText" type="RichTextLabel" parent="Margin/VBox/Scroll/ContentRoot"]
+layout_mode = 2
+bbcode_enabled = false
+fit_content = true
+scroll_active = false
+text = "Use Nest on your turn to place one of your birds under one of your temples. A temple can hold up to as many birds as its cost (for example, 7 birds under a cost-7 temple).
+Each bird still counts for match power +1 additional each, while nested. Nested birds cannot join bird fights. On the field, click the small stack tab beside a temple to see which birds are nested there.
+
+Example (cards below): Wren starts on your field, then nests under Delpha — the stack tab shows how many birds are inside, matching the in-game layout."
+
+[node name="ExampleBirdNestBeforeRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ExampleBirdNestAfterRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 10
+
 [node name="WinText" type="RichTextLabel" parent="Margin/VBox/Scroll/ContentRoot"]
 layout_mode = 2
 bbcode_enabled = false

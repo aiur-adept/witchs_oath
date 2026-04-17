@@ -7,12 +7,12 @@ const INCANTATION_VERBS: Array[String] = ["seek", "insight", "burn", "woe", "rev
 const INCANTATION_VALUES: Array[int] = [1, 2, 3, 4]
 const TARGET_RITUAL_COUNT := 19
 const TARGET_NON_RITUAL_COUNT := 21
-const MAX_BIRD_COUNT := 10
 const MIN_DECK_SIZE := 40
 const MAX_DECK_SIZE := 50
 const MAX_RITUAL_COPIES := 9
 const MAX_INCANTATION_COPIES := 4
 const MAX_NOBLE_FIRSTNAME_COPIES := 4
+const MAX_BIRD_COPIES := 4
 const DECK_DIR := "user://decks"
 const DECK_EXT := ".json"
 const DECK_EXPORT_PREFIX := "decks_export_"
@@ -37,6 +37,7 @@ const TEMPLE_DEFS := [
 	{"id": "phaedra_illusion", "name": "Phaedra, Temple of Illusion", "cost": 7},
 	{"id": "delpha_oracles", "name": "Delpha, Temple of Oracles", "cost": 7},
 	{"id": "gotha_illness", "name": "Gotha, Temple of Illness", "cost": 7},
+	{"id": "eyrie_feathers", "name": "Eyrie, Temple of Feathers", "cost": 6},
 	{"id": "ytria_cycles", "name": "Ytria, Temple of Cycles", "cost": 9}
 ]
 const MAX_TEMPLE_COPIES := 3
@@ -660,7 +661,9 @@ func _can_increase_entry(entry: Dictionary) -> bool:
 			return false
 		return int(totals.get("non_ritual", 0)) < TARGET_NON_RITUAL_COUNT
 	if kind == "bird":
-		return int(totals.get("birds", 0)) < MAX_BIRD_COUNT
+		if count >= MAX_BIRD_COPIES:
+			return false
+		return int(totals.get("non_ritual", 0)) < TARGET_NON_RITUAL_COUNT
 	if kind == "incantation" or kind == "dethrone":
 		if count >= MAX_INCANTATION_COPIES:
 			return false
@@ -686,7 +689,10 @@ func _show_cannot_add_status(entry: Dictionary) -> void:
 		else:
 			status_label.text = "Cannot add: non-ritual cap is %d." % TARGET_NON_RITUAL_COUNT
 	elif kind == "bird":
-		status_label.text = "Cannot add: bird cap is %d." % MAX_BIRD_COUNT
+		if int(entry.get("count", 0)) >= MAX_BIRD_COPIES:
+			status_label.text = "Cannot add: max %d copies of that bird." % MAX_BIRD_COPIES
+		else:
+			status_label.text = "Cannot add: non-ritual cap is %d." % TARGET_NON_RITUAL_COUNT
 	else:
 		if int(entry.get("count", 0)) >= MAX_INCANTATION_COPIES:
 			status_label.text = "Cannot add: max %d copies of a given incantation." % MAX_INCANTATION_COPIES
@@ -727,6 +733,15 @@ func _noble_first_name_total(first_name: String) -> int:
 		if _noble_first_name(entry) == first_name:
 			total += int(entry.get("count", 0))
 	return total
+
+
+func _bird_copy_limit_ok() -> bool:
+	for entry in _entries.values():
+		if str(entry.get("kind", "")) != "bird":
+			continue
+		if int(entry.get("count", 0)) > MAX_BIRD_COPIES:
+			return false
+	return true
 
 
 func _noble_copy_limit_ok() -> bool:
@@ -775,27 +790,26 @@ func _totals() -> Dictionary:
 		"temples": temple_total,
 		"birds": bird_total,
 		"dethrones": dethrone_total,
-		"non_ritual": incantation_total + noble_total + temple_total + dethrone_total
+		"non_ritual": incantation_total + noble_total + temple_total + dethrone_total + bird_total
 	}
 
 
 func _update_validation() -> void:
 	var totals := _totals()
-	var total_cards := int(totals["rituals"]) + int(totals["non_ritual"]) + int(totals["birds"])
-	totals_label.text = "Rituals %d/%d   Non-Ritual %d/%d   Birds %d/%d   Total %d (%d-%d)" % [
+	var total_cards := int(totals["rituals"]) + int(totals["non_ritual"])
+	totals_label.text = "Rituals %d/%d   Non-Ritual %d/%d   Total %d (%d-%d)" % [
 		totals["rituals"],
 		TARGET_RITUAL_COUNT,
 		totals["non_ritual"],
 		TARGET_NON_RITUAL_COUNT,
-		totals["birds"],
-		MAX_BIRD_COUNT,
 		total_cards,
 		MIN_DECK_SIZE,
 		MAX_DECK_SIZE
 	]
 	var copies_ok := _incantation_copy_limit_ok()
 	var noble_ok := _noble_copy_limit_ok()
-	var is_valid: bool = totals["rituals"] == TARGET_RITUAL_COUNT and totals["non_ritual"] == TARGET_NON_RITUAL_COUNT and int(totals["birds"]) <= MAX_BIRD_COUNT and total_cards >= MIN_DECK_SIZE and total_cards <= MAX_DECK_SIZE and copies_ok and noble_ok
+	var bird_ok := _bird_copy_limit_ok()
+	var is_valid: bool = totals["rituals"] == TARGET_RITUAL_COUNT and totals["non_ritual"] == TARGET_NON_RITUAL_COUNT and total_cards >= MIN_DECK_SIZE and total_cards <= MAX_DECK_SIZE and copies_ok and noble_ok and bird_ok
 	var ro := _deck_readonly()
 	if ro:
 		is_valid = true
@@ -812,8 +826,11 @@ func _update_validation() -> void:
 	elif not noble_ok:
 		status_label.text = "Adjust counts: max %d nobles of the same first name." % MAX_NOBLE_FIRSTNAME_COPIES
 		status_label.modulate = Color(1, 0.95, 0.6)
+	elif not bird_ok:
+		status_label.text = "Adjust counts: max %d copies of each bird." % MAX_BIRD_COPIES
+		status_label.modulate = Color(1, 0.95, 0.6)
 	else:
-		status_label.text = "Adjust counts to a legal 40-50 card deck (birds max 10)."
+		status_label.text = "Adjust counts to a legal 40 card deck."
 		status_label.modulate = Color(1, 0.95, 0.6)
 
 
@@ -900,7 +917,7 @@ func _build_deck_payload() -> Dictionary:
 			"ritual_target": TARGET_RITUAL_COUNT,
 			"non_ritual_target": TARGET_NON_RITUAL_COUNT,
 			"max_ritual_copies": MAX_RITUAL_COPIES,
-			"max_birds": MAX_BIRD_COUNT
+			"max_bird_copies": MAX_BIRD_COPIES
 		}
 	}
 
@@ -999,9 +1016,13 @@ func _on_save_button_pressed() -> void:
 		status_label.text = "Deck is invalid. You may only have %d copies of each incantation variant." % MAX_INCANTATION_COPIES
 		status_label.modulate = Color(1, 0.55, 0.55)
 		return
-	var total_cards := int(totals["rituals"]) + int(totals["non_ritual"]) + int(totals["birds"])
-	if totals["rituals"] != TARGET_RITUAL_COUNT or totals["non_ritual"] != TARGET_NON_RITUAL_COUNT or int(totals["birds"]) > MAX_BIRD_COUNT or total_cards < MIN_DECK_SIZE or total_cards > MAX_DECK_SIZE:
-		status_label.text = "Deck is invalid. Rituals=%d, non-ritual=%d, birds<=%d, total 40-50." % [TARGET_RITUAL_COUNT, TARGET_NON_RITUAL_COUNT, MAX_BIRD_COUNT]
+	if not _bird_copy_limit_ok():
+		status_label.text = "Deck is invalid. You may only have %d copies of each bird." % MAX_BIRD_COPIES
+		status_label.modulate = Color(1, 0.55, 0.55)
+		return
+	var total_cards := int(totals["rituals"]) + int(totals["non_ritual"])
+	if totals["rituals"] != TARGET_RITUAL_COUNT or totals["non_ritual"] != TARGET_NON_RITUAL_COUNT or total_cards < MIN_DECK_SIZE or total_cards > MAX_DECK_SIZE:
+		status_label.text = "Deck is invalid. Rituals=%d, non-ritual=%d, total 40." % [TARGET_RITUAL_COUNT, TARGET_NON_RITUAL_COUNT]
 		status_label.modulate = Color(1, 0.55, 0.55)
 		return
 	var path := _current_deck_path()

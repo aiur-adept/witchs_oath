@@ -17,6 +17,8 @@ const INC_PICK_DETHRONE := 3
 const INC_PICK_SMRSK := 9
 const INC_PICK_BIRD_ATTACK := 11
 const INC_PICK_BIRD_TARGET := 12
+const INC_PICK_NEST_BIRD := 13
+const INC_PICK_NEST_TEMPLE := 14
 
 var game: Control
 
@@ -85,10 +87,56 @@ func rebuild_bird_field(row: HBoxContainer, birds: Variant, ours: bool) -> void:
 		c.queue_free()
 	if typeof(birds) != TYPE_ARRAY:
 		return
+	var order: Array = []
+	var groups: Dictionary = {}
 	for bird in birds as Array:
 		if typeof(bird) != TYPE_DICTIONARY:
 			continue
-		row.add_child(make_bird_card(bird as Dictionary, ours))
+		var bd: Dictionary = bird as Dictionary
+		if int(bd.get("nest_temple_mid", -1)) >= 0:
+			continue
+		var key := str(bd.get("name", "Bird"))
+		if not groups.has(key):
+			groups[key] = []
+			order.append(key)
+		(groups[key] as Array).append(bd)
+	for key in order:
+		var grp: Array = groups[key] as Array
+		row.add_child(make_bird_stack(grp, ours))
+	if row.get_child_count() == 0:
+		var empty_b := Label.new()
+		empty_b.text = "—"
+		empty_b.modulate = Color(0.45, 0.45, 0.5)
+		row.add_child(empty_b)
+
+
+func make_bird_stack(birds: Array, ours: bool) -> Control:
+	var shift := 12.0 * CARD_SCALE
+	var w := FIELD_CARD_W
+	var h := FIELD_CARD_H
+	var count := birds.size()
+	var stack := Control.new()
+	stack.custom_minimum_size = Vector2(w + shift * maxi(0, count - 1), h)
+	for i in count:
+		var bd: Dictionary = birds[i] as Dictionary
+		var card := make_bird_card(bd, ours)
+		card.position = Vector2(shift * i, 0)
+		card.z_index = i
+		stack.add_child(card)
+	if count > 1:
+		var badge := Label.new()
+		badge.text = "x%d" % count
+		badge.position = Vector2(shift * (count - 1) + w - 52, 2)
+		badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		badge.custom_minimum_size = Vector2(44, 22)
+		badge.add_theme_font_override("font", CARD_TEXT_FONT)
+		badge.add_theme_font_size_override("font_size", maxi(12, FIELD_CARD_FONT_SIZE - 6))
+		badge.add_theme_color_override("font_color", Color(0.05, 0.05, 0.05))
+		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		badge.z_index = count + 1
+		stack.add_child(badge)
+	return stack
 
 
 func make_ritual_stack(cards: Array, ours: bool, pick_mode: int) -> Control:
@@ -258,20 +306,25 @@ func make_bird_card(bird: Dictionary, ours: bool) -> Control:
 	sb.bg_color = Color(1.0, 1.0, 1.0)
 	sb.border_color = Color(0.05, 0.05, 0.05)
 	var mid := int(bird.get("mid", -1))
-	var is_attack_pick: bool = ours and game._sacrifice_selecting and game._inc_pick_phase == INC_PICK_BIRD_ATTACK
-	var is_target_pick: bool = (not ours) and game._sacrifice_selecting and game._inc_pick_phase == INC_PICK_BIRD_TARGET
-	var can_start_fight: bool = false
-	if ours and not game._sacrifice_selecting:
+	var nest_tm := int(bird.get("nest_temple_mid", -1))
+	var is_attack_pick: bool = ours and game._sacrifice_selecting and game._inc_pick_phase == INC_PICK_BIRD_ATTACK and nest_tm < 0
+	var is_target_pick: bool = (not ours) and game._sacrifice_selecting and game._inc_pick_phase == INC_PICK_BIRD_TARGET and nest_tm < 0
+	var is_nest_picker: bool = ours and game._sacrifice_selecting and game._inc_pick_phase == INC_PICK_NEST_TEMPLE and int(game._nest_pick_bird_mid) == mid
+	var can_start_nest: bool = false
+	if ours and not game._sacrifice_selecting and nest_tm < 0:
 		var snap: Dictionary = game._last_snap
 		var mine := int(snap.get("current", -1)) == int(snap.get("you", -2))
-		var opp_birds: Array = snap.get("opp_birds", []) as Array
-		can_start_fight = mine and game._temple_field_input_ok() and not bool(snap.get("your_bird_fight_used", false)) and not opp_birds.is_empty()
+		can_start_nest = mine and game._temple_field_input_ok() and game._has_nest_action_available(snap)
 	if is_attack_pick and game._bird_attack_selected.has(mid):
 		sb.set_border_width_all(3)
 		sb.border_color = Color(0.05, 0.05, 0.05)
 	if is_target_pick and game._bird_defender_mid == mid:
 		sb.set_border_width_all(3)
 		sb.border_color = Color(1.0, 0.58, 0.58)
+	if is_nest_picker:
+		sb.set_border_width_all(4)
+		sb.border_color = Color(0.45, 0.92, 0.82)
+		btn.z_index = 60
 	btn.add_theme_stylebox_override("normal", sb)
 	var hover := stylebox_field_hover_glow(sb)
 	btn.add_theme_stylebox_override("hover", hover)
@@ -280,8 +333,13 @@ func make_bird_card(bird: Dictionary, ours: bool) -> Control:
 	btn.add_theme_stylebox_override("focus", sb)
 	var sb_dis := sb.duplicate()
 	btn.add_theme_stylebox_override("disabled", sb_dis)
-	btn.add_theme_color_override("font_color", Color(0.05, 0.05, 0.05))
-	btn.add_theme_color_override("font_disabled_color", Color(0.05, 0.05, 0.05))
+	var bird_fg := Color(0.05, 0.05, 0.05)
+	btn.add_theme_color_override("font_color", bird_fg)
+	btn.add_theme_color_override("font_disabled_color", bird_fg)
+	btn.add_theme_color_override("font_hover_color", bird_fg)
+	btn.add_theme_color_override("font_pressed_color", bird_fg)
+	btn.add_theme_color_override("font_hover_pressed_color", bird_fg)
+	btn.add_theme_color_override("font_focus_color", bird_fg)
 	if is_attack_pick:
 		btn.pressed.connect(func() -> void:
 			game._on_bird_attacker_clicked(mid)
@@ -290,9 +348,9 @@ func make_bird_card(bird: Dictionary, ours: bool) -> Control:
 		btn.pressed.connect(func() -> void:
 			game._on_bird_target_clicked(mid)
 		)
-	elif can_start_fight:
+	elif can_start_nest:
 		btn.pressed.connect(func() -> void:
-			game._start_bird_fight_from_mid(mid)
+			game._start_nest_from_bird(mid)
 		)
 	else:
 		btn.disabled = true
@@ -304,6 +362,11 @@ func make_bird_card(bird: Dictionary, ours: bool) -> Control:
 	btn.mouse_exited.connect(func() -> void:
 		game._hide_card_hover_preview()
 	)
+	var power_count := int(bird.get("power", 0))
+	if power_count > 0:
+		var power_icon: TextureRect = game._make_corner_pip_icon(power_count, true, Color(0.82, 0.1, 0.1, 0.98))
+		power_icon.position = Vector2(FIELD_CARD_W - power_icon.custom_minimum_size.x - 4, 4)
+		btn.add_child(power_icon)
 	return btn
 
 
@@ -324,6 +387,33 @@ func rebuild_temple_field(row: HBoxContainer, temples: Variant, ours: bool) -> v
 
 
 func make_temple_card(temple: Dictionary, ours: bool) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 3)
+	var mid := int(temple.get("mid", -1))
+	var nest_mids: Array = temple.get("nested_bird_mids", []) as Array
+	var nest_n := nest_mids.size()
+	if nest_n > 0:
+		var nest_tab := Button.new()
+		nest_tab.text = str(nest_n)
+		nest_tab.custom_minimum_size = Vector2(24, FIELD_CARD_H)
+		nest_tab.add_theme_font_override("font", CARD_TEXT_FONT)
+		nest_tab.add_theme_font_size_override("font_size", maxi(12, FIELD_CARD_FONT_SIZE - 4))
+		var nsb := StyleBoxFlat.new()
+		nsb.set_corner_radius_all(3)
+		nsb.set_border_width_all(2)
+		nsb.bg_color = Color(0.1, 0.14, 0.18)
+		nsb.border_color = Color(1.0, 1.0, 1.0)
+		nest_tab.add_theme_stylebox_override("normal", nsb)
+		nest_tab.add_theme_stylebox_override("hover", stylebox_field_hover_glow(nsb))
+		nest_tab.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
+		nest_tab.add_theme_color_override("font_hover_color", Color(1.0, 1.0, 1.0))
+		nest_tab.add_theme_color_override("font_pressed_color", Color(1.0, 1.0, 1.0))
+		var mid_cap := mid
+		var ours_cap := ours
+		nest_tab.pressed.connect(func() -> void:
+			game.show_temple_nest_modal(mid_cap, not ours_cap)
+		)
+		row.add_child(nest_tab)
 	var btn := Button.new()
 	btn.custom_minimum_size = Vector2(FIELD_CARD_W, FIELD_CARD_H)
 	var shown: String = game._short_noble_name(str(temple.get("name", "Temple")))
@@ -343,12 +433,17 @@ func make_temple_card(temple: Dictionary, ours: bool) -> Control:
 	sb.set_border_width_all(2)
 	sb.bg_color = temple_bg_used if exhausted else temple_bg
 	sb.border_color = temple_border_used if exhausted else temple_border
+	var snap: Dictionary = game._last_snap
+	var is_nest_temple_pick: bool = ours and game._sacrifice_selecting and game._inc_pick_phase == INC_PICK_NEST_TEMPLE
+	var has_nest_room: bool = game._temple_has_nest_room(snap, temple)
+	if is_nest_temple_pick and has_nest_room:
+		sb.set_border_width_all(3)
+		sb.border_color = Color(0.45, 0.92, 0.82)
 	btn.add_theme_stylebox_override("normal", sb)
 	btn.add_theme_color_override("font_color", temple_fg_used if exhausted else temple_fg)
 	var sb_dis := sb.duplicate()
 	btn.add_theme_stylebox_override("disabled", sb_dis)
 	btn.add_theme_color_override("font_disabled_color", temple_fg_used if exhausted else temple_fg)
-	var mid := int(temple.get("mid", -1))
 	var tid := str(temple.get("temple_id", ""))
 	var can_activate: bool = ours and not exhausted and game._temple_field_input_ok()
 	if tid == "delpha_oracles":
@@ -358,7 +453,18 @@ func make_temple_card(temple: Dictionary, ours: bool) -> Control:
 	if tid == "ytria_cycles":
 		var hand_n := (game._last_snap.get("your_hand", []) as Array).size()
 		can_activate = can_activate and hand_n > 0
-	if can_activate:
+	if tid == "eyrie_feathers":
+		can_activate = false
+	if is_nest_temple_pick:
+		if has_nest_room:
+			btn.set_meta("nest_valid_temple", true)
+			row.z_index = 60
+			btn.pressed.connect(func() -> void:
+				game._on_nest_temple_chosen(mid)
+			)
+		else:
+			btn.disabled = true
+	elif can_activate:
 		btn.pressed.connect(func() -> void:
 			game._on_temple_activate_pressed(mid)
 		)
@@ -377,4 +483,5 @@ func make_temple_card(temple: Dictionary, ours: bool) -> Control:
 	btn.mouse_exited.connect(func() -> void:
 		game._hide_card_hover_preview()
 	)
-	return btn
+	row.add_child(btn)
+	return row

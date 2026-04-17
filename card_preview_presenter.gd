@@ -202,7 +202,7 @@ static func card_rules_text(card: Dictionary) -> String:
 	if t == "noble":
 		return _noble_preview_text(str(card.get("noble_id", "")))
 	if t == "bird":
-		return "Birds add +X to your match power where X is the bird's power."
+		return "Each bird adds +1 to match power. Nest: place a bird under your temple (at most temple-cost birds per temple); nested birds add an additional +1 match power but cannot join bird fights."
 	if t == "temple":
 		return _temple_preview_text(str(card.get("temple_id", "")))
 	if t == "dethrone":
@@ -249,6 +249,8 @@ static func _temple_preview_text(temple_id: String) -> String:
 			return "Skip your draw step. Activate (once per turn): discard a non-temple card, then draw cards equal to its power/cost."
 		"ytria_cycles":
 			return "Activate (once per turn): discard your hand, then draw that many cards."
+		"eyrie_feathers":
+			return "When this Temple enters, search your deck for up to 2 bird cards and put them onto your field, then shuffle your deck."
 		_:
 			return "Temple — sacrifice 7 to play from hand."
 
@@ -257,6 +259,8 @@ static func _temple_cost_for_id(temple_id: String) -> int:
 	match temple_id:
 		"ytria_cycles":
 			return 9
+		"eyrie_feathers":
+			return 6
 		"phaedra_illusion", "delpha_oracles", "gotha_illness":
 			return 7
 		_:

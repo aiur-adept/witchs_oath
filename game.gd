@@ -92,7 +92,12 @@ const INC_PICK_SMRSK := 9
 const INC_PICK_RMRSK := 10
 const INC_PICK_BIRD_ATTACK := 11
 const INC_PICK_BIRD_TARGET := 12
+const INC_PICK_NEST_BIRD := 13
+const INC_PICK_NEST_TEMPLE := 14
 var _sacrifice_selecting: bool = false
+var _nest_pick_bird_mid: int = -1
+var _crypt_nest_temple_mid: int = -1
+var _nest_modal_field_is_opponent: bool = false
 var _inc_pick_phase: int = INC_PICK_NONE
 var _pending_inc_hand_idx: int = -1
 var _pending_inc_n: int = 0
@@ -169,6 +174,13 @@ var _sacrifice_for_temple: bool = false
 var _insight_temple_mid: int = -1
 var _gotha_picking: bool = false
 var _gotha_temple_mid: int = -1
+
+var _eyrie_overlay: Control
+var _eyrie_label: Label
+var _eyrie_candidate_row: VBoxContainer
+var _eyrie_confirm_button: Button
+var _eyrie_picked: Array[int] = []
+var _eyrie_candidate_buttons: Array[Button] = []
 
 var _hover_preview: Dictionary = {}
 var _game_end_overlay: Control
@@ -279,6 +291,7 @@ func _ready() -> void:
 	_build_crypt_ui()
 	_build_bird_assign_overlay()
 	_build_delpha_overlay()
+	_build_eyrie_overlay()
 	end_turn_button.pressed.connect(_on_end_turn_pressed)
 	bird_fight_button.visible = false
 	discard_draw_button.pressed.connect(_on_discard_draw_pressed)
@@ -297,6 +310,8 @@ func _ready() -> void:
 	_apply_ui_button_padding(end_turn_button)
 	_apply_ui_button_padding(bird_fight_button)
 	_apply_ui_button_padding(discard_draw_button)
+	bird_fight_button.pressed.connect(_on_bird_fight_pressed)
+	_build_nest_dim_overlay()
 	_apply_ui_button_padding(concede_button)
 	_apply_ui_button_padding(exit_match_button)
 	_apply_ui_button_padding(crypt_button)
@@ -616,6 +631,151 @@ func _on_delpha_cancel_pressed() -> void:
 	_delpha_x = 0
 	end_turn_button.disabled = false
 	discard_draw_button.disabled = false
+
+
+func _build_eyrie_overlay() -> void:
+	_eyrie_overlay = Control.new()
+	_eyrie_overlay.name = "EyrieOverlay"
+	_eyrie_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_eyrie_overlay.visible = false
+	_eyrie_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	_eyrie_overlay.z_index = 97
+	add_child(_eyrie_overlay)
+	var back := ColorRect.new()
+	back.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	back.color = Color(0, 0, 0, 0.55)
+	_eyrie_overlay.add_child(back)
+	var cc := CenterContainer.new()
+	cc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_eyrie_overlay.add_child(cc)
+	var panel := PanelContainer.new()
+	cc.add_child(panel)
+	var pad := MarginContainer.new()
+	pad.add_theme_constant_override("margin_left", 16)
+	pad.add_theme_constant_override("margin_right", 16)
+	pad.add_theme_constant_override("margin_top", 14)
+	pad.add_theme_constant_override("margin_bottom", 14)
+	panel.add_child(pad)
+	var inner := VBoxContainer.new()
+	inner.add_theme_constant_override("separation", 10)
+	pad.add_child(inner)
+	_eyrie_label = Label.new()
+	_eyrie_label.text = "Eyrie — choose up to 2 birds from your deck."
+	_eyrie_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	inner.add_child(_eyrie_label)
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(360, 260)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	inner.add_child(scroll)
+	_eyrie_candidate_row = VBoxContainer.new()
+	_eyrie_candidate_row.add_theme_constant_override("separation", 6)
+	_eyrie_candidate_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_eyrie_candidate_row)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_END
+	row.add_theme_constant_override("separation", 8)
+	inner.add_child(row)
+	_eyrie_confirm_button = Button.new()
+	_eyrie_confirm_button.text = "Confirm"
+	_apply_ui_button_padding(_eyrie_confirm_button)
+	_eyrie_confirm_button.pressed.connect(_on_eyrie_confirm_pressed)
+	row.add_child(_eyrie_confirm_button)
+
+
+func _show_eyrie_overlay_from_snap(snap: Dictionary) -> void:
+	if _eyrie_overlay == null:
+		return
+	if not bool(snap.get("eyrie_pending_you_respond", false)):
+		_hide_eyrie_overlay()
+		return
+	var candidates: Array = snap.get("eyrie_bird_candidates", []) as Array
+	var max_pick := int(snap.get("eyrie_pending_remaining", 0))
+	if max_pick <= 0 or candidates.is_empty():
+		_hide_eyrie_overlay()
+		return
+	var valid_set: Dictionary = {}
+	for cand in candidates:
+		valid_set[int((cand as Dictionary).get("deck_idx", -1))] = true
+	var kept: Array[int] = []
+	for pi in _eyrie_picked:
+		if valid_set.has(pi):
+			kept.append(pi)
+	_eyrie_picked = kept
+	_eyrie_candidate_buttons.clear()
+	for c in _eyrie_candidate_row.get_children():
+		c.queue_free()
+	for it in candidates:
+		var cd: Dictionary = it as Dictionary
+		var di := int(cd.get("deck_idx", -1))
+		var nm := str(cd.get("name", "Bird"))
+		var cost := int(cd.get("cost", 0))
+		var power := int(cd.get("power", 0))
+		var b := Button.new()
+		b.toggle_mode = true
+		b.text = "%s (cost %d, power %d)" % [nm, cost, power]
+		b.button_pressed = _eyrie_picked.has(di)
+		_apply_ui_button_padding(b)
+		b.toggled.connect(_on_eyrie_candidate_toggled.bind(di))
+		_eyrie_candidate_row.add_child(b)
+		_eyrie_candidate_buttons.append(b)
+	_eyrie_label.text = "Eyrie — choose up to %d bird(s) from your deck, then confirm." % max_pick
+	_refresh_eyrie_controls(max_pick)
+	_eyrie_overlay.visible = true
+
+
+func _on_eyrie_candidate_toggled(pressed: bool, deck_idx: int) -> void:
+	var max_pick := int(_last_snap.get("eyrie_pending_remaining", 0))
+	if pressed:
+		if _eyrie_picked.has(deck_idx):
+			return
+		if _eyrie_picked.size() >= max_pick:
+			for b in _eyrie_candidate_buttons:
+				if b.button_pressed and not _eyrie_picked.has(_eyrie_button_deck_idx(b)):
+					b.button_pressed = false
+			return
+		_eyrie_picked.append(deck_idx)
+	else:
+		_eyrie_picked.erase(deck_idx)
+	_refresh_eyrie_controls(max_pick)
+
+
+func _eyrie_button_deck_idx(b: Button) -> int:
+	var cands: Array = _last_snap.get("eyrie_bird_candidates", []) as Array
+	var idx := _eyrie_candidate_buttons.find(b)
+	if idx < 0 or idx >= cands.size():
+		return -1
+	return int((cands[idx] as Dictionary).get("deck_idx", -1))
+
+
+func _refresh_eyrie_controls(max_pick: int) -> void:
+	var at_cap := _eyrie_picked.size() >= max_pick
+	for b in _eyrie_candidate_buttons:
+		var di := _eyrie_button_deck_idx(b)
+		var picked := _eyrie_picked.has(di)
+		b.button_pressed = picked
+		b.disabled = at_cap and not picked
+	_eyrie_confirm_button.text = "Confirm (%d/%d)" % [_eyrie_picked.size(), max_pick]
+
+
+func _on_eyrie_confirm_pressed() -> void:
+	var picks: Array = []
+	for i in _eyrie_picked:
+		picks.append(int(i))
+	_hide_eyrie_overlay()
+	if _is_network_client():
+		submit_temple_eyrie.rpc_id(1, picks)
+		return
+	if _match != null:
+		if _match.apply_eyrie_submit(_my_player_for_action(), picks) != "ok":
+			status_label.text = "Could not resolve Eyrie."
+		_broadcast_sync(true)
+
+
+func _hide_eyrie_overlay() -> void:
+	if _eyrie_overlay != null:
+		_eyrie_overlay.visible = false
+	_eyrie_picked.clear()
+	_eyrie_candidate_buttons.clear()
 
 
 func _clear_burn_woe_overlay() -> void:
@@ -1060,7 +1220,8 @@ func _should_abort_sacrifice_for_snap(snap: Dictionary) -> bool:
 	if int(snap.get("current", -1)) != you:
 		return true
 	if _pending_inc_hand_idx < 0:
-		return true
+		if _inc_pick_phase != INC_PICK_BIRD_ATTACK and _inc_pick_phase != INC_PICK_BIRD_TARGET and _inc_pick_phase != INC_PICK_NEST_BIRD and _inc_pick_phase != INC_PICK_NEST_TEMPLE:
+			return true
 	var h: Array = snap.get("your_hand", []) as Array
 	return _pending_inc_hand_idx >= h.size()
 
@@ -1082,6 +1243,37 @@ func _prune_sacrifice_picks_for_snap(snap: Dictionary) -> void:
 			_wrath_selected_mids.erase(k2)
 
 
+func _bird_unnested_on_field(b: Dictionary) -> bool:
+	return int(b.get("nest_temple_mid", -1)) < 0
+
+
+func _has_fightable_birds(arr: Array) -> bool:
+	for b in arr:
+		if _bird_unnested_on_field(b as Dictionary):
+			return true
+	return false
+
+
+func _has_nest_action_available(snap: Dictionary) -> bool:
+	var ys: Array = snap.get("your_birds", []) as Array
+	var has_free := false
+	for b in ys:
+		if _bird_unnested_on_field(b as Dictionary):
+			has_free = true
+			break
+	if not has_free:
+		return false
+	for t in snap.get("your_temples", []) as Array:
+		var td := t as Dictionary
+		var cap := int(td.get("cost", 0))
+		if cap <= 0:
+			cap = _GameSnapshotUtils.temple_cost_for_id(str(td.get("temple_id", "")))
+		var nested_sz: Array = td.get("nested_bird_mids", []) as Array
+		if nested_sz.size() < cap:
+			return true
+	return false
+
+
 func _apply_snap(snap: Dictionary) -> void:
 	_last_snap = snap
 	if snap.is_empty():
@@ -1100,6 +1292,10 @@ func _apply_snap(snap: Dictionary) -> void:
 		if int(snap.get("current", -1)) != int(snap.get("you", 0)) or int(snap.get("phase", -1)) == int(ArcanaMatchState.Phase.GAME_OVER):
 			_gotha_picking = false
 			_gotha_temple_mid = -1
+	if bool(snap.get("eyrie_pending_you_respond", false)):
+		_show_eyrie_overlay_from_snap(snap)
+	else:
+		_hide_eyrie_overlay()
 	var yp: int = int(snap.get("your_power", 0))
 	var op: int = int(snap.get("opp_power", 0))
 	var your_hand: Array = snap.get("your_hand", []) as Array
@@ -1133,6 +1329,7 @@ func _apply_snap(snap: Dictionary) -> void:
 		_show_mulligan_ui(snap)
 		end_turn_button.disabled = true
 		bird_fight_button.disabled = true
+		bird_fight_button.visible = false
 		discard_draw_button.disabled = true
 		_rebuild_hand(snap.get("your_hand", []))
 		_hide_end_discard_modal()
@@ -1142,11 +1339,17 @@ func _apply_snap(snap: Dictionary) -> void:
 	var mine := cur == you
 	var scion_waiting := bool(snap.get("scion_pending_waiting", false))
 	var scion_respond := bool(snap.get("scion_pending_you_respond", false))
-	var ui_block := _sacrifice_selecting or _insight_open or _woe_self_picking or bool(snap.get("woe_pending_waiting", false)) or scion_waiting or scion_respond
+	var eyrie_respond := bool(snap.get("eyrie_pending_you_respond", false))
+	var eyrie_waiting := bool(snap.get("eyrie_pending_waiting", false))
+	var ui_block := _sacrifice_selecting or _insight_open or _woe_self_picking or bool(snap.get("woe_pending_waiting", false)) or scion_waiting or scion_respond or eyrie_respond or eyrie_waiting
 	if _delpha_overlay != null and _delpha_overlay.visible:
 		ui_block = true
 	if _gotha_picking:
 		ui_block = true
+	if eyrie_respond:
+		status_label.text = "Eyrie — choose up to %d bird(s) from your deck." % int(snap.get("eyrie_pending_remaining", 0))
+	if eyrie_waiting:
+		status_label.text = "Waiting for opponent to resolve Eyrie…"
 	if _burn_woe_overlay != null and _burn_woe_overlay.visible:
 		ui_block = true
 	if _revive_overlay != null and _revive_overlay.visible:
@@ -1165,8 +1368,14 @@ func _apply_snap(snap: Dictionary) -> void:
 		_show_scion_prompt_ui(snap)
 	else:
 		_last_scion_prompt_id = -1
+	if bool(snap.get("goldfish", false)):
+		bird_fight_button.visible = false
+	else:
+		bird_fight_button.visible = true
 	end_turn_button.disabled = not mine or ui_block
-	bird_fight_button.disabled = not mine or ui_block or bool(snap.get("your_bird_fight_used", false))
+	var your_fightable := _has_fightable_birds(snap.get("your_birds", []) as Array)
+	var opp_fightable := _has_fightable_birds(snap.get("opp_birds", []) as Array)
+	bird_fight_button.disabled = not mine or ui_block or bool(snap.get("your_bird_fight_used", false)) or not your_fightable or not opp_fightable
 	discard_draw_button.disabled = not mine or bool(snap.get("discard_draw_used", true)) or ui_block
 	_rebuild_hand(snap.get("your_hand", []))
 	if bool(snap.get("woe_pending_you_respond", false)):
@@ -1194,7 +1403,7 @@ func _end_game_ui(snap: Dictionary) -> void:
 			msg = "Your deck is empty."
 		elif w == you:
 			title = "Victory"
-			msg = "You reached 20 ritual power."
+			msg = "You reached 20 match power."
 		elif w >= 0:
 			title = "Defeat"
 			msg = "You conceded."
@@ -1629,6 +1838,52 @@ func _hide_crypt_hover_popup() -> void:
 func _rebuild_crypt_modal() -> void:
 	for c in _crypt_modal_list.get_children():
 		c.queue_free()
+	if _crypt_focus_zone == "nest":
+		var temples: Array = (_last_snap.get("opp_temples" if _nest_modal_field_is_opponent else "your_temples", [])) as Array
+		var temple: Dictionary = {}
+		for tx in temples:
+			var tdx := tx as Dictionary
+			if int(tdx.get("mid", -1)) == _crypt_nest_temple_mid:
+				temple = tdx
+				break
+		if temple.is_empty():
+			var miss := Label.new()
+			miss.text = "Temple not found."
+			_crypt_modal_list.add_child(miss)
+			return
+		var tshort := _short_noble_name(str(temple.get("name", "Temple")))
+		_crypt_modal_title.text = ("Opponent — %s" % tshort) if _nest_modal_field_is_opponent else ("Your — %s" % tshort)
+		_crypt_modal_hint.text = "Nested birds (hover to preview)."
+		var mids: Array = temple.get("nested_bird_mids", []) as Array
+		var birds: Array = (_last_snap.get("opp_birds" if _nest_modal_field_is_opponent else "your_birds", [])) as Array
+		var by_mid: Dictionary = {}
+		for b in birds:
+			var bd := b as Dictionary
+			by_mid[int(bd.get("mid", -1))] = bd
+		if mids.is_empty():
+			var empty_n := Label.new()
+			empty_n.text = "No nested birds."
+			_crypt_modal_list.add_child(empty_n)
+			return
+		for m in mids:
+			var card: Dictionary = by_mid.get(int(m), {}) as Dictionary
+			if card.is_empty():
+				continue
+			var pv: Dictionary = card.duplicate(true)
+			pv["type"] = "bird"
+			var row_btn_n := Button.new()
+			row_btn_n.text = _card_label(pv)
+			row_btn_n.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			_apply_ui_button_padding(row_btn_n)
+			var cap_pv: Dictionary = pv.duplicate(true)
+			row_btn_n.mouse_entered.connect(func() -> void:
+				_show_card_hover_preview(cap_pv)
+			)
+			row_btn_n.mouse_exited.connect(func() -> void:
+				_hide_card_hover_preview()
+			)
+			_crypt_modal_list.add_child(row_btn_n)
+		return
 	var pile_name := "abyss" if _crypt_focus_zone == "abyss" else "crypt"
 	_crypt_modal_title.text = ("Opponent %s" % pile_name) if _crypt_focus_opponent else ("Your %s" % pile_name)
 	_crypt_modal_hint.text = ("Known cards in opponent %s." % pile_name)
@@ -1667,6 +1922,24 @@ func _show_crypt_modal() -> void:
 func _hide_crypt_modal() -> void:
 	_crypt_modal_overlay.visible = false
 	_hide_card_hover_preview()
+	_crypt_nest_temple_mid = -1
+
+
+func show_temple_nest_modal(temple_mid: int, field_is_opponent: bool) -> void:
+	_hide_crypt_hover_popup()
+	_crypt_focus_zone = "nest"
+	_crypt_nest_temple_mid = temple_mid
+	_nest_modal_field_is_opponent = field_is_opponent
+	_rebuild_crypt_modal()
+	_crypt_modal_overlay.visible = true
+	_crypt_modal_close_button.grab_focus()
+
+
+func _temple_has_nest_room(_snap: Dictionary, temple: Dictionary) -> bool:
+	var cap := int(temple.get("cost", 0))
+	if cap <= 0:
+		cap = _GameSnapshotUtils.temple_cost_for_id(str(temple.get("temple_id", "")))
+	return (temple.get("nested_bird_mids", []) as Array).size() < cap
 
 
 func _on_crypt_button_mouse_entered() -> void:
@@ -1873,9 +2146,12 @@ func _clear_sacrifice_mode() -> void:
 	_smrsk_selected_mid = -1
 	_bird_attack_selected.clear()
 	_bird_defender_mid = -1
+	_nest_pick_bird_mid = -1
+	_hide_nest_dim_overlay()
 	if _bird_assign_overlay != null:
 		_bird_assign_overlay.visible = false
 	sacrifice_row.visible = false
+	sacrifice_confirm_button.visible = true
 	sacrifice_confirm_button.text = "Confirm sacrifice"
 	sacrifice_cancel_button.text = "Cancel"
 	sacrifice_confirm_button.disabled = true
@@ -1902,6 +2178,8 @@ func _update_inc_modal_ui() -> void:
 		sacrifice_confirm_button.disabled = _bird_attack_selected.is_empty()
 	elif _inc_pick_phase == INC_PICK_BIRD_TARGET:
 		sacrifice_confirm_button.disabled = _bird_defender_mid < 0
+	elif _inc_pick_phase == INC_PICK_NEST_BIRD or _inc_pick_phase == INC_PICK_NEST_TEMPLE:
+		sacrifice_confirm_button.disabled = true
 
 
 func _show_scion_prompt_ui(snap: Dictionary) -> void:
@@ -2326,6 +2604,52 @@ func _on_bird_fight_pressed() -> void:
 	_start_bird_fight_from_mid(-1)
 
 
+func _start_nest_from_bird(bird_mid: int) -> void:
+	if _match == null and not _is_network_client():
+		return
+	if _is_network_client() and _last_snap.is_empty():
+		return
+	var snap: Dictionary = _last_snap
+	if int(snap.get("current", -1)) != int(snap.get("you", -2)):
+		return
+	if bird_mid < 0:
+		return
+	if not _has_nest_action_available(snap):
+		status_label.text = "Nest: no temple with capacity."
+		return
+	_sacrifice_selecting = true
+	_inc_pick_phase = INC_PICK_NEST_TEMPLE
+	_nest_pick_bird_mid = bird_mid
+	sacrifice_row.visible = false
+	_show_nest_dim_overlay()
+	status_label.text = "Nest: click a temple with capacity, or anywhere else to cancel."
+	_rebuild_field_strips_from_snap(_last_snap)
+
+
+func _on_nest_temple_chosen(temple_mid: int) -> void:
+	if not _sacrifice_selecting or _inc_pick_phase != INC_PICK_NEST_TEMPLE:
+		return
+	if _nest_pick_bird_mid < 0:
+		return
+	if _is_network_client():
+		submit_nest_bird.rpc_id(1, _nest_pick_bird_mid, temple_mid)
+		_clear_sacrifice_mode()
+		return
+	if not _try_nest_bird(_my_player_for_action(), _nest_pick_bird_mid, temple_mid):
+		return
+	_clear_sacrifice_mode()
+	_broadcast_sync(true)
+
+
+func _try_nest_bird(player: int, bird_mid: int, temple_mid: int) -> bool:
+	if _match == null:
+		return false
+	if _match.nest_bird(player, bird_mid, temple_mid) != "ok":
+		status_label.text = "Could not nest bird."
+		return false
+	return true
+
+
 func _start_bird_fight_from_mid(initial_mid: int) -> void:
 	if _match == null and not _is_network_client():
 		return
@@ -2339,8 +2663,8 @@ func _start_bird_fight_from_mid(initial_mid: int) -> void:
 		return
 	var yours: Array = snap.get("your_birds", []) as Array
 	var opp: Array = snap.get("opp_birds", []) as Array
-	if yours.is_empty() or opp.is_empty():
-		status_label.text = "Bird fight requires at least one bird on each side."
+	if not _has_fightable_birds(yours) or not _has_fightable_birds(opp):
+		status_label.text = "Bird fight requires at least one fightable bird on each side."
 		return
 	_sacrifice_selecting = true
 	_inc_pick_phase = INC_PICK_BIRD_ATTACK
@@ -2636,6 +2960,50 @@ func _unhandled_input(event: InputEvent) -> void:
 		_hide_crypt_modal()
 		return
 
+
+func _input(event: InputEvent) -> void:
+	if not _sacrifice_selecting or _inc_pick_phase != INC_PICK_NEST_TEMPLE:
+		return
+	if not (event is InputEventMouseButton):
+		return
+	var mb := event as InputEventMouseButton
+	if not mb.pressed or mb.button_index != MOUSE_BUTTON_LEFT:
+		return
+	var hovered: Control = get_viewport().gui_get_hovered_control()
+	var n: Node = hovered
+	while n != null:
+		if n is Control and (n as Control).has_meta("nest_valid_temple"):
+			return
+		n = n.get_parent()
+	_clear_sacrifice_mode()
+	_rebuild_field_strips_from_snap(_last_snap)
+	get_viewport().set_input_as_handled()
+
+
+var _nest_dim_overlay: ColorRect
+
+
+func _build_nest_dim_overlay() -> void:
+	_nest_dim_overlay = ColorRect.new()
+	_nest_dim_overlay.color = Color(0, 0, 0, 0.55)
+	_nest_dim_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_nest_dim_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_nest_dim_overlay.z_index = 50
+	_nest_dim_overlay.visible = false
+	add_child(_nest_dim_overlay)
+
+
+func _show_nest_dim_overlay() -> void:
+	if _nest_dim_overlay == null:
+		return
+	_nest_dim_overlay.visible = true
+
+
+func _hide_nest_dim_overlay() -> void:
+	if _nest_dim_overlay == null:
+		return
+	_nest_dim_overlay.visible = false
+
 func _rebuild_field_strips_from_snap(snap: Dictionary) -> void:
 	var your_rituals: Array = snap.get("your_field", []) as Array
 	var opp_rituals: Array = snap.get("opp_field", []) as Array
@@ -2806,6 +3174,8 @@ func _temple_field_input_ok() -> bool:
 		return false
 	if _delpha_overlay != null and _delpha_overlay.visible:
 		return false
+	if _eyrie_overlay != null and _eyrie_overlay.visible:
+		return false
 	if _burn_woe_overlay != null and _burn_woe_overlay.visible:
 		return false
 	if _revive_overlay != null and _revive_overlay.visible:
@@ -2821,8 +3191,7 @@ func _enter_temple_sacrifice_mode(hand_idx: int) -> void:
 	var hand: Array = _last_snap.get("your_hand", []) as Array
 	if hand_idx >= 0 and hand_idx < hand.size():
 		var c: Dictionary = hand[hand_idx] as Dictionary
-		if str(c.get("temple_id", "")) == "ytria_cycles":
-			cost = 9
+		cost = _GameSnapshotUtils.temple_cost_for_id(str(c.get("temple_id", "")))
 	_enter_sacrifice_mode(hand_idx, cost, "Temple")
 
 
@@ -3057,7 +3426,7 @@ func _make_hand_card_widget(card: Variant, disabled: bool, picked: bool, stack_c
 		shell.add_child(back)
 	var tap := Button.new()
 	tap.name = "Tap"
-	tap.text = _card_label(card)
+	tap.text = str(int(card.get("value", 0))) if is_ritual else _card_label(card)
 	tap.position = Vector2(depth * shift, 0)
 	tap.size = Vector2(w, h)
 	tap.disabled = disabled
@@ -3172,19 +3541,27 @@ func _make_hand_card_widget(card: Variant, disabled: bool, picked: bool, stack_c
 	shell.add_child(tap)
 	var pip_spec := _card_corner_pip_spec(card)
 	if int(pip_spec.get("count", 0)) > 0:
-		var pip_icon := _make_corner_pip_icon(int(pip_spec.get("count", 0)), bool(pip_spec.get("filled", false)))
+		var cost_color := Color(0.05, 0.05, 0.05, 0.98) if is_bird else Color(1, 1, 1, 0.98)
+		var pip_icon := _make_corner_pip_icon(int(pip_spec.get("count", 0)), bool(pip_spec.get("filled", false)), cost_color)
 		pip_icon.position = Vector2(depth * shift + w - pip_icon.custom_minimum_size.x - 4, h - pip_icon.custom_minimum_size.y - 4)
 		shell.add_child(pip_icon)
+	var power_pip_y_offset := 26
+	if is_bird:
+		var power_count := int(card.get("power", 0))
+		if power_count > 0:
+			var power_icon := _make_corner_pip_icon(power_count, true, Color(0.82, 0.1, 0.1, 0.98))
+			power_icon.position = Vector2(depth * shift + w - power_icon.custom_minimum_size.x - 4, power_pip_y_offset)
+			shell.add_child(power_icon)
 	if stack_count > 1:
 		var badge := Label.new()
 		badge.text = "x%d" % stack_count
-		badge.position = Vector2(depth * shift + w - 52, 4)
+		badge.position = Vector2(depth * shift + w - 52, 2)
 		badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		badge.custom_minimum_size = Vector2(44, 32)
+		badge.custom_minimum_size = Vector2(44, 22)
 		badge.add_theme_font_override("font", CARD_TEXT_FONT)
 		badge.add_theme_font_size_override("font_size", HAND_CARD_BADGE_FONT_SIZE)
-		badge.add_theme_color_override("font_color", Color(0.95, 0.95, 0.99))
+		badge.add_theme_color_override("font_color", Color(0.05, 0.05, 0.05) if is_bird else Color(0.95, 0.95, 0.99))
 		shell.add_child(badge)
 	if _selecting_end_discard and picked_count > 0:
 		var pick_badge := Label.new()
@@ -3219,7 +3596,7 @@ func _noble_cost_for_id(nid: String) -> int:
 	return _GameSnapshotUtils.noble_cost_for_id(nid)
 
 
-func _make_corner_pip_icon(count: int, filled: bool) -> TextureRect:
+func _make_corner_pip_icon(count: int, filled: bool, color: Color = Color(1, 1, 1, 0.98)) -> TextureRect:
 	var n := clampi(count, 0, 24)
 	var dot_r: int = 4
 	var icon_size: int = 28
@@ -3240,7 +3617,7 @@ func _make_corner_pip_icon(count: int, filled: bool) -> TextureRect:
 	var image := Image.create(icon_size, icon_size, false, Image.FORMAT_RGBA8)
 	image.fill(Color(0, 0, 0, 0))
 	if n == 1:
-		CornerPipDraw.draw_dot_on_image(image, center, dot_r, filled)
+		CornerPipDraw.draw_dot_on_image(image, center, dot_r, filled, color)
 	else:
 		var remaining2: int = n
 		var ring2: int = 1
@@ -3253,7 +3630,7 @@ func _make_corner_pip_icon(count: int, filled: bool) -> TextureRect:
 				var ang := TAU * (float(i) / float(take2)) - PI / 2.0
 				var px := center.x + int(round(cos(ang) * radius2))
 				var py := center.y + int(round(sin(ang) * radius2))
-				CornerPipDraw.draw_dot_on_image(image, Vector2i(px, py), dot_r, filled)
+				CornerPipDraw.draw_dot_on_image(image, Vector2i(px, py), dot_r, filled, color)
 			remaining2 -= take2
 			ring2 += 1
 	var tex := ImageTexture.create_from_image(image)
@@ -3847,6 +4224,17 @@ func submit_play_bird(hand_idx: int) -> void:
 
 
 @rpc("any_peer", "reliable")
+func submit_nest_bird(bird_mid: int, temple_mid: int) -> void:
+	if not multiplayer.is_server():
+		return
+	if _match == null:
+		return
+	var pl := _peer_to_player(_sender_peer())
+	if _match.nest_bird(pl, bird_mid, temple_mid) == "ok":
+		_broadcast_sync(true)
+
+
+@rpc("any_peer", "reliable")
 func submit_play_temple(hand_idx: int, sacrifice_mids: Array) -> void:
 	if not multiplayer.is_server():
 		return
@@ -3907,6 +4295,17 @@ func submit_temple_ytria(temple_mid: int) -> void:
 		return
 	var pl := _peer_to_player(_sender_peer())
 	if _match.apply_temple_ytria(pl, temple_mid) == "ok":
+		_broadcast_sync(true)
+
+
+@rpc("any_peer", "reliable")
+func submit_temple_eyrie(deck_indices: Array) -> void:
+	if not multiplayer.is_server():
+		return
+	if _match == null:
+		return
+	var pl := _peer_to_player(_sender_peer())
+	if _match.apply_eyrie_submit(pl, deck_indices) == "ok":
 		_broadcast_sync(true)
 
 
