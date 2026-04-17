@@ -108,10 +108,11 @@ theme_override_constants/margin_bottom = 14
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="Title" type="Label" parent="DeckPickerOverlay/CenterContainer/Panel/Margin/VBox"]
+[node name="DeckPickerTitle" type="Label" parent="DeckPickerOverlay/CenterContainer/Panel/Margin/VBox"]
+unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
-text = "Select deck to play"
+text = "Select your deck"
 
 [node name="DeckPickerList" type="ItemList" parent="DeckPickerOverlay/CenterContainer/Panel/Margin/VBox"]
 unique_name_in_owner = true

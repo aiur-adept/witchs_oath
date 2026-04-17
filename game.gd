@@ -20,6 +20,7 @@ const PORT_MIN := 17777
 const PORT_MAX := 17799
 const DEFAULT_DECK_PATH := "user://decks/default_deck.json"
 const SELECTED_DECK_PATH_FILE := "user://selected_deck_path.txt"
+const SELECTED_OPPONENT_DECK_PATH_FILE := "user://selected_opponent_deck_path.txt"
 const PLAY_MODE_FILE := "user://arcana_play_mode.txt"
 const CPU_ACTION_SEC := 1.618
 const CARD_SCALE := 1.618
@@ -418,8 +419,11 @@ func _start_match() -> void:
 	if _goldfish:
 		_match = ArcanaMatchState.new(cards.duplicate(true), [], true, rng, true)
 	else:
+		var opponent_cards := _load_opponent_deck_cards()
+		if opponent_cards.is_empty():
+			opponent_cards = cards.duplicate(true)
 		var p0_first := rng.randi_range(0, 1) == 0
-		_match = ArcanaMatchState.new(cards.duplicate(true), cards.duplicate(true), p0_first, rng, false)
+		_match = ArcanaMatchState.new(cards.duplicate(true), opponent_cards.duplicate(true), p0_first, rng, false)
 	_broadcast_sync()
 
 
@@ -1140,15 +1144,26 @@ func _hide_card_hover_preview() -> void:
 
 func _load_deck_cards() -> Array:
 	_deck_path = _resolve_selected_deck_path()
+	return _load_cards_from_path(_deck_path)
+
+
+func _load_opponent_deck_cards() -> Array:
+	var path := _resolve_opponent_deck_path()
+	if path.is_empty():
+		return []
+	return _load_cards_from_path(path)
+
+
+func _load_cards_from_path(path: String) -> Array:
 	var data: Dictionary = {}
-	if IncludedDecks.is_token(_deck_path):
-		data = IncludedDecks.payload_for_slug(IncludedDecks.slug_from_token(_deck_path))
+	if IncludedDecks.is_token(path):
+		data = IncludedDecks.payload_for_slug(IncludedDecks.slug_from_token(path))
 		if data.is_empty():
 			return []
 	else:
-		if not FileAccess.file_exists(_deck_path):
+		if not FileAccess.file_exists(path):
 			return []
-		var f := FileAccess.open(_deck_path, FileAccess.READ)
+		var f := FileAccess.open(path, FileAccess.READ)
 		if f == null:
 			return []
 		var parsed: Variant = JSON.parse_string(f.get_as_text())
@@ -1182,6 +1197,15 @@ func _resolve_selected_deck_path() -> String:
 	if selected.is_empty():
 		return IncludedDecks.default_play_path()
 	return selected
+
+
+func _resolve_opponent_deck_path() -> String:
+	if not FileAccess.file_exists(SELECTED_OPPONENT_DECK_PATH_FILE):
+		return ""
+	var f := FileAccess.open(SELECTED_OPPONENT_DECK_PATH_FILE, FileAccess.READ)
+	if f == null:
+		return ""
+	return f.get_as_text().strip_edges()
 
 
 func _read_play_mode_goldfish() -> bool:
@@ -1364,6 +1388,7 @@ func _apply_snap(snap: Dictionary) -> void:
 	if phase == int(ArcanaMatchState.Phase.GAME_OVER):
 		_clear_sacrifice_mode()
 		_hide_mulligan_bar()
+		_rebuild_hand(snap.get("your_hand", []))
 		_end_game_ui(snap)
 		return
 	if bool(snap.get("mulligan_active", false)):
@@ -1470,7 +1495,14 @@ func _end_game_ui(snap: Dictionary) -> void:
 	_clear_insight_ui()
 	_hide_card_hover_preview()
 	_hide_end_discard_modal()
-	_show_game_end_modal(title, msg)
+	if _game_end_overlay != null and _game_end_overlay.visible:
+		_show_game_end_modal(title, msg)
+		return
+	var title_cap := title
+	var msg_cap := msg
+	get_tree().create_timer(0.9).timeout.connect(func() -> void:
+		_show_game_end_modal(title_cap, msg_cap)
+	)
 
 
 func _build_game_end_modal() -> void:
@@ -2796,12 +2828,13 @@ func _on_bird_assign_confirm_pressed() -> void:
 	for k in _bird_attack_selected.keys():
 		attackers.append(int(k))
 	var assign := _bird_damage_assign.duplicate(true)
+	var defender_mid := _bird_defender_mid
 	_bird_assign_overlay.visible = false
-	if _is_network_client():
-		submit_bird_fight.rpc_id(1, attackers, _bird_defender_mid, assign)
-	else:
-		_try_resolve_bird_fight(_my_player_for_action(), attackers, _bird_defender_mid, assign)
 	_clear_sacrifice_mode()
+	if _is_network_client():
+		submit_bird_fight.rpc_id(1, attackers, defender_mid, assign)
+	else:
+		_try_resolve_bird_fight(_my_player_for_action(), attackers, defender_mid, assign)
 
 
 func _on_bird_assign_cancel_pressed() -> void:
@@ -3077,14 +3110,23 @@ func _rebuild_field_strips_from_snap(snap: Dictionary) -> void:
 	_ritual_field.rebuild_temple_field(field_opp_temples, opp_temples, false)
 	_set_zone_visible(field_you_nobles, not your_nobles.is_empty())
 	_set_zone_visible(field_opp_nobles, not opp_nobles.is_empty())
-	_set_zone_visible(field_you_birds, not your_birds.is_empty())
-	_set_zone_visible(field_opp_birds, not opp_birds.is_empty())
+	_set_zone_visible(field_you_birds, _has_wild_birds(your_birds))
+	_set_zone_visible(field_opp_birds, _has_wild_birds(opp_birds))
 	_set_zone_visible(field_you_temples, not your_temples.is_empty())
 	_set_zone_visible(field_opp_temples, not opp_temples.is_empty())
 
 
 func _rebuild_ritual_field(row: HBoxContainer, field: Variant, ours: bool) -> void:
 	_ritual_field.rebuild_ritual_field(row, field, ours)
+
+
+func _has_wild_birds(birds: Array) -> bool:
+	for b in birds:
+		if typeof(b) != TYPE_DICTIONARY:
+			continue
+		if int((b as Dictionary).get("nest_temple_mid", -1)) < 0:
+			return true
+	return false
 
 
 func _set_zone_visible(zone_row: HBoxContainer, zone_visible: bool) -> void:
@@ -3916,8 +3958,9 @@ func _on_hand_pressed(hand_idx: int) -> void:
 			status_label.text = "You already played a temple this turn."
 			return
 		var field_ty: Array = snap.get("your_field", [])
-		if _field_ritual_total_value(field_ty) < 7:
-			status_label.text = "Not enough ritual value on your field to sacrifice for a temple (need 7)."
+		var temple_cost_need := _GameSnapshotUtils.temple_cost_for_id(str(c.get("temple_id", "")))
+		if _field_ritual_total_value(field_ty) < temple_cost_need:
+			status_label.text = "Not enough ritual value on your field to sacrifice for a temple (need %d)." % temple_cost_need
 			return
 		_enter_temple_sacrifice_mode(hand_idx)
 	elif _card_type(c) == "dethrone":

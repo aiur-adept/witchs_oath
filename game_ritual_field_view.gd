@@ -116,17 +116,31 @@ func make_bird_stack(birds: Array, ours: bool) -> Control:
 	var h := FIELD_CARD_H
 	var count := birds.size()
 	var stack := Control.new()
-	stack.custom_minimum_size = Vector2(w + shift * maxi(0, count - 1), h)
-	for i in count:
-		var bd: Dictionary = birds[i] as Dictionary
-		var card := make_bird_card(bd, ours)
-		card.position = Vector2(shift * i, 0)
-		card.z_index = i
-		stack.add_child(card)
+	var extra: float = shift if count > 1 else 0.0
+	stack.custom_minimum_size = Vector2(w + extra, h)
+	if count > 1:
+		var back := Panel.new()
+		back.custom_minimum_size = Vector2(w, h)
+		back.set_size(Vector2(w, h))
+		back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var bsb := StyleBoxFlat.new()
+		bsb.set_corner_radius_all(4)
+		bsb.set_border_width_all(2)
+		bsb.bg_color = Color(1.0, 1.0, 1.0)
+		bsb.border_color = Color(0.05, 0.05, 0.05)
+		back.add_theme_stylebox_override("panel", bsb)
+		back.position = Vector2(0, 0)
+		back.z_index = 0
+		stack.add_child(back)
+	var front_bd: Dictionary = birds[count - 1] as Dictionary
+	var front_card := make_bird_card(front_bd, ours)
+	front_card.position = Vector2(extra, 0)
+	front_card.z_index = 1
+	stack.add_child(front_card)
 	if count > 1:
 		var badge := Label.new()
 		badge.text = "x%d" % count
-		badge.position = Vector2(shift * (count - 1) + w - 52, 2)
+		badge.position = Vector2(extra + w - 52, 2)
 		badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		badge.custom_minimum_size = Vector2(44, 22)
@@ -134,7 +148,7 @@ func make_bird_stack(birds: Array, ours: bool) -> Control:
 		badge.add_theme_font_size_override("font_size", maxi(12, FIELD_CARD_FONT_SIZE - 6))
 		badge.add_theme_color_override("font_color", Color(0.05, 0.05, 0.05))
 		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		badge.z_index = count + 1
+		badge.z_index = 2
 		stack.add_child(badge)
 	return stack
 

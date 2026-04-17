@@ -6,7 +6,11 @@ const DECK_DIR := "user://decks"
 const DECK_EXT := ".json"
 const DECK_EXPORT_PREFIX := "decks_export_"
 const SELECTED_DECK_PATH_FILE := "user://selected_deck_path.txt"
+const SELECTED_OPPONENT_DECK_PATH_FILE := "user://selected_opponent_deck_path.txt"
 const PLAY_MODE_FILE := "user://arcana_play_mode.txt"
+
+const _PICKER_STEP_YOURS := "yours"
+const _PICKER_STEP_OPPONENT := "opponent"
 
 @onready var play_button: Button = %PlayLink
 @onready var goldfish_button: Button = %GoldfishLink
@@ -14,6 +18,7 @@ const PLAY_MODE_FILE := "user://arcana_play_mode.txt"
 @onready var how_to_play_button: Button = %HowToPlayLink
 @onready var exit_button: Button = %ExitButton
 @onready var deck_picker_overlay: Control = %DeckPickerOverlay
+@onready var deck_picker_title: Label = %DeckPickerTitle
 @onready var deck_picker_list: ItemList = %DeckPickerList
 @onready var deck_picker_status: Label = %DeckPickerStatus
 @onready var deck_picker_confirm_button: Button = %DeckPickerConfirmButton
@@ -21,6 +26,8 @@ const PLAY_MODE_FILE := "user://arcana_play_mode.txt"
 
 var _deck_paths: Array[String] = []
 var _deck_picker_for_goldfish: bool = false
+var _deck_picker_step: String = _PICKER_STEP_YOURS
+var _your_deck_path: String = ""
 
 
 func _ready() -> void:
@@ -56,11 +63,15 @@ func _double_button_padding(btn: Button) -> void:
 
 func _on_play_pressed() -> void:
 	_deck_picker_for_goldfish = false
+	_your_deck_path = ""
+	_deck_picker_step = _PICKER_STEP_YOURS
 	_show_deck_picker()
 
 
 func _on_goldfish_pressed() -> void:
 	_deck_picker_for_goldfish = true
+	_your_deck_path = ""
+	_deck_picker_step = _PICKER_STEP_YOURS
 	_show_deck_picker()
 
 
@@ -71,11 +82,29 @@ func _show_deck_picker() -> void:
 	for path in _deck_paths:
 		deck_picker_list.add_item(IncludedDecks.list_row_text(path))
 	if _deck_paths.is_empty():
+		deck_picker_title.text = "No decks"
 		deck_picker_status.text = "No deck files found. Build and save one first."
+		deck_picker_overlay.visible = true
 		return
-	deck_picker_status.text = "Choose a deck for goldfish (solo), then confirm." if _deck_picker_for_goldfish else "Choose a deck, then press Play."
+	_apply_picker_step_labels()
 	deck_picker_overlay.visible = true
 	deck_picker_list.grab_focus()
+
+
+func _apply_picker_step_labels() -> void:
+	if _deck_picker_for_goldfish:
+		deck_picker_title.text = "Select your deck (goldfish)"
+		deck_picker_status.text = "Choose a deck for goldfish (solo), then confirm."
+		deck_picker_confirm_button.text = "Play"
+		return
+	if _deck_picker_step == _PICKER_STEP_YOURS:
+		deck_picker_title.text = "Select your deck"
+		deck_picker_status.text = "Step 1 of 2: choose your deck, then press Next."
+		deck_picker_confirm_button.text = "Next"
+	else:
+		deck_picker_title.text = "Select opponent deck"
+		deck_picker_status.text = "Step 2 of 2: choose the CPU's deck, then press Play."
+		deck_picker_confirm_button.text = "Play"
 
 
 func _hide_deck_picker() -> void:
@@ -106,25 +135,50 @@ func _on_deck_picker_item_selected(_index: int) -> void:
 
 
 func _on_deck_picker_item_activated(index: int) -> void:
-	_play_with_selected_deck(index)
+	_advance_picker(index)
 
 
 func _on_deck_picker_confirm_pressed() -> void:
 	var selected := deck_picker_list.get_selected_items()
 	if selected.is_empty():
 		return
-	_play_with_selected_deck(int(selected[0]))
+	_advance_picker(int(selected[0]))
 
 
-func _play_with_selected_deck(index: int) -> void:
+func _advance_picker(index: int) -> void:
 	if index < 0 or index >= _deck_paths.size():
 		return
 	var selected_path := _deck_paths[index]
+	if _deck_picker_for_goldfish:
+		_launch_match(selected_path, "")
+		return
+	if _deck_picker_step == _PICKER_STEP_OPPONENT:
+		_launch_match(_your_deck_path, selected_path)
+		return
+	_your_deck_path = selected_path
+	_deck_picker_step = _PICKER_STEP_OPPONENT
+	deck_picker_list.deselect_all()
+	deck_picker_confirm_button.disabled = true
+	_apply_picker_step_labels()
+
+
+func _launch_match(your_path: String, opponent_path: String) -> void:
+	if your_path.is_empty():
+		deck_picker_status.text = "Could not resolve your deck selection."
+		return
 	var f := FileAccess.open(SELECTED_DECK_PATH_FILE, FileAccess.WRITE)
 	if f == null:
 		deck_picker_status.text = "Could not store selected deck. Try again."
 		return
-	f.store_string(selected_path)
+	f.store_string(your_path)
+	if _deck_picker_for_goldfish:
+		DirAccess.remove_absolute(SELECTED_OPPONENT_DECK_PATH_FILE)
+	else:
+		var of := FileAccess.open(SELECTED_OPPONENT_DECK_PATH_FILE, FileAccess.WRITE)
+		if of == null:
+			deck_picker_status.text = "Could not store opponent deck. Try again."
+			return
+		of.store_string(opponent_path)
 	var mf := FileAccess.open(PLAY_MODE_FILE, FileAccess.WRITE)
 	if mf != null:
 		mf.store_string("goldfish" if _deck_picker_for_goldfish else "versus")
