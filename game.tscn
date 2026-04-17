@@ -394,7 +394,7 @@ text = "End turn"
 [node name="BirdFightButton" type="Button" parent="Margin/RootRow/BoardCol/ButtonsRow"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Bird fight"
+text = "Bird combat"
 
 [node name="QuitToMenuButton" type="Button" parent="."]
 unique_name_in_owner = true

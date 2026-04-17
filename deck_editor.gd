@@ -3,7 +3,7 @@ extends Control
 const IncludedDecks = preload("res://included_decks.gd")
 
 const RITUAL_VALUES: Array[int] = [1, 2, 3, 4]
-const INCANTATION_VERBS: Array[String] = ["seek", "insight", "burn", "woe", "revive", "wrath", "deluge", "dethrone"]
+const INCANTATION_VERBS: Array[String] = ["seek", "insight", "burn", "woe", "revive", "wrath", "deluge", "tears", "dethrone"]
 const INCANTATION_VALUES: Array[int] = [1, 2, 3, 4]
 const TARGET_RITUAL_COUNT := 19
 const TARGET_NON_RITUAL_COUNT := 21
@@ -212,6 +212,8 @@ func _incantation_values_for_verb(verb: String) -> Array[int]:
 		return [4]
 	if verb == "deluge":
 		return [2, 3, 4]
+	if verb == "tears":
+		return [3]
 	if verb == "dethrone":
 		return [4]
 	return INCANTATION_VALUES

@@ -1212,6 +1212,28 @@ func execute_incantation_effect(p: int, verb: String, value: int, wrath_resolved
 			var destroyed := _destroy_birds_with_power_at_most(threshold)
 			_log("Deluge %d destroys %d bird(s) with power %d or less." % [value, destroyed, threshold])
 			return "ok"
+		"tears":
+			var tidx := int(ctx.get("tears_crypt_idx", -1))
+			var pl_t: Dictionary = _players[p]
+			var cidx := _bird_crypt_index_to_crypt_index(pl_t, tidx)
+			if cidx < 0:
+				return "illegal_target"
+			var crypt_t: Array = pl_t["crypt"]
+			var bcard: Dictionary = (crypt_t[cidx] as Dictionary).duplicate(true)
+			crypt_t.remove_at(cidx)
+			var bmid := _next_bird_mid(pl_t)
+			var bird := {
+				"mid": bmid,
+				"bird_id": str(bcard.get("bird_id", "")),
+				"name": str(bcard.get("name", "Bird")),
+				"cost": int(bcard.get("cost", 0)),
+				"power": int(bcard.get("power", 0)),
+				"damage": 0,
+				"nest_temple_mid": -1
+			}
+			pl_t["bird_field"].append(bird)
+			_log("P%d Tears revives %s from crypt." % [p, bird["name"]])
+			return "ok"
 		_:
 			return "ok"
 
@@ -1259,6 +1281,12 @@ func _validate_play_ctx(p: int, verb: String, value: int, wrath_mids: Array, ctx
 			if value < 2 or value > 4:
 				return "illegal"
 			return "ok"
+		"tears":
+			var tidx := int(ctx.get("tears_crypt_idx", -1))
+			var bcards: Array = _bird_crypt_cards(_players[p])
+			if tidx < 0 or tidx >= bcards.size():
+				return "illegal_target"
+			return "ok"
 		"seek":
 			return "ok"
 		"revive":
@@ -1296,7 +1324,7 @@ func _validate_revive_chain(p: int, value: int, ctx: Dictionary) -> String:
 		var cdict: Dictionary = cc
 		var cv := str(cdict.get("verb", "")).to_lower()
 		var cn := int(cdict.get("value", 0))
-		if cv == "revive" or cv == "wrath":
+		if cv == "revive" or cv == "wrath" or cv == "tears":
 			return "illegal"
 		var nested: Dictionary = d.get("nested", {}) as Dictionary
 		var wr_mids: Array = nested.get("wrath_mids", []) as Array
@@ -2342,6 +2370,27 @@ func _noble_crypt_cards(pl: Dictionary) -> Array:
 		if _card_kind(c) == "noble":
 			out.append(c)
 	return out
+
+
+func _bird_crypt_cards(pl: Dictionary) -> Array:
+	var out: Array = []
+	for c in (pl["crypt"] as Array):
+		if _card_kind(c) == "bird":
+			out.append(c)
+	return out
+
+
+func _bird_crypt_index_to_crypt_index(pl: Dictionary, bird_idx: int) -> int:
+	if bird_idx < 0:
+		return -1
+	var seen := 0
+	var crypt: Array = pl["crypt"]
+	for i in crypt.size():
+		if _card_kind(crypt[i]) == "bird":
+			if seen == bird_idx:
+				return i
+			seen += 1
+	return -1
 
 
 func _inc_crypt_index_to_crypt_index(pl: Dictionary, inc_idx: int) -> int:

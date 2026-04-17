@@ -130,6 +130,8 @@ static func _log_data_issues_once(bundle: Dictionary) -> void:
 					ok_value = value == 4
 				elif verb == "deluge":
 					ok_value = value >= 2 and value <= 4
+				elif verb == "tears":
+					ok_value = value == 3
 				if verb == "dethrone":
 					ok_value = value == 4
 				if not ok_value:

@@ -225,6 +225,8 @@ static func card_rules_text(card: Dictionary) -> String:
 			return "Wrath %d: destroy %d opponent ritual(s)." % [n, _wrath_destroy_count(n)]
 		"deluge":
 			return "Deluge %d: destroy all birds with power %d or less." % [n, n - 1]
+		"tears":
+			return "Tears %d: return a Bird from your crypt to your field." % n
 		_:
 			return "Incantation %d." % n
 

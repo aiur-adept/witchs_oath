@@ -145,6 +145,7 @@ var _revive_crypt_row: VBoxContainer
 var _revive_skip_btn: Button
 var _revive_cancel_btn: Button
 var _revive_pick_phase: bool = false
+var _tears_pick_phase: bool = false
 var _nested_revive_crypt_idx: int = -1
 var _nested_revive_value: int = 0
 var _wrath_is_revive_nested: bool = false
@@ -795,6 +796,9 @@ func _clear_revive_overlay() -> void:
 	if _revive_overlay:
 		_revive_overlay.visible = false
 	_revive_pick_phase = false
+	_tears_pick_phase = false
+	if _revive_skip_btn != null:
+		_revive_skip_btn.visible = true
 	for c in _revive_crypt_row.get_children():
 		c.queue_free()
 
@@ -1041,6 +1045,43 @@ func _on_revive_crypt_chosen(crypt_idx: int) -> void:
 		_begin_insight_ui(_pending_inc_hand_idx, _insight_depth_for(_last_snap, val), _effect_sac, -1, crypt_idx)
 	else:
 		status_label.text = "Cannot revive that card type from UI."
+
+
+func _begin_tears_hand_ui(hand_idx: int, n: int, sac_mids: Array) -> void:
+	_pending_inc_hand_idx = hand_idx
+	_pending_inc_n = n
+	_effect_sac = sac_mids.duplicate()
+	_tears_pick_phase = true
+	_revive_pick_phase = false
+	for c in _revive_crypt_row.get_children():
+		c.queue_free()
+	var birds: Array = _filtered_crypt_cards(_your_crypt_cards_from_snap(_last_snap), ["bird"])
+	var idx := 0
+	for card in birds:
+		var b := Button.new()
+		var bname := str((card as Dictionary).get("name", "Bird"))
+		var bcost := int((card as Dictionary).get("cost", 0))
+		var bpower := int((card as Dictionary).get("power", 0))
+		b.text = "%s (cost %d, power %d)" % [bname, bcost, bpower]
+		var capture := idx
+		b.pressed.connect(func() -> void:
+			_on_tears_crypt_chosen(capture)
+		)
+		_revive_crypt_row.add_child(b)
+		idx += 1
+	if _revive_skip_btn != null:
+		_revive_skip_btn.visible = false
+	_revive_overlay.visible = true
+	end_turn_button.disabled = true
+	discard_draw_button.disabled = true
+
+
+func _on_tears_crypt_chosen(bird_idx: int) -> void:
+	var birds: Array = _filtered_crypt_cards(_your_crypt_cards_from_snap(_last_snap), ["bird"])
+	if bird_idx < 0 or bird_idx >= birds.size():
+		return
+	_clear_revive_overlay()
+	_submit_inc_play_full(_effect_sac, [], {"tears_crypt_idx": bird_idx})
 
 
 func _finalize_revive_cast(ctx: Dictionary) -> void:
@@ -2659,12 +2700,12 @@ func _start_bird_fight_from_mid(initial_mid: int) -> void:
 	if int(snap.get("current", -1)) != int(snap.get("you", -2)):
 		return
 	if bool(snap.get("your_bird_fight_used", false)):
-		status_label.text = "You already used bird fight this turn."
+		status_label.text = "You already used bird combat this turn."
 		return
 	var yours: Array = snap.get("your_birds", []) as Array
 	var opp: Array = snap.get("opp_birds", []) as Array
 	if not _has_fightable_birds(yours) or not _has_fightable_birds(opp):
-		status_label.text = "Bird fight requires at least one fightable bird on each side."
+		status_label.text = "Bird combat requires at least one fightable bird on each side."
 		return
 	_sacrifice_selecting = true
 	_inc_pick_phase = INC_PICK_BIRD_ATTACK
@@ -2886,6 +2927,19 @@ func _on_sacrifice_confirm_pressed() -> void:
 			var nn_r := _pending_inc_n
 			_clear_sacrifice_mode()
 			_begin_revive_hand_ui(hi_r, nn_r, sac)
+			return
+		if verb == "tears":
+			var hi_t := _pending_inc_hand_idx
+			var nn_t := _pending_inc_n
+			_clear_sacrifice_mode()
+			var birds_t: Array = _filtered_crypt_cards(_your_crypt_cards_from_snap(_last_snap), ["bird"])
+			if birds_t.size() == 1:
+				_effect_sac = sac.duplicate()
+				_pending_inc_hand_idx = hi_t
+				_pending_inc_n = nn_t
+				_submit_inc_play_full(sac, [], {"tears_crypt_idx": 0})
+			else:
+				_begin_tears_hand_ui(hi_t, nn_t, sac)
 			return
 		_submit_inc_play(sac, [])
 	elif _inc_pick_phase == INC_PICK_WRATH:
@@ -3923,6 +3977,19 @@ func _on_hand_pressed(hand_idx: int) -> void:
 			if verb == "revive":
 				_begin_revive_hand_ui(hand_idx, n, [])
 				return
+			if verb == "tears":
+				var birds_t: Array = _filtered_crypt_cards(_your_crypt_cards_from_snap(_last_snap), ["bird"])
+				if birds_t.is_empty():
+					status_label.text = "No birds in your crypt to revive."
+					return
+				if birds_t.size() == 1:
+					_effect_sac = []
+					_pending_inc_hand_idx = hand_idx
+					_pending_inc_n = n
+					_submit_inc_play_full([], [], {"tears_crypt_idx": 0})
+				else:
+					_begin_tears_hand_ui(hand_idx, n, [])
+				return
 			if _is_network_client():
 				submit_play_inc.rpc_id(1, hand_idx, [], [], {})
 			else:
@@ -3931,6 +3998,11 @@ func _on_hand_pressed(hand_idx: int) -> void:
 		if _field_ritual_total_value(field) < n:
 			status_label.text = "Not enough ritual value on your field to pay for this incantation."
 			return
+		if verb == "tears":
+			var birds_t2: Array = _filtered_crypt_cards(_your_crypt_cards_from_snap(_last_snap), ["bird"])
+			if birds_t2.is_empty():
+				status_label.text = "No birds in your crypt to revive."
+				return
 		_enter_sacrifice_mode(hand_idx, n, "%s %d" % [verb, n])
 
 

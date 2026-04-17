@@ -140,7 +140,7 @@ Delpha, Temple of Oracles costs 7, so sacrificing 4-Ritual + 2-Ritual + 1-Ritual
 [node name="BirdsFightTitle" type="Label" parent="Margin/VBox/Scroll/ContentRoot"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 20
-text = "Bird fight"
+text = "Bird combat"
 
 [node name="BirdsFightText" type="RichTextLabel" parent="Margin/VBox/Scroll/ContentRoot"]
 layout_mode = 2

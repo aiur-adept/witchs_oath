@@ -45,7 +45,7 @@ Each turn has three practical steps:
      - Play up to one ritual.
      - Play up to one noble.
      - Play up to one temple.
-     - Perform one bird fight (optional, once per turn).
+     - Perform one bird combat (optional, once per turn).
      - Activate eligible nobles (generally once each per turn).
      - Activate eligible temples (once each per turn).
      - Once per turn: discard one card to draw one card.
@@ -93,7 +93,7 @@ Bird lane example:
 - Sum the power of all Birds you currently control.
 - The ritual lane matching that total is active (from birds) while that total remains unchanged.
 
-### 6A.3 Bird Fight (once per turn)
+### 6A.3 Bird Combat (once per turn)
 
 - Once per turn during your main phase, you may choose any set of your Birds and any set of opponent Birds to fight.
 - A chosen attacking set may target only one opposing Bird in that combat.
@@ -147,7 +147,7 @@ It destroys one target opposing noble.
   - At most 1 bird from hand.
   - Any number of incantations (as long as each is legal and payable)
 - `Discard-for-draw` may be used once per turn.
-- `Bird fight` may be used once per turn.
+- `Bird combat` may be used once per turn.
 - Each noble/temple activation is once per turn per permanent.
 - You cannot take further proactive actions while waiting for a required response to a pending effect you created (for example, opponent discard choice from Woe, or your own optional scion trigger decision).
 
@@ -176,7 +176,7 @@ If empty-deck draw is attempted:
   - Wrath cannot be cast via revive.
   - Cards cast this way go to abyss (not crypt).
 - **Dethrone 4**: Destroy one opposing noble.
-- **Deluge X**: Destroy all birds of power X-1.
+- **Tears 3**: Return a Bird from your crypt to the field. 
 
 ## 10) Noble Abilities (Set 1)
 

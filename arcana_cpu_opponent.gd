@@ -234,6 +234,10 @@ func run_turn(host: Node) -> void:
 			var tot := 0
 			for x in fld:
 				tot += int(x.get("value", 0))
+			if str(hand[j].get("verb", "")).to_lower() == "tears":
+				var birds_c := _GameSnapshotUtils.filtered_crypt_cards(_GameSnapshotUtils.your_crypt_cards_from_snap(snap), ["bird"])
+				if birds_c.is_empty():
+					continue
 			if ok_lane or tot >= n:
 				playable.append(j)
 		if playable.is_empty():
@@ -268,6 +272,10 @@ func run_turn(host: Node) -> void:
 				var tot2 := 0
 				for x in fld2:
 					tot2 += int(x.get("value", 0))
+				if str(hand[j].get("verb", "")).to_lower() == "tears":
+					var birds_c2 := _GameSnapshotUtils.filtered_crypt_cards(_GameSnapshotUtils.your_crypt_cards_from_snap(snap), ["bird"])
+					if birds_c2.is_empty():
+						continue
 				if ok2 or tot2 >= n2:
 					playable.append(j)
 			if playable.is_empty():
@@ -313,6 +321,8 @@ func run_turn(host: Node) -> void:
 					ictx = {"insight_target": tgt0, "insight_top": prm, "insight_bottom": []}
 				"revive":
 					ictx = {"revive_steps": [{"revive_skip": true}]}
+				"tears":
+					ictx = {"tears_crypt_idx": 0}
 				_:
 					ictx = {}
 			host._try_play_inc(1, pick, sac, wm, ictx, false)
