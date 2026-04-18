@@ -190,7 +190,7 @@ func run_turn(host: Node) -> void:
 			elif nid2 == "wndrr_incantation":
 				var hand_w: Array = snap.get("your_hand", []) as Array
 				if not hand_w.is_empty():
-					ok_act = host._match.apply_noble_spell_like(1, nmid, "woe", 2, [], {"woe_target": 0, "discard_hand_idx": 0}) == "ok"
+					ok_act = host._match.apply_noble_spell_like(1, nmid, "woe", 3, [], {"woe_target": 0, "discard_hand_idx": 0}) == "ok"
 			elif nid2 == "sndrr_incantation":
 				var hand_s: Array = snap.get("your_hand", []) as Array
 				if not hand_s.is_empty():

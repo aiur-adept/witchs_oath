@@ -252,14 +252,15 @@ func _wrath_effective_destroy_count(snap: Dictionary, n: int) -> int:
 	return b
 
 
-func _woe_discard_count_ui(snap: Dictionary, base_val: int, victim_is_you: bool) -> int:
+func _woe_discard_count_ui(snap: Dictionary, value: int, victim_is_you: bool) -> int:
 	var hand_sz: int
 	if victim_is_you:
 		hand_sz = (snap.get("your_hand", []) as Array).size()
 	else:
 		hand_sz = int(snap.get("opp_hand", 0))
+	var base := maxi(value - 2, 0)
 	var extra := 1 if _player_has_noble_id(snap, "zytzr_annihilation") else 0
-	return mini(base_val + extra, hand_sz)
+	return mini(base + extra, hand_sz)
 
 
 func _yytzr_should_offer_bonus(ctx: Dictionary) -> bool:
@@ -871,7 +872,7 @@ func _on_burn_woe_confirm_pressed() -> void:
 		if _pending_woe_target == ys:
 			_clear_burn_woe_overlay()
 			_woe_self_picking = true
-			_woe_self_need = _woe_discard_count_ui(_last_snap, 1, true)
+			_woe_self_need = _woe_discard_count_ui(_last_snap, 3, true)
 			_woe_self_picked.clear()
 			_inc_pick_phase = INC_PICK_WOE_SELF
 			_burn_woe_mode = "tmrsk_woe_self"
@@ -903,17 +904,17 @@ func _on_burn_woe_confirm_pressed() -> void:
 			_clear_burn_woe_overlay()
 			_pending_noble_woe_mid = _noble_spell_mid
 			_woe_self_picking = true
-			_woe_self_need = _woe_discard_count_ui(_last_snap, 1, true)
+			_woe_self_need = _woe_discard_count_ui(_last_snap, 3, true)
 			_woe_self_picked.clear()
 			_inc_pick_phase = INC_PICK_WOE_SELF
 			status_label.text = "Wndrr: tap %d card(s) to discard." % _woe_self_need
 		else:
 			var ctxw := {"woe_target": _pending_woe_target}
 			if _is_network_client():
-				submit_noble_spell_like.rpc_id(1, _noble_spell_mid, "woe", 1, [], ctxw)
+				submit_noble_spell_like.rpc_id(1, _noble_spell_mid, "woe", 3, [], ctxw)
 			else:
 				if _match != null:
-					_match.apply_noble_spell_like(_my_player_for_action(), _noble_spell_mid, "woe", 1, [], ctxw)
+					_match.apply_noble_spell_like(_my_player_for_action(), _noble_spell_mid, "woe", 3, [], ctxw)
 			_noble_spell_mid = -1
 			_clear_incantation_flow_ui()
 			_broadcast_sync(true)
@@ -2297,7 +2298,7 @@ func _show_scion_prompt_ui(snap: Dictionary) -> void:
 	if st == "tmrsk_woe":
 		_burn_woe_mode = "tmrsk_woe"
 		_pending_woe_target = int(snap.get("you", 0))
-		_burn_woe_title.text = "Tmrsk — Woe 2: who discards?"
+		_burn_woe_title.text = "Tmrsk — Woe 3: who discards?"
 		_tgt_left_btn.text = "You"
 		_tgt_right_btn.text = "Opponent"
 		_burn_woe_hint.text = "Choose target, then confirm."
@@ -3213,7 +3214,7 @@ func _start_noble_woe(noble_mid: int) -> void:
 		return
 	_wndrr_picking = true
 	_wndrr_noble_mid = noble_mid
-	status_label.text = "Wndrr: discard a card to Woe 2 the opponent."
+	status_label.text = "Wndrr: discard a card to Woe 3 the opponent."
 	_rebuild_hand(hand)
 
 
@@ -3835,10 +3836,10 @@ func _on_hand_pressed(hand_idx: int) -> void:
 			idxsn.sort()
 			var ctxn := {"woe_target": int(snap.get("you", 0)), "woe_indices": idxsn}
 			if _is_network_client():
-				submit_noble_spell_like.rpc_id(1, _pending_noble_woe_mid, "woe", 1, [], ctxn)
+				submit_noble_spell_like.rpc_id(1, _pending_noble_woe_mid, "woe", 3, [], ctxn)
 			else:
 				if _match != null:
-					_match.apply_noble_spell_like(_my_player_for_action(), _pending_noble_woe_mid, "woe", 1, [], ctxn)
+					_match.apply_noble_spell_like(_my_player_for_action(), _pending_noble_woe_mid, "woe", 3, [], ctxn)
 			_pending_noble_woe_mid = -1
 			_woe_self_picking = false
 			_woe_self_picked.clear()
@@ -3937,9 +3938,9 @@ func _on_hand_pressed(hand_idx: int) -> void:
 		var opp_w := 1 - int(snap.get("you", 0))
 		var ctxw := {"discard_hand_idx": hand_idx, "woe_target": opp_w}
 		if _is_network_client():
-			submit_noble_spell_like.rpc_id(1, _wndrr_noble_mid, "woe", 2, [], ctxw)
+			submit_noble_spell_like.rpc_id(1, _wndrr_noble_mid, "woe", 3, [], ctxw)
 		else:
-			if _match == null or _match.apply_noble_spell_like(_my_player_for_action(), _wndrr_noble_mid, "woe", 2, [], ctxw) != "ok":
+			if _match == null or _match.apply_noble_spell_like(_my_player_for_action(), _wndrr_noble_mid, "woe", 3, [], ctxw) != "ok":
 				status_label.text = "Could not activate Wndrr."
 		_wndrr_picking = false
 		_wndrr_noble_mid = -1

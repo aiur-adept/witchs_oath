@@ -133,22 +133,22 @@
 		},
 		{
 			"type": "Incantation",
-			"value": 2.0,
+			"value": 4.0,
 			"verb": "woe"
 		},
 		{
 			"type": "Incantation",
-			"value": 2.0,
+			"value": 4.0,
 			"verb": "woe"
 		},
 		{
 			"type": "Incantation",
-			"value": 2.0,
+			"value": 4.0,
 			"verb": "woe"
 		},
 		{
 			"type": "Incantation",
-			"value": 2.0,
+			"value": 4.0,
 			"verb": "woe"
 		},
 		{
@@ -173,13 +173,13 @@
 		},
 		{
 			"type": "Incantation",
-			"value": 4.0,
-			"verb": "woe"
+			"value": 2.0,
+			"verb": "seek"
 		},
 		{
 			"type": "Incantation",
-			"value": 4.0,
-			"verb": "woe"
+			"value": 2.0,
+			"verb": "seek"
 		}
 	],
 	"counts": {
@@ -196,13 +196,11 @@
 			"insight_4": 0.0,
 			"revive_1": 0.0,
 			"seek_1": 0.0,
-			"seek_2": 0.0,
+			"seek_2": 2.0,
 			"seek_3": 0.0,
 			"seek_4": 0.0,
-			"woe_1": 0.0,
-			"woe_2": 4.0,
 			"woe_3": 4.0,
-			"woe_4": 2.0,
+			"woe_4": 4.0,
 			"wrath_4": 4.0
 		},
 		"nobles": {

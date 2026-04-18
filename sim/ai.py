@@ -360,7 +360,7 @@ class GreedyAI:
         if verb == VERB_WOE:
             if not opp_p.hand:
                 return None
-            discards = max(val - 1, 0) + (1 if state.has_noble(pid, "zytzr_annihilation") else 0)
+            discards = max(val - 2, 0) + (1 if state.has_noble(pid, "zytzr_annihilation") else 0)
             if discards <= 0:
                 return None
             return (5 + discards * 3.0, {"woe_target": opp})

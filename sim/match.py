@@ -531,7 +531,7 @@ class MatchState:
 
     def _effect_woe(self, pid: int, n: int, target_pid: int, ctx: dict) -> None:
         extra = 1 if self.has_noble(pid, "zytzr_annihilation") else 0
-        base = max(n - 1, 0)
+        base = max(n - 2, 0)
         need = base + extra
         victim = self.players[target_pid]
         need = min(need, len(victim.hand))
@@ -725,7 +725,7 @@ class MatchState:
             self._mill(pid, 2 * x)
         elif scion == "tmrsk":
             target = (ctx or {}).get("woe_target", self.opponent(pid))
-            self._effect_woe(pid, 2, target, {})
+            self._effect_woe(pid, 3, target, {})
         self._check_power_win()
 
     # --------------------------------------------------------------- Eyrie

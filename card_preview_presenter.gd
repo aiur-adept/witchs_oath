@@ -341,7 +341,7 @@ static func card_rules_text(card: Dictionary) -> String:
 		"burn":
 			return "Burn %d: discard the top %d card(s) of a chosen player's deck." % [n, n * 2]
 		"woe":
-			return "Woe %d: a chosen player discards %d chosen card(s) from hand." % [n, maxi(n - 1, 0)]
+			return "Woe %d: a chosen player discards %d chosen card(s) from hand." % [n, maxi(n - 2, 0)]
 		"revive":
 			return "Revive %d: you may cast %d incantation(s) from your crypt (chosen; no ritual cost)." % [n, n]
 		"wrath":
@@ -457,7 +457,7 @@ static func _noble_preview_text(noble_id: String) -> String:
 		"sndrr_incantation":
 			return "Activate (once per turn): discard a card to Seek 1."
 		"wndrr_incantation":
-			return "Activate (once per turn): discard a card to Woe 2."
+			return "Activate (once per turn): discard a card to Woe 3."
 		"bndrr_incantation":
 			return "Activate (once per turn): Burn 2."
 		"rndrr_incantation":
@@ -477,7 +477,7 @@ static func _noble_preview_text(noble_id: String) -> String:
 		"smrsk_occultation":
 			return "Whenever you Burn or Revive, you may sacrifice a Ritual of power X to Burn yourself X."
 		"tmrsk_annihilation":
-			return "Whenever you Wrath, Woe 2."
+			return "Whenever you Wrath, Woe 3."
 		_:
 			return "Noble effect."
 

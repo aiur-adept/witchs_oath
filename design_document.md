@@ -163,14 +163,14 @@ If empty-deck draw is attempted:
 - **Seek X**: Draw X cards. [comes in Seek 1 and Seek 2]
 - **Insight X**: Look at top X cards of target player's deck; reorder any on top and/or move any number to bottom.
 - **Burn X**: Mill `2 * X` cards from target player's deck into that player's crypt.
-- **Woe X**: Target player discards X-1 chosen cards from hand.
+- **Woe X**: Target player discards X-2 chosen cards from hand. [comes in Woe 3 and 4]
 - **Wrath 4**: Destroy 1 opponent ritual. That opponent draws a card.
 - **Revive 1**: Cast 1 eligible incantation from your crypt.
   - Revive itself cannot be revived.
   - Wrath cannot be cast via revive.
   - Cards cast this way go to abyss (not crypt).
 - **Dethrone 4**: Destroy one opposing noble.
-- **Deluge X**: Destroy all Birds of power X-1 or less.
+- **Deluge X**: Destroy all Birds of power X-1 or less. [comes in Deluge 2, 3 and 4]
 - **Tears 3**: Return a Bird from your crypt to the field. 
 
 ## 10) Noble Abilities (Set 1)
@@ -200,7 +200,7 @@ All noble static abilities apply while that noble remains on the field.
 - **Indrr, Noble of Incantation**: Once per turn, Insight 1.
 - **Rndrr, Noble of Incantation**: Once per turn, Revive 1.
 - **Sndrr, Noble of Incantation**: Once per turn, you may discard a card to Seek 1.
-- **Wndrr, Noble of Incantation**: Once per turn, you may discard a card to Woe 2.
+- **Wndrr, Noble of Incantation**: Once per turn, you may discard a card to Woe 3.
 
 ### 10.3 Cost 2
 
@@ -209,7 +209,7 @@ All noble static abilities apply while that noble remains on the field.
 - **Smrsk, Scion of Occultation** (triggered, optional):
   - After you resolve Burn or Revive, you may sacrifice one ritual of value X, then Burn yourself X.
 - **Tmrsk, Scion of Annihilation** (triggered, optional):
-  - After you resolve Wrath, you may Woe 2.
+  - After you resolve Wrath, you may Woe 3.
 
 
 - **Krss, Noble of Power**: Grants ritual lane 1 while on field (static).

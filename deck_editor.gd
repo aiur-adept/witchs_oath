@@ -215,7 +215,7 @@ func _incantation_values_for_verb(verb: String) -> Array[int]:
 	if verb == "dethrone":
 		return [4]
 	if verb == "woe":
-		return [2, 3, 4]
+		return [3, 4]
 	if verb == "seek":
 		return [1, 2]
 	return INCANTATION_VALUES
