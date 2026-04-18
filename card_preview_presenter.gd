@@ -198,7 +198,7 @@ static func card_rules_text(card: Dictionary) -> String:
 	var t := _card_type(card)
 	if t == "ritual":
 		var v := int(card.get("value", 0))
-		return "Play one ritual per turn. This allows you to play Incantations and Nobles of power %d if active. Activation requires a complete active chain (1..N)." % [v]
+		return "Play one ritual per turn. This allows you to play cards of cost %d if active. Activation requires a complete active chain (1..N)." % [v]
 	if t == "noble":
 		return _noble_preview_text(str(card.get("noble_id", "")))
 	if t == "bird":
