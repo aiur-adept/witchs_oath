@@ -3976,7 +3976,8 @@ func _on_hand_pressed(hand_idx: int) -> void:
 			return
 		var n := int(c.get("value", 4))
 		var field: Array = snap.get("your_field", [])
-		var has_lane := ArcanaMatchState.has_lane_for_field(field, n)
+		var your_nobles_d: Array = snap.get("your_nobles", [])
+		var has_lane := ArcanaMatchState.has_lane_for_field_and_nobles(field, your_nobles_d, n)
 		if not has_lane and _field_ritual_total_value(field) < n:
 			status_label.text = "Not enough ritual value on your field to pay for Dethrone %d." % n
 			return
@@ -3996,7 +3997,8 @@ func _on_hand_pressed(hand_idx: int) -> void:
 		var n: int = int(c.get("value", 0))
 		var verb := str(c.get("verb", "")).to_lower()
 		var field: Array = snap.get("your_field", [])
-		if ArcanaMatchState.has_lane_for_field(field, n):
+		var your_nobles_i: Array = snap.get("your_nobles", [])
+		if ArcanaMatchState.has_lane_for_field_and_nobles(field, your_nobles_i, n):
 			if verb == "wrath":
 				var opp_field: Array = snap.get("opp_field", [])
 				var wneed := mini(_wrath_effective_destroy_count(_last_snap, n), opp_field.size())

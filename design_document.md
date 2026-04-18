@@ -87,12 +87,7 @@ Bird lane example:
 - A Bird with cost **N** has power **N-1** (2->1, 3->2, 4->3).
 - Each Bird you control adds **+1** to your match power.
 
-### 6A.2 Lane Activation from Birds
-
-- Sum the power of all Birds you currently control.
-- The ritual lane matching that total is active (from birds) while that total remains unchanged.
-
-### 6A.3 Bird Combat (once per turn)
+### 6A.2 Bird Combat (once per turn)
 
 - Once per turn during your main phase, you may choose any set of your Birds and any set of opponent Birds to fight.
 - A chosen attacking set may target only one opposing Bird in that combat.
@@ -100,7 +95,7 @@ Bird lane example:
 - Damage on each side is divided among that side's chosen Birds as that side's controller decides.
 - After damage is assigned, each Bird that has damage greater than or equal to its power is discarded.
 
-### 6A.4 Bird Nesting
+### 6A.3 Bird Nesting
 
 - Birds have the ability nest. A temple on your field may nest X birds in it where X is its cost. 
 - Each bird nested in a temple adds an additional +1 to ritual power and cannot be involved in fighting.
@@ -183,7 +178,7 @@ All noble static abilities apply while that noble remains on the field.
 
 ### 10.1 Cost 4
 
-- **Yrss, Noble of Power**: Grants incantation lane 3 while on field (static).
+- **Yrss, Noble of Power**: Grants ritual lane 3 while on field (static).
 - **Xytzr, Noble of Emanation** (static):
   - Your Seek effects draw +1 card.
   - Your Insight effects affect +1 card.
@@ -199,7 +194,7 @@ All noble static abilities apply while that noble remains on the field.
 
 ### 10.2 Cost 3
 
-- **Trss, Noble of Power**: Grants incantation lane 2 while on field (static).
+- **Trss, Noble of Power**: Grants ritual lane 2 while on field (static).
 - **Bndrr, Noble of Incantation**: Once per turn, Burn 1.
 - **Indrr, Noble of Incantation**: Once per turn, Insight 2.
 - **Rndrr, Noble of Incantation**: Once per turn, Revive 1.
@@ -216,7 +211,7 @@ All noble static abilities apply while that noble remains on the field.
   - After you resolve Wrath, you may perform Woe 1.
 
 
-- **Krss, Noble of Power**: Grants incantation lane 1 while on field (static).
+- **Krss, Noble of Power**: Grants ritual lane 1 while on field (static).
 
 ## 11) Temple Abilities (Set 1)
 

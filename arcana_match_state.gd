@@ -17,6 +17,12 @@ const TEMPLE_GOTHA := "gotha_illness"
 const TEMPLE_YTRIA := "ytria_cycles"
 const TEMPLE_EYRIE := "eyrie_feathers"
 
+const NOBLE_LANE_GRANTS := {
+	"krss_power": 1,
+	"trss_power": 2,
+	"yrss_power": 3,
+}
+
 enum Phase { MAIN, GAME_OVER }
 
 var rng: RandomNumberGenerator
@@ -401,6 +407,26 @@ static func has_lane_for_field(field: Array, n: int) -> bool:
 	return false
 
 
+static func lane_grants_from_nobles(nobles: Array) -> Array:
+	var lanes: Array = []
+	var seen: Dictionary = {}
+	for noble in nobles:
+		var nid := str((noble as Dictionary).get("noble_id", ""))
+		if not NOBLE_LANE_GRANTS.has(nid):
+			continue
+		var lv := int(NOBLE_LANE_GRANTS[nid])
+		if lv > 0 and not seen.has(lv):
+			seen[lv] = true
+			lanes.append(lv)
+	return lanes
+
+
+static func has_lane_for_field_and_nobles(field: Array, nobles: Array, n: int) -> bool:
+	if has_lane_for_field(field, n):
+		return true
+	return lane_grants_from_nobles(nobles).has(n)
+
+
 func _active_mask(field: Array) -> Array:
 	return active_mask_for_field(field)
 
@@ -449,25 +475,26 @@ func _has_bird_lane(p: int, n: int) -> bool:
 
 
 func has_active_ritual_lane(p: int, n: int) -> bool:
-	return has_lane_for_field(_players[p]["field"], n) or _has_bird_lane(p, n)
+	if has_lane_for_field(_players[p]["field"], n):
+		return true
+	if _has_bird_lane(p, n):
+		return true
+	return _extra_ritual_lanes_from_nobles(p).has(n)
 
 
 func has_active_incantation_lane(p: int, n: int) -> bool:
-	if has_active_ritual_lane(p, n):
-		return true
-	var grants := _extra_incantation_lanes_from_nobles(p)
-	return grants.has(n)
+	return has_active_ritual_lane(p, n)
 
 
-func _extra_incantation_lanes_from_nobles(p: int) -> Array:
+func _extra_ritual_lanes_from_nobles(p: int) -> Array:
 	var lanes: Array = []
 	var seen: Dictionary = {}
 	var nobles: Array = _players[p]["noble_field"]
 	for noble in nobles:
 		var hook: Variant = _hook_for_noble(noble)
-		if hook == null or not hook.has_method("grant_incantation_lanes"):
+		if hook == null or not hook.has_method("grant_ritual_lanes"):
 			continue
-		var hook_lanes: Variant = hook.call("grant_incantation_lanes", self, p, noble)
+		var hook_lanes: Variant = hook.call("grant_ritual_lanes", self, p, noble)
 		if typeof(hook_lanes) != TYPE_ARRAY:
 			continue
 		for lane in hook_lanes:

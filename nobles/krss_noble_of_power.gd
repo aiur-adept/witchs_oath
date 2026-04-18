@@ -9,5 +9,5 @@ func build_definition() -> Dictionary:
 	}
 
 
-func grant_incantation_lanes(_match: ArcanaMatchState, _owner: int, _noble: Dictionary) -> Array:
+func grant_ritual_lanes(_match: ArcanaMatchState, _owner: int, _noble: Dictionary) -> Array:
 	return [1]
