@@ -2,6 +2,7 @@ extends RefCounted
 class_name CardPreviewPresenter
 
 const CardTraits = preload("res://card_traits.gd")
+const CornerPipDraw = preload("res://corner_pip_draw.gd")
 const CARD_TEXT_FONT: Font = preload("res://fonts/Macondo-Regular.ttf")
 const PREVIEW_SCALE := 1.618
 
@@ -16,6 +17,11 @@ const PREVIEW_BIRD_TEXT := Color(0.05, 0.05, 0.05)
 const PREVIEW_NEUTRAL_BORDER := Color(0.8, 0.83, 0.9)
 const PREVIEW_NEUTRAL_TEXT := Color(0.92, 0.92, 0.96)
 
+const RITUAL_BIG_COLOR := Color(0.95, 0.78, 0.24)
+const POWER_PIP_COLOR := Color(0.82, 0.1, 0.1, 0.98)
+const COST_PIP_DARK := Color(0.05, 0.05, 0.05, 0.98)
+const COST_PIP_LIGHT := Color(1, 1, 1, 0.98)
+
 
 static func build_preview_panel(host: Control, config: Dictionary = {}) -> Dictionary:
 	var mode := str(config.get("mode", "corner"))
@@ -23,8 +29,7 @@ static func build_preview_panel(host: Control, config: Dictionary = {}) -> Dicti
 	root.name = str(config.get("name", "CardHoverPreview"))
 	root.visible = false
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var z_index := int(config.get("z_index", 100))
-	root.z_index = z_index
+	root.z_index = int(config.get("z_index", 100))
 	var ui := float(config.get("ui_scale", PREVIEW_SCALE))
 	var pad_lr := int(round(10.0 * ui))
 	var pad_tb := int(round(8.0 * ui))
@@ -32,22 +37,20 @@ static func build_preview_panel(host: Control, config: Dictionary = {}) -> Dicti
 	var corner := int(round(8.0 * ui))
 	var border_w := maxi(1, int(round(2.0 * ui)))
 	var edge := roundf(18.0 * ui)
+	var card_scale := float(config.get("card_scale", PREVIEW_SCALE))
+	var card_aspect := float(config.get("card_aspect", 0.7))
+	var card_h := 210.0 * card_scale * 1.41421356
+	var card_w := card_h * card_aspect
 	if mode == "corner":
 		root.anchor_left = 1.0
 		root.anchor_top = 1.0
 		root.anchor_right = 1.0
 		root.anchor_bottom = 1.0
-		var card_scale := float(config.get("card_scale", PREVIEW_SCALE))
-		var card_aspect := float(config.get("card_aspect", 0.7))
-		var card_h := 210.0 * card_scale * 1.41421356
-		var card_w := card_h * card_aspect
 		root.offset_left = -edge - card_w
 		root.offset_top = -edge - card_h
 		root.offset_right = -edge
 		root.offset_bottom = -edge
-		root.custom_minimum_size = Vector2(card_w, card_h)
-	else:
-		root.custom_minimum_size = Vector2(float(config.get("width", 240.0 * ui)), 0.0)
+	root.custom_minimum_size = Vector2(card_w, card_h)
 
 	var sb := StyleBoxFlat.new()
 	sb.set_corner_radius_all(corner)
@@ -57,36 +60,71 @@ static func build_preview_panel(host: Control, config: Dictionary = {}) -> Dicti
 	root.add_theme_stylebox_override("panel", sb)
 	host.add_child(root)
 
-	var pad := MarginContainer.new()
-	pad.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	pad.add_theme_constant_override("margin_left", pad_lr)
-	pad.add_theme_constant_override("margin_top", pad_tb)
-	pad.add_theme_constant_override("margin_right", pad_lr)
-	pad.add_theme_constant_override("margin_bottom", pad_tb)
-	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(pad)
-
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", sep)
-	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pad.add_child(col)
-
 	var title_sz := int(round(12.0 * ui))
 	var type_sz := int(round(10.4 * ui))
 	var body_sz := int(round(12.8 * ui))
+	var big_sz := int(round(48.0 * ui))
+
+	var top_row := HBoxContainer.new()
+	top_row.set_anchors_preset(Control.PRESET_TOP_WIDE, false)
+	top_row.offset_left = pad_lr
+	top_row.offset_top = pad_tb
+	top_row.offset_right = -pad_lr
+	top_row.add_theme_constant_override("separation", sep)
+	top_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(top_row)
 
 	var title := Label.new()
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	title.add_theme_font_override("font", CARD_TEXT_FONT)
 	title.add_theme_font_size_override("font_size", title_sz)
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(title)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top_row.add_child(title)
+
+	var power_pips := CenterContainer.new()
+	power_pips.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	power_pips.size_flags_horizontal = Control.SIZE_SHRINK_END
+	power_pips.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	top_row.add_child(power_pips)
+
+	var ritual_big := Label.new()
+	ritual_big.set_anchors_preset(Control.PRESET_TOP_WIDE, false)
+	ritual_big.anchor_bottom = 0.4
+	ritual_big.offset_top = 0
+	ritual_big.offset_bottom = 0
+	ritual_big.offset_left = pad_lr
+	ritual_big.offset_right = -pad_lr
+	ritual_big.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ritual_big.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	ritual_big.add_theme_font_override("font", CARD_TEXT_FONT)
+	ritual_big.add_theme_font_size_override("font_size", big_sz)
+	ritual_big.add_theme_color_override("font_color", RITUAL_BIG_COLOR)
+	ritual_big.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ritual_big.visible = false
+	root.add_child(ritual_big)
+
+	var info := VBoxContainer.new()
+	info.set_anchors_preset(Control.PRESET_FULL_RECT, false)
+	info.anchor_top = 0.5
+	info.offset_top = 0
+	info.offset_left = pad_lr
+	info.offset_right = -pad_lr
+	info.offset_bottom = -pad_tb
+	info.add_theme_constant_override("separation", sep)
+	info.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(info)
 
 	var type_line := Label.new()
 	type_line.add_theme_font_override("font", CARD_TEXT_FONT)
 	type_line.add_theme_font_size_override("font_size", type_sz)
 	type_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(type_line)
+	info.add_child(type_line)
+
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0, body_sz)
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	info.add_child(gap)
 
 	var body := RichTextLabel.new()
 	body.add_theme_font_override("normal_font", CARD_TEXT_FONT)
@@ -96,7 +134,48 @@ static func build_preview_panel(host: Control, config: Dictionary = {}) -> Dicti
 	body.bbcode_enabled = false
 	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	col.add_child(body)
+	info.add_child(body)
+
+	var footer_h := int(round(60.0 * ui))
+	var footer := HBoxContainer.new()
+	footer.anchor_left = 0.0
+	footer.anchor_right = 1.0
+	footer.anchor_top = 1.0
+	footer.anchor_bottom = 1.0
+	footer.offset_left = pad_lr
+	footer.offset_right = -pad_lr
+	footer.offset_top = -footer_h
+	footer.offset_bottom = -pad_tb
+	footer.add_theme_constant_override("separation", sep)
+	footer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(footer)
+
+	var footer_spacer := Control.new()
+	footer_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	footer_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	footer.add_child(footer_spacer)
+
+	var cost_col := VBoxContainer.new()
+	cost_col.add_theme_constant_override("separation", maxi(1, int(round(2.0 * ui))))
+	cost_col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cost_col.size_flags_horizontal = Control.SIZE_SHRINK_END
+	cost_col.alignment = BoxContainer.ALIGNMENT_END
+	footer.add_child(cost_col)
+
+	var cost_pips := CenterContainer.new()
+	cost_pips.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cost_pips.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	cost_col.add_child(cost_pips)
+
+	var cost_number := Label.new()
+	cost_number.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cost_number.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	cost_number.add_theme_font_override("font", CARD_TEXT_FONT)
+	cost_number.add_theme_font_size_override("font_size", int(round(9.0 * ui)))
+	cost_number.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cost_number.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	cost_number.visible = false
+	cost_col.add_child(cost_number)
 
 	return {
 		"mode": mode,
@@ -104,7 +183,12 @@ static func build_preview_panel(host: Control, config: Dictionary = {}) -> Dicti
 		"panel_sb": sb,
 		"title": title,
 		"type_line": type_line,
-		"body": body
+		"body": body,
+		"ritual_big": ritual_big,
+		"power_pips": power_pips,
+		"cost_pips": cost_pips,
+		"cost_number": cost_number,
+		"ui": ui
 	}
 
 
@@ -115,14 +199,22 @@ static func show_preview(preview: Dictionary, card: Dictionary, mouse_position: 
 	var title: Label = preview.get("title")
 	var type_line: Label = preview.get("type_line")
 	var body: RichTextLabel = preview.get("body")
+	var ritual_big: Label = preview.get("ritual_big")
+	var power_pips: Container = preview.get("power_pips")
+	var cost_pips: Container = preview.get("cost_pips")
+	var cost_number: Label = preview.get("cost_number")
+	var ui := float(preview.get("ui", PREVIEW_SCALE))
+
 	title.text = card_title(card)
 	type_line.text = card_type_line(card)
 	body.text = card_rules_text(card)
+
 	var panel_sb: StyleBoxFlat = preview.get("panel_sb") as StyleBoxFlat
 	var kind := _card_type(card)
 	var border_c: Color
 	var text_c: Color
 	var bg_c := Color(0.03, 0.03, 0.05, 0.95)
+	var is_bird := kind == "bird"
 	match kind:
 		"ritual":
 			border_c = PREVIEW_RITUAL_BORDER
@@ -146,6 +238,44 @@ static func show_preview(preview: Dictionary, card: Dictionary, mouse_position: 
 	title.add_theme_color_override("font_color", text_c)
 	type_line.add_theme_color_override("font_color", text_c)
 	body.add_theme_color_override("default_color", text_c)
+
+	if ritual_big != null:
+		if kind == "ritual":
+			ritual_big.text = str(int(card.get("value", 0)))
+			ritual_big.visible = true
+		else:
+			ritual_big.visible = false
+
+	_clear_children(power_pips)
+	if is_bird:
+		var power := int(card.get("power", 0))
+		if power > 0:
+			power_pips.add_child(_make_pip_icon(power, true, POWER_PIP_COLOR, ui))
+
+	_clear_children(cost_pips)
+	var cost_count := 0
+	match kind:
+		"bird":
+			cost_count = int(card.get("cost", 0))
+		"noble":
+			cost_count = _noble_cost_for_id(str(card.get("noble_id", "")))
+		"temple":
+			cost_count = int(card.get("cost", 0))
+			if cost_count <= 0:
+				cost_count = _temple_cost_for_id(str(card.get("temple_id", "")))
+		"incantation":
+			cost_count = int(card.get("value", 0))
+	if cost_count > 0:
+		var pip_color: Color = COST_PIP_DARK if is_bird else COST_PIP_LIGHT
+		cost_pips.add_child(_make_pip_icon(cost_count, false, pip_color, ui))
+	if cost_number != null:
+		if cost_count > 0:
+			cost_number.text = str(cost_count)
+			cost_number.add_theme_color_override("font_color", text_c)
+			cost_number.visible = true
+		else:
+			cost_number.visible = false
+
 	if str(preview.get("mode", "corner")) != "corner":
 		root.global_position = mouse_position + Vector2(18, 18)
 	root.visible = true
@@ -161,7 +291,7 @@ static func hide_preview(preview: Dictionary) -> void:
 static func card_title(card: Dictionary) -> String:
 	var t := _card_type(card)
 	if t == "ritual":
-		return "%d-Ritual" % int(card.get("value", 0))
+		return "Ritual"
 	if t == "noble":
 		return str(card.get("name", "Noble"))
 	if t == "temple":
@@ -172,8 +302,6 @@ static func card_title(card: Dictionary) -> String:
 		return ts if not ts.is_empty() else "Temple"
 	if t == "bird":
 		return str(card.get("name", "Bird"))
-	if t == "dethrone":
-		return "Dethrone 4"
 	return "%s %d" % [str(card.get("verb", "")).capitalize(), int(card.get("value", 0))]
 
 
@@ -182,15 +310,11 @@ static func card_type_line(card: Dictionary) -> String:
 	if t == "ritual":
 		return "Ritual"
 	if t == "noble":
-		var cost := _noble_cost_for_id(str(card.get("noble_id", "")))
-		return "Noble%s" % (" (cost %d)" % cost if cost > 0 else "")
+		return "Noble"
 	if t == "bird":
-		return "Bird (cost %d, power %d)" % [int(card.get("cost", 0)), int(card.get("power", 0))]
+		return "Bird"
 	if t == "temple":
-		var raw_cost := int(card.get("cost", 0))
-		if raw_cost <= 0:
-			raw_cost = _temple_cost_for_id(str(card.get("temple_id", "")))
-		return "Temple (cost %d)" % raw_cost
+		return "Temple"
 	return "Incantation"
 
 
@@ -205,11 +329,11 @@ static func card_rules_text(card: Dictionary) -> String:
 		return "Each bird adds +1 to match power. Nest: place a bird under your temple (at most temple-cost birds per temple); nested birds add an additional +1 match power and cannot be involved in combat."
 	if t == "temple":
 		return _temple_preview_text(str(card.get("temple_id", "")))
-	if t == "dethrone":
-		return "Dethrone 4: destroy 1 opponent noble."
 	var n := int(card.get("value", 0))
 	var verb := str(card.get("verb", "")).to_lower()
 	match verb:
+		"dethrone":
+			return "Dethrone 4: destroy 1 opponent noble."
 		"seek":
 			var noun := "card" if n == 1 else "cards"
 			return "Seek %d: draw %d %s." % [n, n, noun]
@@ -229,6 +353,60 @@ static func card_rules_text(card: Dictionary) -> String:
 			return "Tears %d: return a Bird from your crypt to your field." % n
 		_:
 			return "Incantation %d." % n
+
+
+static func _clear_children(node: Node) -> void:
+	if node == null:
+		return
+	for child in node.get_children():
+		node.remove_child(child)
+		child.queue_free()
+
+
+static func _make_pip_icon(count: int, filled: bool, color: Color, ui: float) -> TextureRect:
+	var n := clampi(count, 0, 24)
+	var dot_r: int = maxi(1, int(round(4.0 * ui)))
+	var step: float = 6.0 * ui
+	var icon_size: int = maxi(1, int(round(28.0 * ui)))
+	if n > 1:
+		var remaining: int = n
+		var ring: int = 1
+		var max_ring_radius: int = 0
+		while remaining > 0:
+			var cap: int = ring * 6
+			var take: int = mini(remaining, cap)
+			var radius: int = int(round(ring * step))
+			max_ring_radius = maxi(max_ring_radius, radius)
+			remaining -= take
+			ring += 1
+		icon_size = maxi(icon_size, 2 * (max_ring_radius + dot_r) + 2)
+	var center := Vector2i(icon_size >> 1, icon_size >> 1)
+	var image := Image.create(icon_size, icon_size, false, Image.FORMAT_RGBA8)
+	image.fill(Color(0, 0, 0, 0))
+	if n == 1:
+		CornerPipDraw.draw_dot_on_image(image, center, dot_r, filled, color)
+	elif n > 1:
+		var remaining2: int = n
+		var ring2: int = 1
+		while remaining2 > 0:
+			var cap2: int = ring2 * 6
+			var take2: int = mini(remaining2, cap2)
+			var radius2: int = int(round(ring2 * step))
+			for i in take2:
+				var ang := TAU * (float(i) / float(take2)) - PI / 2.0
+				var px := center.x + int(round(cos(ang) * radius2))
+				var py := center.y + int(round(sin(ang) * radius2))
+				CornerPipDraw.draw_dot_on_image(image, Vector2i(px, py), dot_r, filled, color)
+			remaining2 -= take2
+			ring2 += 1
+	var tex := ImageTexture.create_from_image(image)
+	var rect := TextureRect.new()
+	rect.texture = tex
+	rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	rect.stretch_mode = TextureRect.STRETCH_KEEP
+	rect.custom_minimum_size = Vector2(icon_size, icon_size)
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return rect
 
 
 static func _card_type(card: Dictionary) -> String:

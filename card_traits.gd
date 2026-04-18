@@ -5,13 +5,9 @@ class_name CardTraits
 static func effective_kind(card: Dictionary) -> String:
 	var raw := str(card.get("type", card.get("kind", ""))).strip_edges().to_lower()
 	if not raw.is_empty():
-		if raw == "dethrone":
-			return "dethrone"
 		if raw == "bird":
 			return "bird"
-		if raw == "incantation":
-			if str(card.get("verb", "")).to_lower() == "dethrone":
-				return "dethrone"
+		if raw == "incantation" or raw == "dethrone":
 			return "incantation"
 		if raw == "ritual":
 			return "ritual"
@@ -26,9 +22,16 @@ static func effective_kind(card: Dictionary) -> String:
 		return "noble"
 	if card.has("bird_id"):
 		return "bird"
-	var verb := str(card.get("verb", "")).strip_edges()
-	if not verb.is_empty():
-		return "dethrone" if verb.to_lower() == "dethrone" else "incantation"
+	if not str(card.get("verb", "")).strip_edges().is_empty():
+		return "incantation"
 	if card.has("mid") and card.has("value"):
 		return "ritual"
 	return ""
+
+
+static func is_dethrone(card: Dictionary) -> bool:
+	if effective_kind(card) != "incantation":
+		return false
+	if str(card.get("verb", "")).strip_edges().to_lower() == "dethrone":
+		return true
+	return str(card.get("type", card.get("kind", ""))).strip_edges().to_lower() == "dethrone"

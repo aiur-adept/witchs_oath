@@ -107,10 +107,7 @@ func _build_gallery_entries() -> Array[Dictionary]:
 		out.append({"kind": "ritual", "value": value})
 	for verb in INCANTATION_VERBS:
 		for value in _incantation_values_for_verb(verb):
-			if verb == "dethrone":
-				out.append({"kind": "dethrone", "value": 4})
-			else:
-				out.append({"kind": "incantation", "verb": verb, "value": value})
+			out.append({"kind": "incantation", "verb": verb, "value": value})
 	for noble in NOBLE_DEFS:
 		out.append({"kind": "noble", "noble_id": str(noble.get("id", "")), "name": str(noble.get("name", ""))})
 	for tm in TEMPLE_DEFS:
@@ -260,8 +257,6 @@ func _entry_display_name(entry: Dictionary) -> String:
 		return str(entry.get("name", "Temple"))
 	if str(entry.get("kind", "")) == "bird":
 		return str(entry.get("name", "Bird"))
-	if str(entry.get("kind", "")) == "dethrone":
-		return "Dethrone 4"
 	return "%s %d" % [str(entry.get("verb", "")).capitalize(), int(entry.get("value", 0))]
 
 
@@ -281,8 +276,6 @@ func _entry_key(entry: Dictionary) -> String:
 		return _entry_key_temple(str(entry.get("temple_id", "")))
 	if kind == "bird":
 		return _entry_key_bird(str(entry.get("bird_id", "")))
-	if kind == "dethrone":
-		return "dethrone"
 	return _entry_key_incantation(str(entry.get("verb", "")), int(entry.get("value", 0)))
 
 
@@ -403,9 +396,13 @@ func _ingest_deck_dictionary(parsed_dict: Dictionary) -> void:
 			var rv := int(card.get("value", 0))
 			if RITUAL_VALUES.has(rv):
 				_add_or_increment_entry(_entry_key_ritual(rv), {"kind": "ritual", "value": rv})
-		elif kind == "incantation":
+		elif kind == "incantation" or kind == "dethrone":
 			var verb := str(card.get("verb", "")).to_lower()
+			if kind == "dethrone":
+				verb = "dethrone"
 			var iv := int(card.get("value", 0))
+			if kind == "dethrone" and iv == 0:
+				iv = 4
 			if INCANTATION_VERBS.has(verb) and _incantation_values_for_verb(verb).has(iv):
 				_add_or_increment_entry(_entry_key_incantation(verb, iv), {"kind": "incantation", "verb": verb, "value": iv})
 		elif kind == "noble":
@@ -417,9 +414,6 @@ func _ingest_deck_dictionary(parsed_dict: Dictionary) -> void:
 					"noble_id": nid,
 					"name": _canonical_noble_name(nid, nname)
 				})
-		elif kind == "dethrone":
-			if int(card.get("value", 4)) == 4:
-				_add_or_increment_entry("dethrone", {"kind": "dethrone", "value": 4})
 		elif kind == "temple":
 			var tid := str(card.get("temple_id", ""))
 			var tname := str(card.get("name", ""))
@@ -671,7 +665,7 @@ func _can_increase_entry(entry: Dictionary) -> bool:
 		if count >= MAX_BIRD_COPIES:
 			return false
 		return int(totals.get("non_ritual", 0)) < TARGET_NON_RITUAL_COUNT
-	if kind == "incantation" or kind == "dethrone":
+	if kind == "incantation":
 		if count >= MAX_INCANTATION_COPIES:
 			return false
 		return int(totals.get("non_ritual", 0)) < TARGET_NON_RITUAL_COUNT
@@ -710,8 +704,7 @@ func _show_cannot_add_status(entry: Dictionary) -> void:
 
 func _incantation_copy_limit_ok() -> bool:
 	for entry in _entries.values():
-		var kind := str(entry.get("kind", ""))
-		if kind != "incantation" and kind != "dethrone":
+		if str(entry.get("kind", "")) != "incantation":
 			continue
 		if int(entry.get("count", 0)) > MAX_INCANTATION_COPIES:
 			return false
@@ -772,7 +765,6 @@ func _totals() -> Dictionary:
 	var noble_total := 0
 	var temple_total := 0
 	var bird_total := 0
-	var dethrone_total := 0
 	for entry in _entries.values():
 		var count := int(entry.get("count", 0))
 		if count <= 0:
@@ -788,16 +780,13 @@ func _totals() -> Dictionary:
 			temple_total += count
 		elif kind == "bird":
 			bird_total += count
-		elif kind == "dethrone":
-			dethrone_total += count
 	return {
 		"rituals": ritual_total,
 		"incantations": incantation_total,
 		"nobles": noble_total,
 		"temples": temple_total,
 		"birds": bird_total,
-		"dethrones": dethrone_total,
-		"non_ritual": incantation_total + noble_total + temple_total + dethrone_total + bird_total
+		"non_ritual": incantation_total + noble_total + temple_total + bird_total
 	}
 
 
@@ -846,7 +835,6 @@ func _build_deck_payload() -> Dictionary:
 	var noble_counts: Dictionary = {}
 	var temple_counts: Dictionary = {}
 	var bird_counts: Dictionary = {}
-	var dethrone_count := 0
 	for value in RITUAL_VALUES:
 		ritual_counts[str(value)] = 0
 	for verb in INCANTATION_VERBS:
@@ -884,11 +872,6 @@ func _build_deck_payload() -> Dictionary:
 				for _ti in count:
 					cards.append({"type": "Temple", "temple_id": tid2, "name": tnam, "cost": tcost})
 				continue
-			if str(entry.get("kind", "")) == "dethrone":
-				dethrone_count = count
-				for _m in count:
-					cards.append({"type": "Dethrone", "value": 4})
-				continue
 			if str(entry.get("kind", "")) == "bird":
 				var bid := str(entry.get("bird_id", ""))
 				var bname := str(entry.get("name", "Bird"))
@@ -913,8 +896,7 @@ func _build_deck_payload() -> Dictionary:
 			"incantations": incantation_counts,
 			"nobles": noble_counts,
 			"temples": temple_counts,
-			"birds": bird_counts,
-			"dethrones": dethrone_count
+			"birds": bird_counts
 		},
 		"rules_snapshot": {
 			"total_cards_min": 40,

@@ -1123,7 +1123,7 @@ func can_play_dethrone(p: int, hand_idx: int) -> bool:
 	if _eyrie_waiting_on_response() and p == _eyrie_pending_player:
 		return false
 	var c: Variant = _card_at_hand(p, hand_idx)
-	if c == null or _card_kind(c) != "dethrone":
+	if c == null or not CardTraits.is_dethrone(c as Dictionary):
 		return false
 	var n := int(c.get("value", 4))
 	if n != 4:
@@ -1728,14 +1728,14 @@ func apply_temple_delpha(p: int, temple_mid: int, ritual_mid: int, crypt_idx: in
 
 func _gotha_draw_value_for_card(c: Dictionary) -> int:
 	var k := _card_kind(c)
-	if k == "ritual" or k == "incantation":
+	if k == "ritual":
+		return maxi(0, int(c.get("value", 0)))
+	if k == "incantation":
 		return maxi(0, int(c.get("value", 0)))
 	if k == "noble":
 		return maxi(0, _noble_play_cost(str(c.get("noble_id", ""))))
-	if k == "temple":
-		return maxi(0, int(c.get("cost", TEMPLE_PLAY_COST)))
-	if k == "dethrone":
-		return 4
+	if k == "bird":
+		return maxi(0, int(c.get("cost", 0)))
 	return 0
 
 
@@ -2370,17 +2370,13 @@ func discard_for_draw(p: int, hand_idx: int) -> String:
 func _move_hand_card_to_discard(pl: Dictionary, hand: Array, idx: int) -> void:
 	var c: Variant = hand[idx]
 	hand.remove_at(idx)
-	var kind := _card_kind(c)
-	if kind in ["ritual", "noble", "incantation", "dethrone"]:
-		pl["crypt"].append(c)
-	else:
-		pl["crypt"].append(c)
+	pl["crypt"].append(c)
 
 
 func _inc_crypt_cards(pl: Dictionary) -> Array:
 	var out: Array = []
 	for c in (pl["crypt"] as Array):
-		if _card_kind(c) == "incantation" or _card_kind(c) == "dethrone":
+		if _card_kind(c) == "incantation":
 			out.append(c)
 	return out
 
@@ -2428,8 +2424,7 @@ func _inc_crypt_index_to_crypt_index(pl: Dictionary, inc_idx: int) -> int:
 	var seen := 0
 	var crypt: Array = pl["crypt"]
 	for i in crypt.size():
-		var k := _card_kind(crypt[i])
-		if k == "incantation" or k == "dethrone":
+		if _card_kind(crypt[i]) == "incantation":
 			if seen == inc_idx:
 				return i
 			seen += 1

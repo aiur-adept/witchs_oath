@@ -1014,7 +1014,7 @@ func _on_revive_cancel_pressed() -> void:
 
 
 func _on_revive_crypt_chosen(crypt_idx: int) -> void:
-	var idisc: Array = _filtered_crypt_cards(_your_crypt_cards_from_snap(_last_snap), ["incantation", "dethrone"])
+	var idisc: Array = _filtered_crypt_cards(_your_crypt_cards_from_snap(_last_snap), ["incantation"])
 	if crypt_idx < 0 or crypt_idx >= idisc.size():
 		return
 	var card: Dictionary = idisc[crypt_idx]
@@ -1177,10 +1177,12 @@ func _load_cards_from_path(path: String) -> Array:
 		if typeof(c) != TYPE_DICTIONARY:
 			continue
 		var cd: Dictionary = (c as Dictionary).duplicate(true)
-		if _card_type(cd) == "dethrone":
+		if CardTraits.is_dethrone(cd):
 			var dv := int(cd.get("value", 4))
 			if dv != 4:
 				continue
+			cd["type"] = "incantation"
+			cd["verb"] = "dethrone"
 			cd["value"] = 4
 		elif _card_type(cd) == "incantation" and str(cd.get("verb", "")).to_lower() == "wrath":
 			cd["value"] = 4
@@ -3311,7 +3313,7 @@ func _on_temple_activate_pressed(temple_mid: int) -> void:
 		if tid == "gotha_illness":
 			_gotha_picking = true
 			_gotha_temple_mid = temple_mid
-			status_label.text = "Gotha: discard a non-temple card of power/cost N in your hand to draw N cards."
+			status_label.text = "Gotha: discard a non-temple card of cost (or power if Ritual) N in your hand to draw N cards."
 			_rebuild_hand(_last_snap.get("your_hand", []))
 			return
 		if tid == "ytria_cycles":
@@ -3969,7 +3971,7 @@ func _on_hand_pressed(hand_idx: int) -> void:
 			status_label.text = "Not enough ritual value on your field to sacrifice for a temple (need %d)." % temple_cost_need
 			return
 		_enter_temple_sacrifice_mode(hand_idx)
-	elif _card_type(c) == "dethrone":
+	elif CardTraits.is_dethrone(c):
 		var opp_nobles: Array = snap.get("opp_nobles", [])
 		if opp_nobles.is_empty():
 			status_label.text = "Opponent has no nobles to dethrone."

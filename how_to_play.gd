@@ -525,8 +525,6 @@ func _card_label(card: Dictionary) -> String:
 		return _short_noble_name(str(card.get("name", "Noble")))
 	if t == "temple":
 		return _short_temple_name(str(card.get("name", "Temple")))
-	if t == "dethrone":
-		return "Dethrone 4"
 	return "%s %d" % [str(card.get("verb", "")), int(card.get("value", 0))]
 
 

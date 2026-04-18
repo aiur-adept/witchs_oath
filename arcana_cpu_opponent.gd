@@ -3,6 +3,7 @@ class_name ArcanaCpuOpponent
 
 const CPU_ACTION_SEC := 1.618
 const _GameSnapshotUtils = preload("res://game_snapshot_utils.gd")
+const _CardTraits = preload("res://card_traits.gd")
 
 static func greedy_sacrifice_mids(snap: Dictionary, need: int) -> Array:
 	var field: Array = snap.get("your_field", [])
@@ -215,7 +216,9 @@ func run_turn(host: Node) -> void:
 		var playable: Array[int] = []
 		for j in hand.size():
 			var ctype: String = host._card_type(hand[j])
-			if ctype == "dethrone":
+			if ctype != "incantation":
+				continue
+			if _CardTraits.is_dethrone(hand[j]):
 				var opp_nobles_a: Array = snap.get("opp_nobles", [])
 				var need_d := int(hand[j].get("value", 4))
 				var fld_d: Array = snap.get("your_field", [])
@@ -225,8 +228,6 @@ func run_turn(host: Node) -> void:
 					tot_d += int(x.get("value", 0))
 				if not opp_nobles_a.is_empty() and (ok_lane_d or tot_d >= need_d):
 					playable.append(j)
-				continue
-			if ctype != "incantation":
 				continue
 			var n: int = int(hand[j].get("value", 0))
 			var fld: Array = snap.get("your_field", [])
@@ -253,7 +254,9 @@ func run_turn(host: Node) -> void:
 			playable.clear()
 			for j in hand.size():
 				var ctype2: String = host._card_type(hand[j])
-				if ctype2 == "dethrone":
+				if ctype2 != "incantation":
+					continue
+				if _CardTraits.is_dethrone(hand[j]):
 					var opp_nobles_b: Array = snap.get("opp_nobles", [])
 					var need_d2 := int(hand[j].get("value", 4))
 					var fld_d2: Array = snap.get("your_field", [])
@@ -263,8 +266,6 @@ func run_turn(host: Node) -> void:
 						tot_d2 += int(x.get("value", 0))
 					if not opp_nobles_b.is_empty() and (ok_lane_d2 or tot_d2 >= need_d2):
 						playable.append(j)
-					continue
-				if ctype2 != "incantation":
 					continue
 				var n2: int = int(hand[j].get("value", 0))
 				var fld2: Array = snap.get("your_field", [])
@@ -281,7 +282,7 @@ func run_turn(host: Node) -> void:
 			if playable.is_empty():
 				break
 			var pick := playable[randi_range(0, playable.size() - 1)]
-			if host._card_type(hand[pick]) == "dethrone":
+			if _CardTraits.is_dethrone(hand[pick]):
 				var opp_nobles: Array = snap.get("opp_nobles", [])
 				if not opp_nobles.is_empty():
 					var tmid := int(opp_nobles[0].get("mid", -1))

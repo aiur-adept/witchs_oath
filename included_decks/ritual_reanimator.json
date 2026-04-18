@@ -177,8 +177,9 @@
 			"type": "Noble"
 		},
 		{
-			"type": "Dethrone",
-			"value": 4.0
+			"type": "Incantation",
+			"value": 4.0,
+			"verb": "dethrone"
 		}
 	],
 	"counts": {

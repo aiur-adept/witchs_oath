@@ -157,20 +157,24 @@
 			"verb": "insight"
 		},
 		{
-			"type": "Dethrone",
-			"value": 4
+			"type": "Incantation",
+			"value": 4,
+			"verb": "dethrone"
 		},
 		{
-			"type": "Dethrone",
-			"value": 4
+			"type": "Incantation",
+			"value": 4,
+			"verb": "dethrone"
 		},
 		{
-			"type": "Dethrone",
-			"value": 4
+			"type": "Incantation",
+			"value": 4,
+			"verb": "dethrone"
 		},
 		{
-			"type": "Dethrone",
-			"value": 4
+			"type": "Incantation",
+			"value": 4,
+			"verb": "dethrone"
 		},
 		{
 			"name": "Zytzr, Noble of Annihilation",

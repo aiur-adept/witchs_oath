@@ -71,8 +71,6 @@ static func card_label(card: Variant) -> String:
 		return short_noble_name(str(card.get("name", "Noble")))
 	if t == "temple":
 		return short_noble_name(str(card.get("name", "Temple")))
-	if t == "dethrone":
-		return "Dethrone 4"
 	return "%s %d" % [str(card.get("verb", "")), int(card.get("value", 0))]
 
 
@@ -86,8 +84,6 @@ static func hand_card_stack_key(card: Variant) -> String:
 		return "n:%s" % str(card.get("noble_id", ""))
 	if t == "temple":
 		return "t:%s" % str(card.get("temple_id", ""))
-	if t == "dethrone":
-		return "dethrone"
 	return "i:%s:%d" % [str(card.get("verb", "")).to_lower(), int(card.get("value", 0))]
 
 

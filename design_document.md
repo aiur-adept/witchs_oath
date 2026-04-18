@@ -231,7 +231,7 @@ Temple activations are once per turn per temple.
   - Legal only if you have enough cards in deck to mill `2X`.
 - **Gotha, Temple of Illness**:
   - Static: Skip your turn-start draw.
-  - Activated: Discard one non-temple card, then draw cards equal to that card's value/cost.
+  - Activated: Discard one non-temple card, then draw cards equal to that card's cost (or power if Ritual).
 
 ### 11.3 Cost 9 temple
 

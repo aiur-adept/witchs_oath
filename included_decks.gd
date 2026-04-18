@@ -193,9 +193,6 @@ static func _log_data_issues_once() -> void:
 					ok_value = value == 4
 				if not ok_value:
 					print("INFO: included_decks data issue: deck '%s' incantation card[%d] has invalid value %d for verb '%s'." % [slug, j, value, verb])
-			elif ctype == "dethrone":
-				if value != 4:
-					print("INFO: included_decks data issue: deck '%s' dethrone card[%d] has invalid value %d." % [slug, j, value])
 			elif ctype == "noble":
 				var noble_id := str(c.get("noble_id", "")).strip_edges()
 				if noble_id.is_empty():
