@@ -371,7 +371,7 @@ class GreedyAI:
             killed = sum(ritvals[:1 + (1 if state.has_noble(pid, "zytzr_annihilation") else 0)])
             return (10 + killed * 2.5, {})
         if verb == VERB_REVIVE:
-            elig = [c for c in me.crypt if c.kind is Kind.INCANTATION and c.verb not in (VERB_REVIVE, VERB_WRATH, VERB_TEARS)]
+            elig = [c for c in me.crypt if c.kind is Kind.INCANTATION and c.verb not in (VERB_REVIVE, VERB_TEARS)]
             if not elig:
                 return None
             return (12, {})
@@ -438,11 +438,11 @@ class GreedyAI:
                     ctx["wrath_targets"] = [r.mid for r in ritvals[:killcount]]
                 if c.verb == VERB_REVIVE:
                     me = state.players[pid]
-                    elig = [(i, cc) for i, cc in enumerate(me.crypt) if cc.kind is Kind.INCANTATION and cc.verb not in (VERB_REVIVE, VERB_WRATH, VERB_TEARS)]
+                    elig = [(i, cc) for i, cc in enumerate(me.crypt) if cc.kind is Kind.INCANTATION and cc.verb not in (VERB_REVIVE, VERB_TEARS)]
                     if elig:
                         def score_rev(entry):
                             cc = entry[1]
-                            return {VERB_SEEK: 5, VERB_WOE: 4, VERB_BURN: 3, VERB_INSIGHT: 2}.get(cc.verb, 1) + cc.value
+                            return {VERB_WRATH: 6, VERB_SEEK: 5, VERB_WOE: 4, VERB_BURN: 3, VERB_INSIGHT: 2}.get(cc.verb, 1) + cc.value
                         elig.sort(key=score_rev, reverse=True)
                         ctx["revive_crypt_idx"] = elig[0][0]
                 state.play_incantation(pid, hand_idx, ctx, list(sac) if sac else None)

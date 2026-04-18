@@ -583,7 +583,7 @@ class MatchState:
     def _effect_revive(self, pid: int, n: int, ctx: dict) -> dict:
         p = self.players[pid]
         crypt_inc_indices = [i for i, c in enumerate(p.crypt)
-                             if c.kind is Kind.INCANTATION and c.verb not in (VERB_REVIVE, VERB_WRATH, VERB_TEARS)]
+                             if c.kind is Kind.INCANTATION and c.verb not in (VERB_REVIVE, VERB_TEARS)]
         if not crypt_inc_indices:
             return {}
         picked_idx: Optional[int] = ctx.get("revive_crypt_idx")

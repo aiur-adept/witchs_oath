@@ -1063,9 +1063,6 @@ func _begin_revive_hand_ui(hand_idx: int, n: int, sac_mids: Array, for_noble_mid
 		var v := str(card.get("verb", ""))
 		var vv := int(card.get("value", 0))
 		b.text = "%s %d (crypt #%d)" % [v, vv, idx]
-		if v.to_lower() == "wrath":
-			b.disabled = true
-			b.tooltip_text = "Wrath cannot be selected by Revive."
 		var capture := idx
 		b.pressed.connect(func() -> void:
 			_on_revive_crypt_chosen(capture)
@@ -1112,13 +1109,18 @@ func _on_revive_crypt_chosen(crypt_idx: int) -> void:
 		return
 	var card: Dictionary = idisc[crypt_idx]
 	var v := str(card.get("verb", "")).to_lower()
-	if v == "wrath":
-		status_label.text = "Wrath cannot be selected with Revive."
-		return
 	var val := int(card.get("value", 0))
 	_nested_revive_crypt_idx = crypt_idx
 	_nested_revive_value = val
 	_clear_revive_overlay()
+	if v == "wrath":
+		var opp_field: Array = _last_snap.get("opp_field", [])
+		var wneed := mini(_wrath_effective_destroy_count(_last_snap, val), opp_field.size())
+		if wneed == 0:
+			_finalize_revive_wrath_submit([])
+		else:
+			_enter_wrath_only_mode(_pending_inc_hand_idx, val, wneed, "Revive: Wrath %d" % val, true)
+		return
 	if v == "seek":
 		var steps := [{"revive_skip": false, "revive_crypt_idx": crypt_idx, "nested": {}}]
 		_finalize_revive_cast({"revive_steps": steps})

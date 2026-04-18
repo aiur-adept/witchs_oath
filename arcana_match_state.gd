@@ -1640,7 +1640,7 @@ func _validate_revive_chain(p: int, value: int, ctx: Dictionary) -> String:
 		var cdict: Dictionary = cc
 		var cv := str(cdict.get("verb", "")).to_lower()
 		var cn := int(cdict.get("value", 0))
-		if cv == "revive" or cv == "wrath" or cv == "tears":
+		if cv == "revive" or cv == "tears":
 			return "illegal"
 		var nested: Dictionary = d.get("nested", {}) as Dictionary
 		var wr_mids: Array = nested.get("wrath_mids", []) as Array
@@ -1682,9 +1682,6 @@ func _run_revive_steps_after_payment(p: int, value: int, ctx: Dictionary, paymen
 		var nested: Dictionary = d.get("nested", {}) as Dictionary
 		var cv := str(crypt_card.get("verb", "")).to_lower()
 		var cn := int(crypt_card.get("value", 0))
-		if cv == "wrath":
-			crypt.insert(crypt_idx, crypt_card)
-			return "illegal"
 		var wr_mids: Array = nested.get("wrath_mids", []) as Array
 		var wr_r := _wrath_resolve_mids(1 - p, cn, wr_mids, p)
 		if cv == "woe":
@@ -1859,9 +1856,6 @@ func apply_noble_revive_from_crypt(p: int, noble_mid: int, ctx: Dictionary) -> S
 		var nested: Dictionary = d.get("nested", {}) as Dictionary
 		var cv := str(crypt_card.get("verb", "")).to_lower()
 		var cn := int(crypt_card.get("value", 0))
-		if cv == "wrath":
-			crypt.insert(crypt_idx, crypt_card)
-			return "illegal"
 		var wr_mids: Array = nested.get("wrath_mids", []) as Array
 		var wr_r := _wrath_resolve_mids(1 - p, cn, wr_mids, p)
 		if cv == "woe":
