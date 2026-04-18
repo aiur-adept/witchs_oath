@@ -198,6 +198,10 @@ func _turn_start_draw() -> void:
 	bird_played_this_turn = false
 	bird_fight_used_this_turn = false
 	turn_number += 1
+	if turn_number == 1 and current == _starting_player:
+		discard_draw_used = false
+		_log("Turn P%d draw step skipped (first turn)." % current)
+		return
 	if _skip_draw_for_gotha(current):
 		discard_draw_used = false
 		_log("Turn P%d draw step skipped (Gotha)." % current)

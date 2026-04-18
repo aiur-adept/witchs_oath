@@ -11,7 +11,7 @@ This document defines the complete game rules for Arcana as currently implemente
   - Shuffle hand into deck.
   - Draw 5 new cards.
   - Put exactly 1 card from hand on the bottom of deck.
-- After mulligans are complete, the starting player takes the first turn and performs the normal turn-start draw.
+- After mulligans are complete, the starting player takes the first turn (skipping the turn-start draw, per Section 4).
 
 ## 2) Zones
 
@@ -37,7 +37,7 @@ Each turn has three practical steps:
 
 1. **Turn-start draw**
    - Active player draws 1 card.
-   - Exception: if that player controls Gotha, they skip this draw.
+   - The player who goes first does not draw on their first turn.   
 2. **Main phase**
    - Active player may perform actions in any order, including:
      - Play any number of incantations (if legal and paid).
@@ -166,7 +166,6 @@ If empty-deck draw is attempted:
 - **Wrath 4**: Destroy 1 opponent ritual. That opponent draws a card.
 - **Revive 1**: Cast 1 eligible incantation from your crypt.
   - Revive itself cannot be revived.
-  - Wrath cannot be cast via revive.
   - Cards cast this way go to abyss (not crypt).
 - **Dethrone 4**: Destroy one opposing noble.
 - **Deluge X**: Destroy all Birds of power X-1 or less. [comes in Deluge 2, 3 and 4]

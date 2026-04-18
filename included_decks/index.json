@@ -1,7 +1,7 @@
 {
 	"schema_version": 1,
 	"slugs": [
-		"incantations_deck",
+		"incantations",
 		"noble_test",
 		"wrathseek-sac",
 		"ritual_reanimator",
@@ -9,9 +9,10 @@
 		"occultation",
 		"annihilation",
 		"emanation",
-		"scion_test",
-		"temples_test",
+		"scions",
+		"temples",
 		"bird_test",
-		"void_temples"
+		"void_temples",
+		"revive"
 	]
 }
