@@ -152,24 +152,20 @@
 			"verb": "woe"
 		},
 		{
-			"type": "Incantation",
-			"value": 1.0,
-			"verb": "woe"
+			"type": "Dethrone",
+			"value": 4.0
 		},
 		{
-			"type": "Incantation",
-			"value": 1.0,
-			"verb": "woe"
+			"type": "Dethrone",
+			"value": 4.0
 		},
 		{
-			"type": "Incantation",
-			"value": 1.0,
-			"verb": "woe"
+			"type": "Dethrone",
+			"value": 4.0
 		},
 		{
-			"type": "Incantation",
-			"value": 1.0,
-			"verb": "woe"
+			"type": "Dethrone",
+			"value": 4.0
 		},
 		{
 			"type": "Incantation",
@@ -183,7 +179,7 @@
 		}
 	],
 	"counts": {
-		"dethrones": 0.0,
+		"dethrones": 4.0,
 		"incantations": {
 			"burn_1": 0.0,
 			"burn_2": 0.0,
@@ -199,7 +195,7 @@
 			"seek_2": 0.0,
 			"seek_3": 0.0,
 			"seek_4": 0.0,
-			"woe_1": 4.0,
+			"woe_1": 0.0,
 			"woe_2": 4.0,
 			"woe_3": 4.0,
 			"woe_4": 2.0,

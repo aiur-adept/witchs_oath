@@ -80,8 +80,9 @@ func insight_effective_n(p: int, base: int) -> int:
 
 func _woe_discard_need(instigator: int, value: int, victim: int) -> int:
 	var hs: int = _players[victim]["hand"].size()
+	var base := maxi(value - 1, 0)
 	var extra := 1 if _noble_on_field(instigator, "zytzr_annihilation") else 0
-	return mini(value + extra, hs)
+	return mini(base + extra, hs)
 
 
 func effective_wrath_destroy_count(instigator: int, value: int) -> int:
@@ -1013,7 +1014,7 @@ func _queue_post_effect_scion_trigger(p: int, verb: String) -> void:
 	if v == "wrath":
 		if _noble_on_field(p, "tmrsk_annihilation"):
 			_set_scion_pending(p, "tmrsk_woe")
-			_log("P%d: Tmrsk — choose Woe 1 (after Wrath)." % p)
+			_log("P%d: Tmrsk — choose Woe 2 (after Wrath)." % p)
 
 
 func _ritual_value_for_mid(p: int, ritual_mid: int) -> int:
@@ -1070,7 +1071,7 @@ func submit_scion_trigger_response(p: int, action: String, ctx: Dictionary = {})
 			var opp := 1 - p
 			if wt != p and wt != opp:
 				return "illegal_target"
-			var need := _woe_discard_need(p, 1, wt)
+			var need := _woe_discard_need(p, 2, wt)
 			if wt == opp and need > 0:
 				_scion_clear_pending()
 				_woe_pending_instigator = p
@@ -1083,10 +1084,10 @@ func submit_scion_trigger_response(p: int, action: String, ctx: Dictionary = {})
 				_log("P%d resolves Tmrsk; Woe pending on P%d." % [p, wt])
 				return "ok"
 			_scion_clear_pending()
-			var werr := execute_incantation_effect(p, "woe", 1, [], ctx)
+			var werr := execute_incantation_effect(p, "woe", 2, [], ctx)
 			if werr != "ok":
 				return werr
-			_log("P%d resolves Tmrsk (Woe 1)." % p)
+			_log("P%d resolves Tmrsk (Woe 2)." % p)
 			return "ok"
 		_:
 			return "illegal"
@@ -1471,7 +1472,7 @@ func apply_noble_spell_like(p: int, noble_mid: int, verb: String, value: int, wr
 			if v != "burn" or value != 1:
 				return "illegal"
 		"wndrr_incantation":
-			if v != "woe" or value != 1:
+			if v != "woe" or value != 2:
 				return "illegal"
 		"sndrr_incantation":
 			if v != "seek" or value != 1:
@@ -1506,7 +1507,7 @@ func apply_noble_spell_like(p: int, noble_mid: int, verb: String, value: int, wr
 		"bndrr_incantation":
 			_log("P%d activates Bndrr (Burn 1)." % p)
 		"wndrr_incantation":
-			_log("P%d activates Wndrr (Woe 1)." % p)
+			_log("P%d activates Wndrr (Woe 2)." % p)
 		"sndrr_incantation":
 			_log("P%d activates Sndrr (Seek 1)." % p)
 		_:
@@ -2120,7 +2121,7 @@ func _mill(target: int, x: int) -> void:
 
 func _wrath_destroy_count(value: int) -> int:
 	if value == 4:
-		return 2
+		return 1
 	return 0
 
 

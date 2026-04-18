@@ -139,22 +139,22 @@
 		{
 			"type": "Incantation",
 			"value": 4,
-			"verb": "seek"
+			"verb": "insight"
 		},
 		{
 			"type": "Incantation",
 			"value": 4,
-			"verb": "seek"
+			"verb": "insight"
 		},
 		{
 			"type": "Incantation",
 			"value": 4,
-			"verb": "seek"
+			"verb": "insight"
 		},
 		{
 			"type": "Incantation",
 			"value": 4,
-			"verb": "seek"
+			"verb": "insight"
 		},
 		{
 			"type": "Dethrone",
@@ -189,12 +189,12 @@
 			"insight_1": 0,
 			"insight_2": 0,
 			"insight_3": 0,
-			"insight_4": 0,
+			"insight_4": 4,
 			"revive_1": 0,
 			"seek_1": 0,
 			"seek_2": 0,
 			"seek_3": 0,
-			"seek_4": 4,
+			"seek_4": 0,
 			"woe_1": 0,
 			"woe_2": 0,
 			"woe_3": 0,

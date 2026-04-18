@@ -2179,7 +2179,7 @@ func _enter_wrath_only_mode(hand_idx: int, n: int, wneed: int, card_label: Strin
 	_locked_sacrifice_mids.clear()
 	sacrifice_row.visible = true
 	sacrifice_confirm_button.text = "Confirm destroy"
-	sacrifice_hint.text = "Wrath: select exactly %d opponent ritual(s) to destroy (%s). Then confirm." % [wneed, card_label]
+	sacrifice_hint.text = "Wrath: select 1 opponent ritual to destroy (%s). Then confirm." % card_label
 	_update_inc_modal_ui()
 	_rebuild_field_strips_from_snap(_last_snap)
 	_rebuild_hand(_last_snap.get("your_hand", []))
@@ -2286,7 +2286,7 @@ func _show_scion_prompt_ui(snap: Dictionary) -> void:
 	if st == "tmrsk_woe":
 		_burn_woe_mode = "tmrsk_woe"
 		_pending_woe_target = int(snap.get("you", 0))
-		_burn_woe_title.text = "Tmrsk — Woe 1: who discards?"
+		_burn_woe_title.text = "Tmrsk — Woe 2: who discards?"
 		_tgt_left_btn.text = "You"
 		_tgt_right_btn.text = "Opponent"
 		_burn_woe_hint.text = "Choose target, then confirm."
@@ -4069,7 +4069,7 @@ func _my_player_for_action() -> int:
 
 func _wrath_destroy_count(value: int) -> int:
 	if value == 4:
-		return 2
+		return 1
 	return 0
 
 
