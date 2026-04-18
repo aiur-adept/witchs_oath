@@ -181,6 +181,9 @@ var _sndrr_picking: bool = false
 var _sndrr_noble_mid: int = -1
 var _wndrr_picking: bool = false
 var _wndrr_noble_mid: int = -1
+var _discard_prompt_overlay: Control
+var _discard_prompt_label: Label
+var _discard_prompt_cancel_btn: Button
 
 var _void_overlay: Control
 var _void_backdrop: ColorRect
@@ -309,6 +312,7 @@ func _ready() -> void:
 	status_label.clip_text = true
 	_build_insight_overlay()
 	_build_burn_woe_revive_overlays()
+	_build_discard_prompt_overlay()
 	_build_hover_preview_panel()
 	_build_game_end_modal()
 	_build_end_discard_modal()
@@ -615,6 +619,83 @@ func _build_burn_woe_revive_overlays() -> void:
 	ae_row.add_child(ae_cancel)
 	inner_a.add_child(ae_row)
 	ae_cancel.pressed.connect(_on_aeoiu_cancel_pressed)
+
+
+func _build_discard_prompt_overlay() -> void:
+	_discard_prompt_overlay = Control.new()
+	_discard_prompt_overlay.name = "DiscardPromptOverlay"
+	_discard_prompt_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_discard_prompt_overlay.visible = false
+	_discard_prompt_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_discard_prompt_overlay.z_index = 95
+	add_child(_discard_prompt_overlay)
+	var cc := CenterContainer.new()
+	cc.anchor_left = 0.0
+	cc.anchor_right = 1.0
+	cc.anchor_top = 0.0
+	cc.anchor_bottom = 0.0
+	cc.offset_left = 0
+	cc.offset_right = 0
+	cc.offset_top = 64
+	cc.offset_bottom = 180
+	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_discard_prompt_overlay.add_child(cc)
+	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	var psb := StyleBoxFlat.new()
+	psb.bg_color = Color(0.06, 0.07, 0.11, 0.95)
+	psb.border_color = Color(0.95, 0.72, 0.25)
+	psb.set_border_width_all(2)
+	psb.set_corner_radius_all(10)
+	psb.content_margin_left = 16
+	psb.content_margin_right = 16
+	psb.content_margin_top = 10
+	psb.content_margin_bottom = 10
+	panel.add_theme_stylebox_override("panel", psb)
+	cc.add_child(panel)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 14)
+	panel.add_child(row)
+	_discard_prompt_label = Label.new()
+	_discard_prompt_label.text = ""
+	_discard_prompt_label.add_theme_font_size_override("font_size", 16)
+	_discard_prompt_label.add_theme_color_override("font_color", Color(1.0, 0.95, 0.85))
+	_discard_prompt_label.custom_minimum_size = Vector2(360, 0)
+	_discard_prompt_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_discard_prompt_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	row.add_child(_discard_prompt_label)
+	_discard_prompt_cancel_btn = Button.new()
+	_discard_prompt_cancel_btn.text = "Cancel"
+	_apply_ui_button_padding(_discard_prompt_cancel_btn)
+	row.add_child(_discard_prompt_cancel_btn)
+	_discard_prompt_cancel_btn.pressed.connect(_on_discard_prompt_cancel_pressed)
+
+
+func _show_discard_prompt(msg: String) -> void:
+	if _discard_prompt_overlay == null:
+		return
+	if _discard_prompt_label != null:
+		_discard_prompt_label.text = msg
+	_discard_prompt_overlay.visible = true
+
+
+func _hide_discard_prompt() -> void:
+	if _discard_prompt_overlay != null:
+		_discard_prompt_overlay.visible = false
+
+
+func _on_discard_prompt_cancel_pressed() -> void:
+	var was_picking := _sndrr_picking or _wndrr_picking or _gotha_picking
+	_sndrr_picking = false
+	_sndrr_noble_mid = -1
+	_wndrr_picking = false
+	_wndrr_noble_mid = -1
+	_gotha_picking = false
+	_gotha_temple_mid = -1
+	_hide_discard_prompt()
+	if was_picking:
+		status_label.text = "Cancelled."
+		_rebuild_hand(_last_snap.get("your_hand", []) as Array)
 
 
 func _build_void_overlay() -> void:
@@ -1483,6 +1564,8 @@ func _apply_snap(snap: Dictionary) -> void:
 			_sndrr_noble_mid = -1
 			_wndrr_picking = false
 			_wndrr_noble_mid = -1
+	if not _sndrr_picking and not _wndrr_picking and not _gotha_picking:
+		_hide_discard_prompt()
 	if bool(snap.get("eyrie_pending_you_respond", false)):
 		_show_eyrie_overlay_from_snap(snap)
 	else:
@@ -2738,6 +2821,7 @@ func _clear_incantation_flow_ui() -> void:
 	_sndrr_noble_mid = -1
 	_wndrr_picking = false
 	_wndrr_noble_mid = -1
+	_hide_discard_prompt()
 
 
 func _submit_dethrone_play(hand_idx: int, noble_mids: Array, sacrifice_mids: Array = []) -> void:
@@ -3539,6 +3623,7 @@ func _start_noble_woe(noble_mid: int) -> void:
 	_wndrr_picking = true
 	_wndrr_noble_mid = noble_mid
 	status_label.text = "Wndrr: discard a card to Woe 3 the opponent."
+	_show_discard_prompt("Wndrr — choose a card from your hand to discard (Woe 3 the opponent).")
 	_rebuild_hand(hand)
 
 
@@ -3550,6 +3635,7 @@ func _start_noble_seek(noble_mid: int) -> void:
 	_sndrr_picking = true
 	_sndrr_noble_mid = noble_mid
 	status_label.text = "Sndrr: discard a card to Seek 1."
+	_show_discard_prompt("Sndrr — choose a card from your hand to discard (Seek 1).")
 	_rebuild_hand(hand)
 
 
@@ -3660,6 +3746,7 @@ func _on_temple_activate_pressed(temple_mid: int) -> void:
 			_gotha_picking = true
 			_gotha_temple_mid = temple_mid
 			status_label.text = "Gotha: discard a non-temple card of cost (or power if Ritual) N in your hand to draw N cards."
+			_show_discard_prompt("Gotha — choose a non-temple card from your hand to discard (draw N, where N is its cost or power).")
 			_rebuild_hand(_last_snap.get("your_hand", []))
 			return
 		if tid == "ytria_cycles":
@@ -4278,6 +4365,7 @@ func _on_hand_pressed(hand_idx: int) -> void:
 				status_label.text = "Could not activate Gotha."
 		_gotha_picking = false
 		_gotha_temple_mid = -1
+		_hide_discard_prompt()
 		_broadcast_sync(true)
 		return
 	if _sndrr_picking:
@@ -4289,6 +4377,7 @@ func _on_hand_pressed(hand_idx: int) -> void:
 				status_label.text = "Could not activate Sndrr."
 		_sndrr_picking = false
 		_sndrr_noble_mid = -1
+		_hide_discard_prompt()
 		_broadcast_sync(true)
 		return
 	if _wndrr_picking:
@@ -4301,6 +4390,7 @@ func _on_hand_pressed(hand_idx: int) -> void:
 				status_label.text = "Could not activate Wndrr."
 		_wndrr_picking = false
 		_wndrr_noble_mid = -1
+		_hide_discard_prompt()
 		_broadcast_sync(true)
 		return
 	if _insight_open:
@@ -5118,6 +5208,7 @@ func _on_end_turn_pressed() -> void:
 	if _wndrr_picking:
 		_wndrr_picking = false
 		_wndrr_noble_mid = -1
+	_hide_discard_prompt()
 	if _delpha_overlay != null and _delpha_overlay.visible:
 		_on_delpha_cancel_pressed()
 	if _sacrifice_selecting:
