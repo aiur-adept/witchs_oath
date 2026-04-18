@@ -17,6 +17,8 @@ from .cards import (
     Card,
     Kind,
     NOBLE_DEFS,
+    RING_COST,
+    RING_DEFS,
     TEMPLE_DEFS,
     VERB_BURN,
     VERB_DELUGE,
@@ -46,6 +48,7 @@ class Noble:
     noble_id: str
     cost: int
     used_turn: int = -1
+    rings: list[str] = dc_field(default_factory=list)  # ring_ids attached
 
 
 @dataclass
@@ -65,6 +68,7 @@ class Bird:
     power: int
     damage: int = 0
     nest_mid: int = -1  # temple mid if nested, else -1
+    rings: list[str] = dc_field(default_factory=list)  # ring_ids attached
 
 
 @dataclass
@@ -254,6 +258,28 @@ class MatchState:
     def match_power(self, pid: int) -> int:
         return self.ritual_power(pid) + len(self.players[pid].bird_field)
 
+    # --------------------------------------------------------------- ring reductions
+
+    def _sum_ring_reduction(self, pid: int, key: str) -> int:
+        p = self.players[pid]
+        total = 0
+        for n in p.noble_field:
+            for rid in n.rings:
+                total += RING_DEFS.get(rid, {}).get("reductions", {}).get(key, 0)
+        for b in p.bird_field:
+            for rid in b.rings:
+                total += RING_DEFS.get(rid, {}).get("reductions", {}).get(key, 0)
+        return total
+
+    def effective_incantation_cost(self, pid: int, verb: str, value: int) -> int:
+        return max(0, value - self._sum_ring_reduction(pid, verb))
+
+    def effective_noble_cost(self, pid: int, cost: int) -> int:
+        return max(0, cost - self._sum_ring_reduction(pid, "noble"))
+
+    def effective_bird_cost(self, pid: int, cost: int) -> int:
+        return max(0, cost - self._sum_ring_reduction(pid, "bird"))
+
     # --------------------------------------------------------------- turn
 
     def _start_turn(self, pid: int) -> None:
@@ -333,11 +359,11 @@ class MatchState:
         c = p.hand[hand_idx]
         if c.kind is not Kind.NOBLE:
             return
-        cost = c.cost
-        if cost not in self.active_lanes(pid):
+        eff = self.effective_noble_cost(pid, c.cost)
+        if eff > 0 and eff not in self.active_lanes(pid):
             return
         p.hand.pop(hand_idx)
-        p.noble_field.append(Noble(mid=self.mid(), noble_id=c.noble_id, cost=cost))
+        p.noble_field.append(Noble(mid=self.mid(), noble_id=c.noble_id, cost=c.cost))
         p.noble_played_this_turn = True
         self._check_power_win()
 
@@ -350,7 +376,8 @@ class MatchState:
         c = p.hand[hand_idx]
         if c.kind is not Kind.BIRD:
             return
-        if c.cost not in self.active_lanes(pid):
+        eff = self.effective_bird_cost(pid, c.cost)
+        if eff > 0 and eff not in self.active_lanes(pid):
             return
         p.hand.pop(hand_idx)
         p.bird_field.append(Bird(mid=self.mid(), bird_id=c.bird_id, cost=c.cost, power=c.power))
@@ -377,6 +404,44 @@ class MatchState:
         if c.temple_id == "eyrie_feathers":
             self._eyrie_etb(pid)
         self._check_power_win()
+
+    def ring_legal_hosts(self, pid: int) -> list[tuple[str, int]]:
+        """Return list of (host_kind, host_mid) pairs a ring can attach to."""
+        p = self.players[pid]
+        out: list[tuple[str, int]] = []
+        for n in p.noble_field:
+            out.append(("noble", n.mid))
+        for b in p.bird_field:
+            if b.nest_mid < 0:  # nested birds can't host (they can't have rings)
+                out.append(("bird", b.mid))
+        return out
+
+    def play_ring(self, pid: int, hand_idx: int, host_kind: str, host_mid: int) -> None:
+        p = self.players[pid]
+        if self.pending is not None:
+            return
+        if not (0 <= hand_idx < len(p.hand)):
+            return
+        c = p.hand[hand_idx]
+        if c.kind is not Kind.RING:
+            return
+        if RING_COST not in self.active_lanes(pid):
+            return
+        host = None
+        if host_kind == "noble":
+            host = next((n for n in p.noble_field if n.mid == host_mid), None)
+        elif host_kind == "bird":
+            host = next((b for b in p.bird_field if b.mid == host_mid and b.nest_mid < 0), None)
+        if host is None:
+            return
+        p.hand.pop(hand_idx)
+        host.rings.append(c.ring_id)
+        self._check_power_win()
+
+    def _shed_rings_to_crypt(self, owner_pid: int, ring_ids: list[str]) -> None:
+        p = self.players[owner_pid]
+        for rid in ring_ids:
+            p.crypt.append(Card(kind=Kind.RING, ring_id=rid, name=RING_DEFS.get(rid, {}).get("name", rid), cost=RING_COST))
 
     def _sac_total(self, pid: int, sac_mids: list[int]) -> int:
         p = self.players[pid]
@@ -415,7 +480,8 @@ class MatchState:
         c = p.hand[hand_idx]
         if c.kind is not Kind.INCANTATION:
             return
-        if not self._can_pay_value(pid, c.value, sac_mids):
+        eff_val = self.effective_incantation_cost(pid, c.verb, c.value)
+        if not self._can_pay_value(pid, eff_val, sac_mids):
             return
         if sac_mids:
             self._sacrifice(pid, sac_mids)
@@ -475,6 +541,8 @@ class MatchState:
         if killed is not None:
             p.crypt.append(Card(kind=Kind.NOBLE, noble_id=killed.noble_id, cost=killed.cost,
                                 name=NOBLE_DEFS[killed.noble_id]["name"]))
+            if killed.rings:
+                self._shed_rings_to_crypt(owner_pid, killed.rings)
 
     # --------------------------------------------------------------- effect resolution
 
@@ -638,6 +706,8 @@ class MatchState:
                                 t.nested.remove(b.mid)
                     p.crypt.append(Card(kind=Kind.BIRD, bird_id=b.bird_id, cost=b.cost, power=b.power,
                                         name=BIRD_DEFS[b.bird_id]["name"]))
+                    if b.rings:
+                        self._shed_rings_to_crypt(q, b.rings)
                 else:
                     keep.append(b)
             p.bird_field = keep
@@ -847,6 +917,8 @@ class MatchState:
                 draw_n = card.cost
             elif card.kind is Kind.BIRD:
                 draw_n = card.cost
+            elif card.kind is Kind.RING:
+                draw_n = card.cost
             elif card.kind is Kind.DETHRONE:
                 draw_n = 4
             p.hand.pop(hi)
@@ -872,6 +944,8 @@ class MatchState:
         b = next((x for x in p.bird_field if x.mid == bird_mid and x.nest_mid < 0), None)
         t = next((x for x in p.temple_field if x.mid == temple_mid), None)
         if b is None or t is None:
+            return
+        if b.rings:
             return
         if len(t.nested) >= t.cost:
             return
@@ -907,6 +981,8 @@ class MatchState:
             if b.damage >= b.power:
                 p.crypt.append(Card(kind=Kind.BIRD, bird_id=b.bird_id, cost=b.cost, power=b.power,
                                     name=BIRD_DEFS[b.bird_id]["name"]))
+                if b.rings:
+                    self._shed_rings_to_crypt(pid, b.rings)
             else:
                 b.damage = 0
                 live.append(b)

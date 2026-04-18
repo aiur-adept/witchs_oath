@@ -15,6 +15,8 @@ static func effective_kind(card: Dictionary) -> String:
 			return "noble"
 		if raw == "temple":
 			return "temple"
+		if raw == "ring":
+			return "ring"
 		return raw
 	if card.has("temple_id"):
 		return "temple"
@@ -22,6 +24,8 @@ static func effective_kind(card: Dictionary) -> String:
 		return "noble"
 	if card.has("bird_id"):
 		return "bird"
+	if card.has("ring_id"):
+		return "ring"
 	if not str(card.get("verb", "")).strip_edges().is_empty():
 		return "incantation"
 	if card.has("mid") and card.has("value"):

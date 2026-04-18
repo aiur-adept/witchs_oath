@@ -177,9 +177,10 @@
 			"verb": "insight"
 		},
 		{
-			"type": "Incantation",
-			"value": 2.0,
-			"verb": "insight"
+			"cost": 2,
+			"name": "Serraf, Ring of Nobles",
+			"ring_id": "serraf_nobles",
+			"type": "Ring"
 		}
 	],
 	"counts": {
@@ -191,7 +192,7 @@
 			"burn_4": 0.0,
 			"dethrone_4": 0.0,
 			"insight_1": 0.0,
-			"insight_2": 2.0,
+			"insight_2": 1.0,
 			"insight_3": 0.0,
 			"insight_4": 0.0,
 			"revive_1": 0.0,

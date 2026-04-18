@@ -21,6 +21,15 @@ const NOBLE_LANE_GRANTS := {
 	"yrss_power": 3,
 }
 
+const RING_COST := 2
+const RING_DEFS := {
+	"sybiline_emanation":     {"name": "Sybiline, Ring of Emanation",     "reductions": {"seek": 1, "insight": 1}},
+	"cymbil_occultation":     {"name": "Cymbil, Ring of Occultation",     "reductions": {"burn": 1, "revive": 1}},
+	"celadon_annihilation":   {"name": "Celadon, Ring of Annihilation",   "reductions": {"woe": 1, "wrath": 1}},
+	"serraf_nobles":          {"name": "Serraf, Ring of Nobles",          "reductions": {"noble": 1}},
+	"sinofia_feathers":       {"name": "Sinofia, Ring of Feathers",       "reductions": {"bird": 1, "tears": 1}},
+}
+
 enum Phase { MAIN, GAME_OVER }
 
 var rng: RandomNumberGenerator
@@ -75,6 +84,38 @@ func _noble_on_field(p: int, noble_id: String) -> bool:
 		if str(x.get("noble_id", "")) == noble_id:
 			return true
 	return false
+
+
+func _sum_ring_reduction(p: int, key: String) -> int:
+	var total := 0
+	var hosts: Array = []
+	hosts.append_array(_players[p]["noble_field"] as Array)
+	hosts.append_array(_players[p]["bird_field"] as Array)
+	for h in hosts:
+		var rings: Array = (h as Dictionary).get("rings", []) as Array
+		for r in rings:
+			var rid := str((r as Dictionary).get("ring_id", ""))
+			if not RING_DEFS.has(rid):
+				continue
+			var def: Dictionary = RING_DEFS[rid] as Dictionary
+			var reds: Dictionary = def.get("reductions", {}) as Dictionary
+			total += int(reds.get(key, 0))
+	return total
+
+
+func effective_incantation_cost(p: int, verb: String, value: int) -> int:
+	var v := verb.to_lower()
+	if v == "void":
+		return 0
+	return maxi(0, value - _sum_ring_reduction(p, v))
+
+
+func effective_noble_cost(p: int, base_cost: int) -> int:
+	return maxi(0, base_cost - _sum_ring_reduction(p, "noble"))
+
+
+func effective_bird_cost(p: int, base_cost: int) -> int:
+	return maxi(0, base_cost - _sum_ring_reduction(p, "bird"))
 
 
 func insight_effective_n(p: int, base: int) -> int:
@@ -690,7 +731,7 @@ func can_play_noble(p: int, hand_idx: int) -> bool:
 	var nid := str(c.get("noble_id", ""))
 	if nid.is_empty() or not _noble_hooks.has(nid):
 		return false
-	var cost := _noble_play_cost(nid)
+	var cost := effective_noble_cost(p, _noble_play_cost(nid))
 	if cost <= 0:
 		return true
 	return has_active_ritual_lane(p, cost)
@@ -728,7 +769,8 @@ func _finalize_play_noble(p: int, card: Dictionary, payload: Dictionary) -> void
 		"mid": mid,
 		"noble_id": nid,
 		"name": str(payload.get("name", card.get("name", nid))),
-		"used_turn": -1
+		"used_turn": -1,
+		"rings": []
 	}
 	pl["noble_field"].append(field_noble)
 	_log("P%d summons %s." % [p, field_noble["name"]])
@@ -748,9 +790,12 @@ func can_play_bird(p: int, hand_idx: int) -> bool:
 	var c: Variant = _card_at_hand(p, hand_idx)
 	if c == null or _card_kind(c) != "bird":
 		return false
-	var cost := int((c as Dictionary).get("cost", 0))
-	if cost <= 0:
+	var raw_cost := int((c as Dictionary).get("cost", 0))
+	if raw_cost <= 0:
 		return false
+	var cost := effective_bird_cost(p, raw_cost)
+	if cost <= 0:
+		return true
 	return has_active_ritual_lane(p, cost)
 
 
@@ -783,11 +828,168 @@ func _finalize_play_bird(p: int, card: Dictionary, _payload: Dictionary) -> void
 		"cost": int(card.get("cost", 0)),
 		"power": int(card.get("power", 0)),
 		"damage": 0,
-		"nest_temple_mid": -1
+		"nest_temple_mid": -1,
+		"rings": []
 	}
 	pl["bird_field"].append(bird)
 	_log("P%d summons %s." % [p, bird["name"]])
 	_check_power_win(p)
+
+
+func _ring_legal_hosts(p: int) -> Dictionary:
+	var out := {"noble_mids": [], "bird_mids": []}
+	for n in _players[p]["noble_field"]:
+		(out["noble_mids"] as Array).append(int((n as Dictionary).get("mid", -1)))
+	for b in _players[p]["bird_field"]:
+		var bd := b as Dictionary
+		if int(bd.get("nest_temple_mid", -1)) >= 0:
+			continue
+		(out["bird_mids"] as Array).append(int(bd.get("mid", -1)))
+	return out
+
+
+func _find_noble_on_field_mid(p: int, mid: int) -> int:
+	var arr: Array = _players[p]["noble_field"]
+	for i in arr.size():
+		if int((arr[i] as Dictionary).get("mid", -1)) == mid:
+			return i
+	return -1
+
+
+func _find_bird_on_field_idx(p: int, mid: int) -> int:
+	var arr: Array = _players[p]["bird_field"]
+	for i in arr.size():
+		if int((arr[i] as Dictionary).get("mid", -1)) == mid:
+			return i
+	return -1
+
+
+func _next_ring_mid(pl: Dictionary) -> int:
+	var mx := 0
+	for n in pl["noble_field"]:
+		for r in ((n as Dictionary).get("rings", []) as Array):
+			mx = maxi(mx, int((r as Dictionary).get("mid", 0)))
+	for b in pl["bird_field"]:
+		for r in ((b as Dictionary).get("rings", []) as Array):
+			mx = maxi(mx, int((r as Dictionary).get("mid", 0)))
+	for c in (pl["crypt"] as Array):
+		if str((c as Dictionary).get("type", "")).to_lower() == "ring":
+			mx = maxi(mx, int((c as Dictionary).get("mid", 0)))
+	return mx + 1
+
+
+func can_play_ring(p: int, hand_idx: int) -> bool:
+	if phase != Phase.MAIN or _is_mulligan_active() or p != current:
+		return false
+	if _woe_waiting_on_response() and p == _woe_pending_instigator:
+		return false
+	if _scion_waiting_on_response() and p == int(_scion_pending.get("player", -1)):
+		return false
+	if _eyrie_waiting_on_response() and p == _eyrie_pending_player:
+		return false
+	if _pending_stack_blocks_action(p):
+		return false
+	var c: Variant = _card_at_hand(p, hand_idx)
+	if c == null or _card_kind(c) != "ring":
+		return false
+	var rid := str((c as Dictionary).get("ring_id", ""))
+	if rid.is_empty() or not RING_DEFS.has(rid):
+		return false
+	if not has_active_ritual_lane(p, RING_COST):
+		return false
+	var hosts := _ring_legal_hosts(p)
+	return not (hosts["noble_mids"] as Array).is_empty() or not (hosts["bird_mids"] as Array).is_empty()
+
+
+func _ring_host_is_legal(p: int, host_kind: String, host_mid: int) -> bool:
+	var hk := host_kind.to_lower()
+	if hk == "noble":
+		return _find_noble_on_field_mid(p, host_mid) >= 0
+	if hk == "bird":
+		var idx := _find_bird_on_field_idx(p, host_mid)
+		if idx < 0:
+			return false
+		var bd: Dictionary = _players[p]["bird_field"][idx]
+		return int(bd.get("nest_temple_mid", -1)) < 0
+	return false
+
+
+func play_ring(p: int, hand_idx: int, host_kind: String, host_mid: int) -> String:
+	if not can_play_ring(p, hand_idx):
+		return "illegal"
+	if not _ring_host_is_legal(p, host_kind, host_mid):
+		return "illegal_target"
+	var pl: Dictionary = _players[p]
+	var hand: Array = pl["hand"]
+	var c: Dictionary = hand[hand_idx]
+	hand.remove_at(hand_idx)
+	var frame := {
+		"kind": "ring",
+		"card": c,
+		"label": str(c.get("name", "Ring")),
+		"cost": RING_COST,
+		"payload": {
+			"ring_id": str(c.get("ring_id", "")),
+			"name": str(c.get("name", "Ring")),
+			"host_kind": host_kind.to_lower(),
+			"host_mid": host_mid
+		}
+	}
+	_open_void_window_or_resolve(p, frame)
+	return "ok"
+
+
+func _finalize_play_ring(p: int, card: Dictionary, payload: Dictionary) -> void:
+	var pl: Dictionary = _players[p]
+	var host_kind := str(payload.get("host_kind", "")).to_lower()
+	var host_mid := int(payload.get("host_mid", -1))
+	var rid := str(payload.get("ring_id", card.get("ring_id", "")))
+	var rname := str(payload.get("name", card.get("name", rid)))
+	if not _ring_host_is_legal(p, host_kind, host_mid):
+		pl["crypt"].append(card)
+		_log("P%d's %s has no legal host; sent to crypt." % [p, rname])
+		return
+	var ring_mid := _next_ring_mid(pl)
+	var ring_entry := {"mid": ring_mid, "ring_id": rid, "name": rname}
+	if host_kind == "noble":
+		var ni := _find_noble_on_field_mid(p, host_mid)
+		if ni < 0:
+			pl["crypt"].append(card)
+			return
+		var noble: Dictionary = pl["noble_field"][ni]
+		var arr: Array = (noble.get("rings", []) as Array).duplicate()
+		arr.append(ring_entry)
+		noble["rings"] = arr
+		pl["noble_field"][ni] = noble
+		_log("P%d attaches %s to %s." % [p, rname, str(noble.get("name", "Noble"))])
+	elif host_kind == "bird":
+		var bi := _find_bird_on_field_idx(p, host_mid)
+		if bi < 0:
+			pl["crypt"].append(card)
+			return
+		var bird: Dictionary = pl["bird_field"][bi]
+		var barr: Array = (bird.get("rings", []) as Array).duplicate()
+		barr.append(ring_entry)
+		bird["rings"] = barr
+		pl["bird_field"][bi] = bird
+		_log("P%d attaches %s to %s." % [p, rname, str(bird.get("name", "Bird"))])
+	else:
+		pl["crypt"].append(card)
+		return
+	_check_power_win(p)
+
+
+func _shed_rings_to_crypt(pl: Dictionary, host: Dictionary) -> void:
+	var rings: Array = (host.get("rings", []) as Array)
+	for r in rings:
+		var rd := r as Dictionary
+		var card := {
+			"type": "Ring",
+			"ring_id": str(rd.get("ring_id", "")),
+			"name": str(rd.get("name", ""))
+		}
+		pl["crypt"].append(card)
+	host["rings"] = []
 
 
 func _valid_temple_id(tid: String) -> bool:
@@ -960,7 +1162,8 @@ func apply_eyrie_submit(p: int, deck_indices: Array) -> String:
 			"cost": int((c as Dictionary).get("cost", 0)),
 			"power": int((c as Dictionary).get("power", 0)),
 			"damage": 0,
-			"nest_temple_mid": -1
+			"nest_temple_mid": -1,
+			"rings": []
 		}
 		pl["bird_field"].append(bird)
 		_log("P%d's Eyrie summons %s from deck." % [p, bird["name"]])
@@ -985,6 +1188,8 @@ func can_nest_bird(p: int, bird_mid: int, temple_mid: int) -> bool:
 	if b.is_empty():
 		return false
 	if _bird_nest_temple_mid(b) >= 0:
+		return false
+	if not ((b.get("rings", []) as Array).is_empty()):
 		return false
 	var t := _find_temple_on_field(p, temple_mid)
 	if t.is_empty():
@@ -1227,6 +1432,8 @@ func _finalize_pending_play(frame: Dictionary) -> void:
 			_finalize_play_incantation(p, card, payload)
 		"dethrone":
 			_finalize_play_dethrone(p, card, payload)
+		"ring":
+			_finalize_play_ring(p, card, payload)
 
 
 func _queue_post_effect_scion_trigger(p: int, verb: String) -> void:
@@ -1393,9 +1600,13 @@ func can_play_incantation(p: int, hand_idx: int) -> bool:
 	var n: int = int(c["value"])
 	if n < 1:
 		return false
-	if has_active_incantation_lane(p, n):
+	var verb := str(c.get("verb", ""))
+	var n_eff := effective_incantation_cost(p, verb, n)
+	if n_eff <= 0:
 		return true
-	return _can_sacrifice(p, n)
+	if has_active_incantation_lane(p, n_eff):
+		return true
+	return _can_sacrifice(p, n_eff)
 
 
 func can_play_dethrone(p: int, hand_idx: int) -> bool:
@@ -1545,7 +1756,8 @@ func execute_incantation_effect(p: int, verb: String, value: int, wrath_resolved
 				"cost": int(bcard.get("cost", 0)),
 				"power": int(bcard.get("power", 0)),
 				"damage": 0,
-				"nest_temple_mid": -1
+				"nest_temple_mid": -1,
+				"rings": []
 			}
 			pl_t["bird_field"].append(bird)
 			_log("P%d Tears revives %s from crypt." % [p, bird["name"]])
@@ -2088,19 +2300,20 @@ func play_incantation(p: int, hand_idx: int, sacrifice_mids: Array, wrath_mids: 
 		return "illegal"
 	if str(c.get("verb", "")).to_lower() == "void":
 		return "illegal"
-	var need_sac := not has_active_incantation_lane(p, n)
+	var verb_raw: String = str(c.get("verb", ""))
+	var verb: String = verb_raw.to_lower()
+	var n_eff := effective_incantation_cost(p, verb, n)
+	var need_sac := n_eff > 0 and not has_active_incantation_lane(p, n_eff)
 	var mids: Dictionary = {}
 	if need_sac:
 		for m in sacrifice_mids:
 			mids[int(m)] = true
-		if not _sacrifice_valid(p, n, mids):
+		if not _sacrifice_valid(p, n_eff, mids):
 			mids.clear()
-			for mid in _greedy_sacrifice_mids_for_player(p, n):
+			for mid in _greedy_sacrifice_mids_for_player(p, n_eff):
 				mids[int(mid)] = true
-			if not _sacrifice_valid(p, n, mids):
+			if not _sacrifice_valid(p, n_eff, mids):
 				return "illegal_sacrifice"
-	var verb_raw: String = str(c.get("verb", ""))
-	var verb: String = verb_raw.to_lower()
 	var ctx_use: Dictionary = ctx.duplicate(true)
 	if _validate_play_ctx(p, verb, n, wrath_mids, ctx_use) != "ok":
 		return "illegal"
@@ -2114,7 +2327,7 @@ func play_incantation(p: int, hand_idx: int, sacrifice_mids: Array, wrath_mids: 
 				pd_pri[int(m)] = true
 		if not _validate_yytzr_extra_sacrifice(p, pd_pri, yyt_extra):
 			return "illegal"
-	var payment_text := _incantation_payment_text(p, n, need_sac, mids)
+	var payment_text := _incantation_payment_text(p, n_eff, need_sac, mids)
 	_apply_sacrifice(p, mids)
 	if verb == "revive" and not yyt_extra.is_empty():
 		var ed: Dictionary = {}
@@ -2329,6 +2542,8 @@ func _apply_sacrifice(p: int, mids: Dictionary) -> void:
 
 func _incantation_payment_text(p: int, cost: int, used_sacrifice: bool, mids: Dictionary) -> String:
 	if not used_sacrifice:
+		if cost <= 0:
+			return "free via ring reduction"
 		return "paid via active %d-lane" % cost
 	var field: Array = _players[p]["field"]
 	var values: Array = []
@@ -2554,9 +2769,11 @@ func _destroy_birds_by_mids(target: int, mids: Array) -> void:
 			var ntm := _bird_nest_temple_mid(bd)
 			if ntm >= 0:
 				_remove_bird_from_temple_nest(target, ntm, bmid)
+			_shed_rings_to_crypt(pl, bd)
 			var to_crypt := bd.duplicate(true)
 			to_crypt.erase("damage")
 			to_crypt.erase("nest_temple_mid")
+			to_crypt.erase("rings")
 			pl["crypt"].append(to_crypt)
 		else:
 			var kept := bd.duplicate(true)
@@ -2580,9 +2797,11 @@ func _destroy_birds_with_power_at_most(power: int) -> int:
 				var ntm2 := _bird_nest_temple_mid(bd)
 				if ntm2 >= 0:
 					_remove_bird_from_temple_nest(p, ntm2, bmid2)
+				_shed_rings_to_crypt(pl, bd)
 				var to_crypt := bd.duplicate(true)
 				to_crypt.erase("damage")
 				to_crypt.erase("nest_temple_mid")
+				to_crypt.erase("rings")
 				pl["crypt"].append(to_crypt)
 				total += 1
 			else:
@@ -2658,10 +2877,14 @@ func _destroy_nobles_by_mids(target: int, mids: Array) -> void:
 	var field_nobles: Array = pl["noble_field"]
 	var keep: Array = []
 	for x in field_nobles:
-		if kill.has(int(x["mid"])):
-			pl["crypt"].append(x)
+		var nd := x as Dictionary
+		if kill.has(int(nd["mid"])):
+			_shed_rings_to_crypt(pl, nd)
+			var to_crypt := nd.duplicate(true)
+			to_crypt.erase("rings")
+			pl["crypt"].append(to_crypt)
 		else:
-			keep.append(x)
+			keep.append(nd)
 	pl["noble_field"] = keep
 	_log("Dethrone destroys %d noble(s) on P%d." % [mids.size(), target])
 

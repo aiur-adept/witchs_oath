@@ -13,6 +13,8 @@ const PREVIEW_TEMPLE_BORDER := Color(0.35, 0.82, 0.78)
 const PREVIEW_TEMPLE_TEXT := Color(0.88, 0.98, 0.95)
 const PREVIEW_BIRD_BORDER := Color(0.05, 0.05, 0.05)
 const PREVIEW_BIRD_TEXT := Color(0.05, 0.05, 0.05)
+const PREVIEW_RING_BORDER := Color(0.82, 0.85, 0.92)
+const PREVIEW_RING_TEXT := Color(0.94, 0.96, 1.0)
 const PREVIEW_NEUTRAL_BORDER := Color(0.8, 0.83, 0.9)
 const PREVIEW_NEUTRAL_TEXT := Color(0.92, 0.92, 0.96)
 
@@ -228,6 +230,9 @@ static func show_preview(preview: Dictionary, card: Dictionary, mouse_position: 
 			border_c = PREVIEW_BIRD_BORDER
 			text_c = PREVIEW_BIRD_TEXT
 			bg_c = Color(0.97, 0.97, 0.97, 0.98)
+		"ring":
+			border_c = PREVIEW_RING_BORDER
+			text_c = PREVIEW_RING_TEXT
 		_:
 			border_c = PREVIEW_NEUTRAL_BORDER
 			text_c = PREVIEW_NEUTRAL_TEXT
@@ -264,6 +269,8 @@ static func show_preview(preview: Dictionary, card: Dictionary, mouse_position: 
 				cost_count = _temple_cost_for_id(str(card.get("temple_id", "")))
 		"incantation":
 			cost_count = int(card.get("value", 0))
+		"ring":
+			cost_count = 2
 	if cost_count > 0:
 		var pip_color: Color = COST_PIP_DARK if is_bird else COST_PIP_LIGHT
 		cost_pips.add_child(_make_pip_icon(cost_count, false, pip_color, ui))
@@ -301,6 +308,8 @@ static func card_title(card: Dictionary) -> String:
 		return ts if not ts.is_empty() else "Temple"
 	if t == "bird":
 		return str(card.get("name", "Bird"))
+	if t == "ring":
+		return str(card.get("name", "Ring"))
 	var verb := str(card.get("verb", ""))
 	if verb.to_lower() == "void":
 		return "Void"
@@ -317,6 +326,8 @@ static func card_type_line(card: Dictionary) -> String:
 		return "Bird"
 	if t == "temple":
 		return "Temple"
+	if t == "ring":
+		return "Ring"
 	return "Incantation"
 
 
@@ -331,6 +342,8 @@ static func card_rules_text(card: Dictionary) -> String:
 		return "Each bird adds +1 to match power. Nest: place a bird under your temple (at most temple-cost birds per temple); nested birds add an additional +1 match power and cannot be involved in combat."
 	if t == "temple":
 		return _temple_preview_text(str(card.get("temple_id", "")))
+	if t == "ring":
+		return _ring_preview_text(str(card.get("ring_id", "")))
 	var n := int(card.get("value", 0))
 	var verb := str(card.get("verb", "")).to_lower()
 	match verb:
@@ -421,6 +434,22 @@ static func _wrath_destroy_count(value: int) -> int:
 	if value == 4:
 		return 1
 	return 0
+
+
+static func _ring_preview_text(ring_id: String) -> String:
+	match ring_id:
+		"sybiline_emanation":
+			return "Attach to a Noble or un-nested Bird. While on the field, your Seek and Insight cost 1 less to play (minimum 0)."
+		"cymbil_occultation":
+			return "Attach to a Noble or un-nested Bird. While on the field, your Burn and Revive cost 1 less to play (minimum 0)."
+		"celadon_annihilation":
+			return "Attach to a Noble or un-nested Bird. While on the field, your Woe and Wrath cost 1 less to play (minimum 0)."
+		"serraf_nobles":
+			return "Attach to a Noble or un-nested Bird. While on the field, your Nobles cost 1 less to play (minimum 0)."
+		"sinofia_feathers":
+			return "Attach to a Noble or un-nested Bird. While on the field, your Birds and your Tears cost 1 less to play (minimum 0)."
+		_:
+			return "Ring — attach to a Noble or un-nested Bird."
 
 
 static func _temple_preview_text(temple_id: String) -> String:

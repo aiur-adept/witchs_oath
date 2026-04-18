@@ -177,9 +177,10 @@
 			"verb": "seek"
 		},
 		{
-			"type": "Incantation",
-			"value": 2.0,
-			"verb": "seek"
+			"cost": 2,
+			"name": "Celadon, Ring of Annihilation",
+			"ring_id": "celadon_annihilation",
+			"type": "Ring"
 		}
 	],
 	"counts": {
@@ -196,7 +197,7 @@
 			"insight_4": 0.0,
 			"revive_1": 0.0,
 			"seek_1": 0.0,
-			"seek_2": 2.0,
+			"seek_2": 1.0,
 			"seek_3": 0.0,
 			"seek_4": 0.0,
 			"woe_3": 4.0,

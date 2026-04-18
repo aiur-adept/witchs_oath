@@ -94,6 +94,7 @@ const INC_PICK_BIRD_ATTACK := 11
 const INC_PICK_BIRD_TARGET := 12
 const INC_PICK_NEST_BIRD := 13
 const INC_PICK_NEST_TEMPLE := 14
+const INC_PICK_RING_TARGET := 15
 var _sacrifice_selecting: bool = false
 var _nest_pick_bird_mid: int = -1
 var _crypt_nest_temple_mid: int = -1
@@ -105,6 +106,7 @@ var _sacrifice_need: int = 0
 var _pending_wrath_need: int = 0
 var _pending_dethrone_hand_idx: int = -1
 var _dethrone_selected_mid: int = -1
+var _pending_ring_hand_idx: int = -1
 var _sacrifice_selected_mids: Dictionary = {}
 var _wrath_selected_mids: Dictionary = {}
 var _locked_sacrifice_mids: Array = []
@@ -225,6 +227,8 @@ var _crypt_modal_title: Label
 var _crypt_modal_hint: Label
 var _crypt_focus_opponent: bool = false
 var _crypt_focus_zone: String = "crypt"
+var _ring_modal_host_kind: String = ""
+var _ring_modal_host_mid: int = -1
 var _bird_attack_selected: Dictionary = {}
 var _bird_defender_mid: int = -1
 var _bird_assign_overlay: Control
@@ -1435,9 +1439,13 @@ func _has_nest_action_available(snap: Dictionary) -> bool:
 	var ys: Array = snap.get("your_birds", []) as Array
 	var has_free := false
 	for b in ys:
-		if _bird_unnested_on_field(b as Dictionary):
-			has_free = true
-			break
+		var bd := b as Dictionary
+		if not _bird_unnested_on_field(bd):
+			continue
+		if not ((bd.get("rings", []) as Array).is_empty()):
+			continue
+		has_free = true
+		break
 	if not has_free:
 		return false
 	for t in snap.get("your_temples", []) as Array:
@@ -2041,6 +2049,51 @@ func _hide_crypt_hover_popup() -> void:
 func _rebuild_crypt_modal() -> void:
 	for c in _crypt_modal_list.get_children():
 		c.queue_free()
+	if _crypt_focus_zone == "host_rings":
+		var host_is_opp := _crypt_focus_opponent
+		var nobles_key := "opp_nobles" if host_is_opp else "your_nobles"
+		var birds_key := "opp_birds" if host_is_opp else "your_birds"
+		var host: Dictionary = {}
+		if _ring_modal_host_kind == "noble":
+			for n in (_last_snap.get(nobles_key, []) as Array):
+				if int((n as Dictionary).get("mid", -1)) == _ring_modal_host_mid:
+					host = n as Dictionary
+					break
+		elif _ring_modal_host_kind == "bird":
+			for b in (_last_snap.get(birds_key, []) as Array):
+				if int((b as Dictionary).get("mid", -1)) == _ring_modal_host_mid:
+					host = b as Dictionary
+					break
+		var name_raw: String = str(host.get("name", _ring_modal_host_kind.capitalize()))
+		var hshort := _short_noble_name(name_raw)
+		_crypt_modal_title.text = ("Opponent — %s" % hshort) if host_is_opp else ("Your — %s" % hshort)
+		_crypt_modal_hint.text = "Attached rings (hover to preview)."
+		var rings: Array = (host.get("rings", []) as Array)
+		if rings.is_empty():
+			var empty_r := Label.new()
+			empty_r.text = "No rings attached."
+			_crypt_modal_list.add_child(empty_r)
+			return
+		for r in rings:
+			var rd := r as Dictionary
+			var pv: Dictionary = {
+				"type": "Ring",
+				"ring_id": str(rd.get("ring_id", "")),
+				"name": str(rd.get("name", ""))
+			}
+			var row_btn_r := Button.new()
+			row_btn_r.text = _card_label(pv)
+			row_btn_r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			_apply_ui_button_padding(row_btn_r)
+			var cap_pv_r: Dictionary = pv.duplicate(true)
+			row_btn_r.mouse_entered.connect(func() -> void:
+				_show_card_hover_preview(cap_pv_r)
+			)
+			row_btn_r.mouse_exited.connect(func() -> void:
+				_hide_card_hover_preview()
+			)
+			_crypt_modal_list.add_child(row_btn_r)
+		return
 	if _crypt_focus_zone == "nest":
 		var temples: Array = (_last_snap.get("opp_temples" if _nest_modal_field_is_opponent else "your_temples", [])) as Array
 		var temple: Dictionary = {}
@@ -2343,6 +2396,7 @@ func _clear_sacrifice_mode() -> void:
 	_pending_wrath_need = 0
 	_pending_dethrone_hand_idx = -1
 	_dethrone_selected_mid = -1
+	_pending_ring_hand_idx = -1
 	_sacrifice_selected_mids.clear()
 	_wrath_selected_mids.clear()
 	_locked_sacrifice_mids.clear()
@@ -3786,6 +3840,7 @@ func _make_hand_card_widget(card: Variant, disabled: bool, picked: bool, stack_c
 	var is_bird := ctype == "bird"
 	var is_noble := ctype == "noble"
 	var is_temple := ctype == "temple"
+	var is_ring := ctype == "ring"
 	var ritual_gold := Color(0.95, 0.78, 0.24)
 	var ritual_gold_strong := Color(1.0, 0.86, 0.35)
 	var noble_purple := Color(0.84, 0.7, 1.0)
@@ -3920,6 +3975,23 @@ func _make_hand_card_widget(card: Variant, disabled: bool, picked: bool, stack_c
 	else:
 		tap.add_theme_color_override("font_disabled_color", Color(0.7, 0.7, 0.76))
 	tap.add_theme_font_size_override("font_size", HAND_CARD_FONT_SIZE)
+	if is_ring:
+		var ring_bg := Color(0.14, 0.16, 0.19)
+		var ring_border := Color(0.82, 0.85, 0.92)
+		var ring_border_strong := Color(0.96, 0.98, 1.0)
+		var ring_text := Color(0.94, 0.96, 1.0)
+		sb.bg_color = ring_bg
+		sb.border_color = ring_border_strong if picked else ring_border
+		sb_hover.bg_color = ring_bg
+		sb_hover.border_color = ring_border_strong
+		sb_pressed.bg_color = ring_bg
+		sb_dis.bg_color = Color(0.1, 0.11, 0.13)
+		sb_dis.border_color = Color(0.45, 0.48, 0.54)
+		tap.add_theme_color_override("font_color", ring_text)
+		tap.add_theme_color_override("font_hover_color", Color(1.0, 1.0, 1.0))
+		tap.add_theme_color_override("font_focus_color", ring_text)
+		tap.add_theme_color_override("font_pressed_color", Color(1.0, 1.0, 1.0))
+		tap.add_theme_color_override("font_disabled_color", Color(0.62, 0.65, 0.72))
 	var hover_card: Dictionary = card.duplicate(true) if typeof(card) == TYPE_DICTIONARY else {}
 	shell.mouse_entered.connect(func() -> void:
 		_show_card_hover_preview(hover_card)
@@ -4286,6 +4358,8 @@ func _on_hand_pressed(hand_idx: int) -> void:
 			submit_play_bird.rpc_id(1, hand_idx)
 		else:
 			_try_play_bird(_my_player_for_action(), hand_idx)
+	elif _card_type(c) == "ring":
+		_try_begin_ring_play(hand_idx, c)
 	elif _card_type(c) == "temple":
 		if bool(snap.get("your_temple_played", false)):
 			status_label.text = "You already played a temple this turn."
@@ -4428,6 +4502,86 @@ func _try_play_bird(player: int, hand_idx: int, trigger_cpu_check: bool = true) 
 		return false
 	_broadcast_sync(trigger_cpu_check)
 	return true
+
+
+func _try_play_ring(player: int, hand_idx: int, host_kind: String, host_mid: int, trigger_cpu_check: bool = true) -> bool:
+	if _match == null:
+		return false
+	var res: String = _match.play_ring(player, hand_idx, host_kind, host_mid)
+	if res != "ok":
+		status_label.text = "Can't play that ring there."
+		return false
+	_broadcast_sync(trigger_cpu_check)
+	return true
+
+
+func _ring_target_lists_for_self(snap: Dictionary) -> Dictionary:
+	var nobles: Array = snap.get("your_nobles", []) as Array
+	var birds_raw: Array = snap.get("your_birds", []) as Array
+	var birds: Array = []
+	for b in birds_raw:
+		if int((b as Dictionary).get("nest_temple_mid", -1)) < 0:
+			birds.append(b)
+	return {"nobles": nobles, "birds": birds}
+
+
+func _try_begin_ring_play(hand_idx: int, _card: Dictionary) -> void:
+	var snap: Dictionary = _last_snap
+	var your_field: Array = snap.get("your_field", [])
+	var your_nobles: Array = snap.get("your_nobles", [])
+	if not ArcanaMatchState.has_lane_for_field_and_nobles(your_field, your_nobles, 2):
+		status_label.text = "Need an active 2-lane to play a ring."
+		return
+	var targets := _ring_target_lists_for_self(snap)
+	if (targets["nobles"] as Array).is_empty() and (targets["birds"] as Array).is_empty():
+		status_label.text = "No legal target: rings attach to a Noble or un-nested Bird you control."
+		return
+	_enter_ring_target_mode(hand_idx)
+
+
+func _enter_ring_target_mode(hand_idx: int) -> void:
+	_pending_ring_hand_idx = hand_idx
+	_inc_pick_phase = INC_PICK_RING_TARGET
+	_sacrifice_selecting = true
+	sacrifice_row.visible = true
+	sacrifice_confirm_button.visible = false
+	sacrifice_cancel_button.text = "Cancel"
+	sacrifice_hint.text = "Ring: click one of your Nobles or un-nested Birds to attach."
+	status_label.text = "Select a Noble or un-nested Bird you control to attach the ring."
+	_rebuild_field_strips_from_snap(_last_snap)
+	_rebuild_hand(_last_snap.get("your_hand", []))
+
+
+func _exit_ring_target_mode(rebuild: bool = true) -> void:
+	_pending_ring_hand_idx = -1
+	_clear_sacrifice_mode()
+	if rebuild:
+		_apply_snap(_last_snap)
+
+
+func _on_ring_target_clicked(host_kind: String, host_mid: int) -> void:
+	if _inc_pick_phase != INC_PICK_RING_TARGET:
+		return
+	var hand_idx := _pending_ring_hand_idx
+	if hand_idx < 0:
+		_exit_ring_target_mode()
+		return
+	_exit_ring_target_mode(false)
+	if _is_network_client():
+		submit_play_ring.rpc_id(1, hand_idx, host_kind, host_mid)
+	else:
+		_try_play_ring(_my_player_for_action(), hand_idx, host_kind, host_mid)
+
+
+func show_host_rings_modal(host_kind: String, host_mid: int, field_is_opponent: bool) -> void:
+	_hide_crypt_hover_popup()
+	_crypt_focus_zone = "host_rings"
+	_crypt_focus_opponent = field_is_opponent
+	_ring_modal_host_kind = host_kind
+	_ring_modal_host_mid = host_mid
+	_rebuild_crypt_modal()
+	_crypt_modal_overlay.visible = true
+	_crypt_modal_close_button.grab_focus()
 
 
 func _try_play_temple(player: int, hand_idx: int, sacrifice_mids: Array, trigger_cpu_check: bool = true) -> bool:
@@ -4671,6 +4825,16 @@ func submit_play_bird(hand_idx: int) -> void:
 		return
 	var pl := _peer_to_player(_sender_peer())
 	_try_play_bird(pl, hand_idx)
+
+
+@rpc("any_peer", "reliable")
+func submit_play_ring(hand_idx: int, host_kind: String, host_mid: int) -> void:
+	if not multiplayer.is_server():
+		return
+	if _match == null:
+		return
+	var pl := _peer_to_player(_sender_peer())
+	_try_play_ring(pl, hand_idx, host_kind, host_mid)
 
 
 @rpc("any_peer", "reliable")

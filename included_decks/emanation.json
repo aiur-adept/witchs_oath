@@ -92,9 +92,10 @@
 			"verb": "seek"
 		},
 		{
-			"type": "Incantation",
-			"value": 1.0,
-			"verb": "seek"
+			"cost": 2,
+			"name": "Sybiline, Ring of Emanation",
+			"ring_id": "sybiline_emanation",
+			"type": "Ring"
 		},
 		{
 			"type": "Incantation",
@@ -195,7 +196,7 @@
 			"insight_3": 4.0,
 			"insight_4": 0.0,
 			"revive_1": 0.0,
-			"seek_1": 4.0,
+			"seek_1": 3.0,
 			"seek_2": 4.0,
 			"seek_3": 0.0,
 			"seek_4": 0.0,

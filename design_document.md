@@ -210,8 +210,44 @@ All noble static abilities apply while that noble remains on the field.
 - **Tmrsk, Scion of Annihilation** (triggered, optional):
   - After you resolve Wrath, you may Woe 3.
 
-
 - **Krss, Noble of Power**: Grants ritual lane 1 while on field (static).
+
+## 10A) Rings
+
+Rings are silver cards that attach to a Noble or Bird you control. Their static effects remain active as long as they stay on the field.
+
+### 10A.1 Cost and Play
+
+- Every ring has cost **2**. To play a ring you must have the 2-lane active and choose a legal host.
+- A legal host is one of your Nobles or one of your Birds that is not nested in a Temple.
+- A ring enters play attached to its host. Multiple rings can be attached to the same host.
+- Rings themselves are not Birds or Nobles; Dethrone and Deluge cannot target them, and Wrath cannot destroy them.
+
+### 10A.2 Attachment and Destruction
+
+- When a host is destroyed or otherwise leaves the field (for example, Dethrone on a Noble, Deluge or bird combat on a Bird), its attached rings are put into their owner's crypt.
+- Rings cannot be cast via Revive (Revive works on Incantations only).
+
+### 10A.3 Restrictions
+
+- A Bird wearing a ring cannot nest.
+- Nested Birds are not legal hosts for a ring.
+
+### 10A.4 Cost Reduction and Stacking
+
+- While a ring is on the field, it reduces the printed cost of the listed card types by 1 (to a minimum of 0).
+- Multiple rings stack additively. For example, two copies of Sybiline on the field make Seek and Insight each cost 2 less.
+- If an Incantation's effective cost is 0, it can be played with no active lane and no sacrifice.
+- If a Noble's or Bird's effective cost is 0, it can be played without an active ritual lane.
+- Cost reductions never affect payment for Temples (which are paid by sacrificing Rituals), Void (no cost), or Dethrone.
+
+### 10A.5 Set 1 Rings
+
+- **Sybiline, Ring of Emanation**: Your Seek and Insight cost 1 less to play.
+- **Cymbil, Ring of Occultation**: Your Burn and Revive cost 1 less to play.
+- **Celadon, Ring of Annihilation**: Your Woe and Wrath cost 1 less to play.
+- **Serraf, Ring of Nobles**: Your Nobles cost 1 less to play.
+- **Sinofia, Ring of Feathers**: Your Birds and your Tears cost 1 less to play.
 
 ## 11) Temple Abilities (Set 1)
 
@@ -256,3 +292,4 @@ For legal deck construction:
 - At most **4 copies** of any named incantation or bird card.
 - At most **1 copy** of any named temple card.
 - For nobles, at most **1** card per noble first name (for example, max 1 "Yrss").
+- **1 copy** per named ring.

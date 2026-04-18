@@ -11,6 +11,8 @@ from typing import Optional
 from .cards import (
     Kind,
     NOBLE_DEFS,
+    RING_COST,
+    RING_DEFS,
     VERB_BURN,
     VERB_DELUGE,
     VERB_INSIGHT,
@@ -122,6 +124,8 @@ class GreedyAI:
             return 6.0 + c.cost * 0.2
         if c.kind is Kind.BIRD:
             return 3.0 + c.power * 0.3
+        if c.kind is Kind.RING:
+            return 4.0
         return 0.0
 
     def _take_best_action(self, state: MatchState) -> bool:
@@ -147,7 +151,8 @@ class GreedyAI:
                 actions.append((score, "ritual", (i,)))
 
             elif c.kind is Kind.NOBLE and not p.noble_played_this_turn:
-                if c.cost in active:
+                eff = state.effective_noble_cost(pid, c.cost)
+                if eff == 0 or eff in active:
                     score = 60 + c.cost
                     info = NOBLE_DEFS.get(c.noble_id, {})
                     if info.get("grants_lane"):
@@ -158,9 +163,16 @@ class GreedyAI:
                     actions.append((score, "noble", (i,)))
 
             elif c.kind is Kind.BIRD and not p.bird_played_this_turn:
-                if c.cost in active:
+                eff = state.effective_bird_cost(pid, c.cost)
+                if eff == 0 or eff in active:
                     score = 15 + c.power
                     actions.append((score, "bird", (i,)))
+
+            elif c.kind is Kind.RING:
+                if RING_COST in active:
+                    ring_act = self._score_ring(state, pid, c, i)
+                    if ring_act is not None:
+                        actions.append(ring_act)
 
             elif c.kind is Kind.TEMPLE and not p.temple_played_this_turn:
                 sac = _minimal_sac_for_lane(p.field, c.cost)
@@ -258,7 +270,7 @@ class GreedyAI:
                     draw_n = 0
                     if c.kind is Kind.RITUAL or c.kind is Kind.INCANTATION:
                         draw_n = c.value
-                    elif c.kind in (Kind.NOBLE, Kind.BIRD):
+                    elif c.kind in (Kind.NOBLE, Kind.BIRD, Kind.RING):
                         draw_n = c.cost
                     elif c.kind is Kind.DETHRONE:
                         draw_n = 4
@@ -327,18 +339,17 @@ class GreedyAI:
     def _score_incantation(self, state: MatchState, pid: int, card) -> Optional[tuple[float, list[int]]]:
         p = state.players[pid]
         active = state.active_lanes(pid)
-        val = card.value
-        use_lane = val in active
+        eff_val = state.effective_incantation_cost(pid, card.verb, card.value)
         sac: list[int] = []
-        if not use_lane:
-            s = _ritual_combinations_for_value(p.field, val)
+        if eff_val > 0 and eff_val not in active:
+            s = _ritual_combinations_for_value(p.field, eff_val)
             if s is None:
                 return None
             after = self._lanes_after_sac(state, pid, s)
             if len(after) < 1:
                 return None
             sac = s
-        eff = self._score_effect(state, pid, card.verb, val)
+        eff = self._score_effect(state, pid, card.verb, card.value)
         if eff is None:
             return None
         score, ctx = eff
@@ -346,6 +357,38 @@ class GreedyAI:
         if sac:
             score -= self._sac_penalty(sac)
         return score, sac
+
+    def _score_ring(self, state: MatchState, pid: int, card, hand_idx: int) -> Optional[tuple[float, str, tuple]]:
+        p = state.players[pid]
+        hosts = state.ring_legal_hosts(pid)
+        if not hosts:
+            return None
+        if card.ring_id in {r for n in p.noble_field for r in n.rings} | {r for b in p.bird_field for r in b.rings}:
+            return None
+        reductions = RING_DEFS.get(card.ring_id, {}).get("reductions", {})
+        savings = 0.0
+        for c in p.hand + p.deck:
+            if c.kind is Kind.INCANTATION and c.verb in reductions:
+                savings += 2.0
+            elif c.kind is Kind.NOBLE and "noble" in reductions:
+                savings += 1.5
+            elif c.kind is Kind.BIRD and "bird" in reductions:
+                savings += 1.0
+        score = 18.0 + savings
+        host_kind, host_mid = self._pick_ring_host(state, pid, hosts)
+        return (score, "ring", (hand_idx, host_kind, host_mid))
+
+    def _pick_ring_host(self, state: MatchState, pid: int, hosts: list[tuple[str, int]]) -> tuple[str, int]:
+        p = state.players[pid]
+        for hk, hm in hosts:
+            if hk == "noble":
+                n = next((x for x in p.noble_field if x.mid == hm), None)
+                if n is not None and NOBLE_DEFS.get(n.noble_id, {}).get("grants_lane"):
+                    return (hk, hm)
+        for hk, hm in hosts:
+            if hk == "noble":
+                return (hk, hm)
+        return hosts[0]
 
     def _score_effect(self, state: MatchState, pid: int, verb: str, val: int) -> Optional[tuple[float, dict]]:
         opp = state.opponent(pid)
@@ -466,6 +509,9 @@ class GreedyAI:
                 state.bird_fight_simple(pid, atk_mid, def_mid)
             elif kind == "discard_draw":
                 state.discard_for_draw(pid, args[0])
+            elif kind == "ring":
+                hand_idx, host_kind, host_mid = args
+                state.play_ring(pid, hand_idx, host_kind, host_mid)
         except EndOfGame:
             return
 

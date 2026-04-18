@@ -43,6 +43,7 @@ func _build_examples() -> void:
 	_build_bird_fight_example()
 	_build_bird_fight_example_multi()
 	_build_nest_example()
+	_build_ring_example()
 
 
 func _build_type_examples() -> void:
@@ -74,6 +75,14 @@ func _build_type_examples() -> void:
 		"name": "Wren",
 		"cost": 2,
 		"power": 1
+	}))
+	row.add_child(_spacer(14.0))
+	row.add_child(_caption("Ring"))
+	row.add_child(_make_hand_card_widget({
+		"type": "ring",
+		"ring_id": "sybiline_emanation",
+		"name": "Sybiline, Ring of Emanation",
+		"cost": 2
 	}))
 
 
@@ -216,13 +225,74 @@ func _build_nest_example() -> void:
 	after.add_child(_make_temple_with_nest_stack(1, temple))
 
 
+func _build_ring_example() -> void:
+	var sybiline := {
+		"type": "ring",
+		"ring_id": "sybiline_emanation",
+		"name": "Sybiline, Ring of Emanation",
+		"cost": 2
+	}
+	var serraf := {
+		"type": "ring",
+		"ring_id": "serraf_nobles",
+		"name": "Serraf, Ring of Nobles",
+		"cost": 2
+	}
+	var card_row: HBoxContainer = %ExampleRingCardRow
+	card_row.add_child(_caption("Ring card"))
+	card_row.add_child(_make_hand_card_widget(sybiline))
+	card_row.add_child(_spacer(14.0))
+	card_row.add_child(_caption("Seek / Insight now cost 1 less"))
+
+	var attach_row: HBoxContainer = %ExampleRingAttachRow
+	attach_row.add_child(_caption("Before"))
+	attach_row.add_child(_make_noble_card({
+		"type": "noble",
+		"name": "Trss, Noble of Power",
+		"noble_id": "trss_power"
+	}))
+	attach_row.add_child(_caption("+"))
+	attach_row.add_child(_make_hand_card_widget(serraf))
+	attach_row.add_child(_spacer(20.0))
+	attach_row.add_child(_caption("After"))
+	attach_row.add_child(_make_noble_with_ring_stack(1, {
+		"type": "noble",
+		"name": "Trss, Noble of Power",
+		"noble_id": "trss_power"
+	}))
+	attach_row.add_child(_caption("Nobles now cost 1 less"))
+
+
+func _make_noble_with_ring_stack(ring_count: int, noble: Dictionary) -> Control:
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 3)
+	var ring_tab := Button.new()
+	ring_tab.text = str(ring_count)
+	ring_tab.disabled = true
+	ring_tab.custom_minimum_size = Vector2(HAND_CARD_W, 20)
+	ring_tab.add_theme_font_override("font", CARD_TEXT_FONT)
+	ring_tab.add_theme_font_size_override("font_size", maxi(12, HAND_CARD_FONT_SIZE - 4))
+	var rsb := StyleBoxFlat.new()
+	rsb.set_corner_radius_all(3)
+	rsb.set_border_width_all(2)
+	rsb.bg_color = Color(0.12, 0.13, 0.16)
+	rsb.border_color = Color(0.86, 0.88, 0.92)
+	ring_tab.add_theme_stylebox_override("normal", rsb)
+	ring_tab.add_theme_stylebox_override("disabled", rsb)
+	ring_tab.add_theme_color_override("font_color", Color(0.86, 0.88, 0.92))
+	ring_tab.add_theme_color_override("font_disabled_color", Color(0.86, 0.88, 0.92))
+	vbox.add_child(_make_noble_card(noble))
+	vbox.add_child(ring_tab)
+	return vbox
+
+
 func _make_temple_with_nest_stack(nest_count: int, temple: Dictionary) -> Control:
-	var hbox := HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", 3)
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 3)
 	var nest_tab := Button.new()
 	nest_tab.text = str(nest_count)
 	nest_tab.disabled = true
-	nest_tab.custom_minimum_size = Vector2(24, HAND_CARD_H)
+	nest_tab.custom_minimum_size = Vector2(HAND_CARD_W, 20)
 	nest_tab.add_theme_font_override("font", CARD_TEXT_FONT)
 	nest_tab.add_theme_font_size_override("font_size", maxi(12, HAND_CARD_FONT_SIZE - 4))
 	var nsb := StyleBoxFlat.new()
@@ -234,9 +304,9 @@ func _make_temple_with_nest_stack(nest_count: int, temple: Dictionary) -> Contro
 	nest_tab.add_theme_stylebox_override("disabled", nsb)
 	nest_tab.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
 	nest_tab.add_theme_color_override("font_disabled_color", Color(1.0, 1.0, 1.0))
-	hbox.add_child(nest_tab)
-	hbox.add_child(_make_temple_card(temple))
-	return hbox
+	vbox.add_child(_make_temple_card(temple))
+	vbox.add_child(nest_tab)
+	return vbox
 
 
 func _caption(text_value: String) -> Label:
@@ -408,12 +478,16 @@ func _make_hand_card_widget(card: Dictionary) -> Control:
 	var t := _card_type(card)
 	if t == "temple":
 		sb.border_color = Color(0.2, 0.84, 0.84)
+	elif t == "ring":
+		sb.bg_color = Color(0.12, 0.13, 0.16)
+		sb.border_color = Color(0.86, 0.88, 0.92)
 	else:
 		sb.border_color = Color(0.92, 0.92, 0.95)
 	tap.add_theme_stylebox_override("normal", sb)
 	tap.add_theme_stylebox_override("disabled", sb)
-	tap.add_theme_color_override("font_color", Color(0.98, 0.98, 0.98))
-	tap.add_theme_color_override("font_disabled_color", Color(0.98, 0.98, 0.98))
+	var font_color: Color = Color(0.86, 0.88, 0.92) if t == "ring" else Color(0.98, 0.98, 0.98)
+	tap.add_theme_color_override("font_color", font_color)
+	tap.add_theme_color_override("font_disabled_color", font_color)
 	tap.add_theme_font_override("font", CARD_TEXT_FONT)
 	tap.add_theme_font_size_override("font_size", HAND_CARD_FONT_SIZE)
 	var hover_card: Dictionary = card.duplicate(true)
@@ -461,6 +535,8 @@ func _card_corner_pip_spec(card: Dictionary) -> Dictionary:
 		if cost <= 0:
 			cost = _temple_cost_for_id(str(card.get("temple_id", "")))
 		return {"count": max(0, cost), "filled": false}
+	if t == "ring":
+		return {"count": 2, "filled": false}
 	return {"count": 0, "filled": false}
 
 
@@ -525,6 +601,8 @@ func _card_label(card: Dictionary) -> String:
 		return _short_noble_name(str(card.get("name", "Noble")))
 	if t == "temple":
 		return _short_temple_name(str(card.get("name", "Temple")))
+	if t == "ring":
+		return _short_noble_name(str(card.get("name", "Ring")))
 	var verb := str(card.get("verb", ""))
 	if verb.to_lower() == "void":
 		return "Void"

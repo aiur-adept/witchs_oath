@@ -136,6 +136,32 @@ func run_turn(host: Node) -> void:
 			break
 		if played_bird:
 			continue
+		var played_ring := false
+		for i in hand.size():
+			if host._card_type(hand[i]) != "ring":
+				continue
+			if not host._match.can_play_ring(1, i):
+				continue
+			var nobles_cpu: Array = snap.get("your_nobles", []) as Array
+			var host_kind := ""
+			var host_mid := -1
+			if not nobles_cpu.is_empty():
+				host_kind = "noble"
+				host_mid = int((nobles_cpu[0] as Dictionary).get("mid", -1))
+			else:
+				for bn_ring in snap.get("your_birds", []) as Array:
+					var bnd_ring := bn_ring as Dictionary
+					if int(bnd_ring.get("nest_temple_mid", -1)) < 0:
+						host_kind = "bird"
+						host_mid = int(bnd_ring.get("mid", -1))
+						break
+			if host_kind.is_empty():
+				continue
+			if host._try_play_ring(1, i, host_kind, host_mid, false):
+				played_ring = true
+			break
+		if played_ring:
+			continue
 		var played_temple := false
 		for i in hand.size():
 			if host._card_type(hand[i]) != "temple":

@@ -19,6 +19,7 @@ const INC_PICK_BIRD_ATTACK := 11
 const INC_PICK_BIRD_TARGET := 12
 const INC_PICK_NEST_BIRD := 13
 const INC_PICK_NEST_TEMPLE := 14
+const INC_PICK_RING_TARGET := 15
 
 var game: Control
 
@@ -117,7 +118,10 @@ func make_bird_stack(birds: Array, ours: bool) -> Control:
 	var count := birds.size()
 	var stack := Control.new()
 	var extra: float = shift if count > 1 else 0.0
-	stack.custom_minimum_size = Vector2(w + extra, h)
+	var front_bd_for_size: Dictionary = birds[count - 1] as Dictionary
+	var has_rings: bool = not (front_bd_for_size.get("rings", []) as Array).is_empty()
+	var stack_h: float = h + (3.0 + 22.0) if has_rings else h
+	stack.custom_minimum_size = Vector2(w + extra, stack_h)
 	if count > 1:
 		var back := Panel.new()
 		back.custom_minimum_size = Vector2(w, h)
@@ -241,6 +245,31 @@ func make_ritual_card(value: int, _ours: bool, active: bool, ritual_mid: int = -
 	return panel
 
 
+func _make_rings_tab(host_kind: String, host_mid: int, ring_count: int, ours: bool) -> Button:
+	var tab := Button.new()
+	tab.text = str(ring_count)
+	tab.custom_minimum_size = Vector2(FIELD_CARD_W, 22)
+	tab.add_theme_font_override("font", CARD_TEXT_FONT)
+	tab.add_theme_font_size_override("font_size", maxi(12, FIELD_CARD_FONT_SIZE - 4))
+	var rsb := StyleBoxFlat.new()
+	rsb.set_corner_radius_all(3)
+	rsb.set_border_width_all(2)
+	rsb.bg_color = Color(0.14, 0.16, 0.19)
+	rsb.border_color = Color(0.82, 0.85, 0.92)
+	tab.add_theme_stylebox_override("normal", rsb)
+	tab.add_theme_stylebox_override("hover", stylebox_field_hover_glow(rsb))
+	tab.add_theme_color_override("font_color", Color(0.92, 0.94, 0.98))
+	tab.add_theme_color_override("font_hover_color", Color(1.0, 1.0, 1.0))
+	tab.add_theme_color_override("font_pressed_color", Color(1.0, 1.0, 1.0))
+	var k_cap := host_kind
+	var mid_cap := host_mid
+	var host_is_opp := not ours
+	tab.pressed.connect(func() -> void:
+		game.show_host_rings_modal(k_cap, mid_cap, host_is_opp)
+	)
+	return tab
+
+
 func make_noble_card(noble: Dictionary, ours: bool) -> Control:
 	var btn := Button.new()
 	btn.custom_minimum_size = Vector2(FIELD_CARD_W, FIELD_CARD_H)
@@ -269,12 +298,17 @@ func make_noble_card(noble: Dictionary, ours: bool) -> Control:
 	var mid := int(noble.get("mid", -1))
 	var noble_hid := str(noble.get("noble_id", ""))
 	var can_pick_dethrone: bool = not ours and game._sacrifice_selecting and game._inc_pick_phase == INC_PICK_DETHRONE
+	var can_pick_ring: bool = ours and game._sacrifice_selecting and game._inc_pick_phase == INC_PICK_RING_TARGET
 	var can_activate: bool = ours and not exhausted and not game._sacrifice_selecting and not game._insight_open and int(game._last_snap.get("current", -1)) == int(game._last_snap.get("you", -2))
 	if noble_hid == "aeoiu_rituals":
 		var cr: Array = game._last_snap.get("your_ritual_crypt_cards", []) as Array
 		can_activate = can_activate and cr.size() > 0
 	btn.disabled = false
-	if can_pick_dethrone:
+	if can_pick_ring:
+		btn.pressed.connect(func() -> void:
+			game._on_ring_target_clicked("noble", mid)
+		)
+	elif can_pick_dethrone:
 		btn.pressed.connect(func() -> void:
 			game._on_dethrone_field_clicked(mid)
 		)
@@ -292,6 +326,13 @@ func make_noble_card(noble: Dictionary, ours: bool) -> Control:
 		normal_sb = sb_sel
 		btn.add_theme_stylebox_override("normal", sb_sel)
 		btn.add_theme_stylebox_override("disabled", sb_sel)
+	if can_pick_ring:
+		var sb_ring := sb.duplicate()
+		sb_ring.border_color = Color(0.92, 0.94, 1.0)
+		sb_ring.set_border_width_all(3)
+		normal_sb = sb_ring
+		btn.add_theme_stylebox_override("normal", sb_ring)
+		btn.add_theme_stylebox_override("disabled", sb_ring)
 	var sb_hover := stylebox_field_hover_glow(normal_sb)
 	btn.add_theme_stylebox_override("hover", sb_hover)
 	btn.add_theme_stylebox_override("pressed", sb_hover)
@@ -305,7 +346,22 @@ func make_noble_card(noble: Dictionary, ours: bool) -> Control:
 	btn.mouse_exited.connect(func() -> void:
 		game._hide_card_hover_preview()
 	)
-	return btn
+	var rings: Array = (noble.get("rings", []) as Array)
+	if rings.is_empty():
+		return btn
+	var noble_wrap := Control.new()
+	noble_wrap.custom_minimum_size = Vector2(FIELD_CARD_W, FIELD_CARD_H + 3 + 22)
+	noble_wrap.size = noble_wrap.custom_minimum_size
+	noble_wrap.mouse_filter = Control.MOUSE_FILTER_PASS
+	btn.position = Vector2.ZERO
+	btn.size = Vector2(FIELD_CARD_W, FIELD_CARD_H)
+	btn.custom_minimum_size = Vector2(FIELD_CARD_W, FIELD_CARD_H)
+	noble_wrap.add_child(btn)
+	var noble_tab := _make_rings_tab("noble", mid, rings.size(), ours)
+	noble_tab.position = Vector2(0, FIELD_CARD_H + 3)
+	noble_tab.size = Vector2(FIELD_CARD_W, 22)
+	noble_wrap.add_child(noble_tab)
+	return noble_wrap
 
 
 func make_bird_card(bird: Dictionary, ours: bool) -> Control:
@@ -321,11 +377,13 @@ func make_bird_card(bird: Dictionary, ours: bool) -> Control:
 	sb.border_color = Color(0.05, 0.05, 0.05)
 	var mid := int(bird.get("mid", -1))
 	var nest_tm := int(bird.get("nest_temple_mid", -1))
+	var bird_rings: Array = (bird.get("rings", []) as Array)
 	var is_attack_pick: bool = ours and game._sacrifice_selecting and game._inc_pick_phase == INC_PICK_BIRD_ATTACK and nest_tm < 0
 	var is_target_pick: bool = (not ours) and game._sacrifice_selecting and game._inc_pick_phase == INC_PICK_BIRD_TARGET and nest_tm < 0
 	var is_nest_picker: bool = ours and game._sacrifice_selecting and game._inc_pick_phase == INC_PICK_NEST_TEMPLE and int(game._nest_pick_bird_mid) == mid
+	var is_ring_pick: bool = ours and game._sacrifice_selecting and game._inc_pick_phase == INC_PICK_RING_TARGET and nest_tm < 0
 	var can_start_nest: bool = false
-	if ours and not game._sacrifice_selecting and nest_tm < 0:
+	if ours and not game._sacrifice_selecting and nest_tm < 0 and bird_rings.is_empty():
 		var snap: Dictionary = game._last_snap
 		var mine := int(snap.get("current", -1)) == int(snap.get("you", -2))
 		can_start_nest = mine and game._temple_field_input_ok() and game._has_nest_action_available(snap)
@@ -339,6 +397,9 @@ func make_bird_card(bird: Dictionary, ours: bool) -> Control:
 		sb.set_border_width_all(4)
 		sb.border_color = Color(0.45, 0.92, 0.82)
 		btn.z_index = 60
+	if is_ring_pick:
+		sb.set_border_width_all(3)
+		sb.border_color = Color(0.92, 0.94, 1.0)
 	btn.add_theme_stylebox_override("normal", sb)
 	var hover := stylebox_field_hover_glow(sb)
 	btn.add_theme_stylebox_override("hover", hover)
@@ -354,7 +415,11 @@ func make_bird_card(bird: Dictionary, ours: bool) -> Control:
 	btn.add_theme_color_override("font_pressed_color", bird_fg)
 	btn.add_theme_color_override("font_hover_pressed_color", bird_fg)
 	btn.add_theme_color_override("font_focus_color", bird_fg)
-	if is_attack_pick:
+	if is_ring_pick:
+		btn.pressed.connect(func() -> void:
+			game._on_ring_target_clicked("bird", mid)
+		)
+	elif is_attack_pick:
 		btn.pressed.connect(func() -> void:
 			game._on_bird_attacker_clicked(mid)
 		)
@@ -381,7 +446,21 @@ func make_bird_card(bird: Dictionary, ours: bool) -> Control:
 		var power_icon: TextureRect = game._make_corner_pip_icon(power_count, true, Color(0.82, 0.1, 0.1, 0.98))
 		power_icon.position = Vector2(FIELD_CARD_W - power_icon.custom_minimum_size.x - 4, 4)
 		btn.add_child(power_icon)
-	return btn
+	if bird_rings.is_empty():
+		return btn
+	var bwrap := Control.new()
+	bwrap.custom_minimum_size = Vector2(FIELD_CARD_W, FIELD_CARD_H + 3 + 22)
+	bwrap.size = bwrap.custom_minimum_size
+	bwrap.mouse_filter = Control.MOUSE_FILTER_PASS
+	btn.position = Vector2.ZERO
+	btn.size = Vector2(FIELD_CARD_W, FIELD_CARD_H)
+	btn.custom_minimum_size = Vector2(FIELD_CARD_W, FIELD_CARD_H)
+	bwrap.add_child(btn)
+	var bird_tab := _make_rings_tab("bird", mid, bird_rings.size(), ours)
+	bird_tab.position = Vector2(0, FIELD_CARD_H + 3)
+	bird_tab.size = Vector2(FIELD_CARD_W, 22)
+	bwrap.add_child(bird_tab)
+	return bwrap
 
 
 func rebuild_temple_field(row: HBoxContainer, temples: Variant, ours: bool) -> void:
@@ -401,15 +480,22 @@ func rebuild_temple_field(row: HBoxContainer, temples: Variant, ours: bool) -> v
 
 
 func make_temple_card(temple: Dictionary, ours: bool) -> Control:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 3)
+	var row := Control.new()
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
 	var mid := int(temple.get("mid", -1))
 	var nest_mids: Array = temple.get("nested_bird_mids", []) as Array
 	var nest_n := nest_mids.size()
-	if nest_n > 0:
-		var nest_tab := Button.new()
+	var has_nest_tab: bool = nest_n > 0
+	var total_h: float = FIELD_CARD_H + (3.0 + 22.0) if has_nest_tab else FIELD_CARD_H
+	row.custom_minimum_size = Vector2(FIELD_CARD_W, total_h)
+	row.size = row.custom_minimum_size
+	var nest_tab: Button = null
+	if has_nest_tab:
+		nest_tab = Button.new()
 		nest_tab.text = str(nest_n)
-		nest_tab.custom_minimum_size = Vector2(24, FIELD_CARD_H)
+		nest_tab.custom_minimum_size = Vector2(FIELD_CARD_W, 22)
+		nest_tab.size = nest_tab.custom_minimum_size
+		nest_tab.position = Vector2(0, FIELD_CARD_H + 3)
 		nest_tab.add_theme_font_override("font", CARD_TEXT_FONT)
 		nest_tab.add_theme_font_size_override("font_size", maxi(12, FIELD_CARD_FONT_SIZE - 4))
 		var nsb := StyleBoxFlat.new()
@@ -427,9 +513,10 @@ func make_temple_card(temple: Dictionary, ours: bool) -> Control:
 		nest_tab.pressed.connect(func() -> void:
 			game.show_temple_nest_modal(mid_cap, not ours_cap)
 		)
-		row.add_child(nest_tab)
 	var btn := Button.new()
 	btn.custom_minimum_size = Vector2(FIELD_CARD_W, FIELD_CARD_H)
+	btn.size = Vector2(FIELD_CARD_W, FIELD_CARD_H)
+	btn.position = Vector2.ZERO
 	var shown: String = game._short_noble_name(str(temple.get("name", "Temple")))
 	var used_turn := int(temple.get("used_turn", -1))
 	var exhausted := used_turn == int(game._last_snap.get("turn_number", -999))
@@ -497,4 +584,6 @@ func make_temple_card(temple: Dictionary, ours: bool) -> Control:
 		game._hide_card_hover_preview()
 	)
 	row.add_child(btn)
+	if nest_tab != null:
+		row.add_child(nest_tab)
 	return row

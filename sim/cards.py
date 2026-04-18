@@ -18,6 +18,7 @@ class Kind(Enum):
     NOBLE = "Noble"
     TEMPLE = "Temple"
     BIRD = "Bird"
+    RING = "Ring"
 
 
 VERB_SEEK = "seek"
@@ -39,8 +40,9 @@ class Card:
     noble_id: str = ""
     temple_id: str = ""
     bird_id: str = ""
+    ring_id: str = ""
     name: str = ""
-    cost: int = 0            # temple play cost, bird play cost, noble play cost
+    cost: int = 0            # temple play cost, bird play cost, noble play cost, ring play cost
     power: int = 0           # bird power
 
     def label(self) -> str:
@@ -56,6 +58,8 @@ class Card:
             return self.name or self.temple_id
         if self.kind is Kind.BIRD:
             return self.name or self.bird_id
+        if self.kind is Kind.RING:
+            return self.name or self.ring_id
         return "?"
 
 
@@ -84,6 +88,18 @@ TEMPLE_DEFS: dict[str, dict] = {
     "delpha_oracles":   {"cost": 7, "name": "Delpha, Temple of Oracles"},
     "gotha_illness":    {"cost": 7, "name": "Gotha, Temple of Illness"},
     "ytria_cycles":     {"cost": 9, "name": "Ytria, Temple of Cycles"},
+}
+
+
+RING_COST = 2
+
+# Reductions keyed by incantation verb, or by the pseudo-keys "noble" / "bird".
+RING_DEFS: dict[str, dict] = {
+    "sybiline_emanation":   {"name": "Sybiline, Ring of Emanation",    "reductions": {VERB_SEEK: 1, VERB_INSIGHT: 1}},
+    "cymbil_occultation":   {"name": "Cymbil, Ring of Occultation",    "reductions": {VERB_BURN: 1, VERB_REVIVE: 1}},
+    "celadon_annihilation": {"name": "Celadon, Ring of Annihilation",  "reductions": {VERB_WOE: 1, VERB_WRATH: 1}},
+    "serraf_nobles":        {"name": "Serraf, Ring of Nobles",         "reductions": {"noble": 1}},
+    "sinofia_feathers":     {"name": "Sinofia, Ring of Feathers",      "reductions": {"bird": 1, VERB_TEARS: 1}},
 }
 
 
@@ -125,3 +141,8 @@ def make_temple(temple_id: str) -> Card:
 def make_bird(bird_id: str) -> Card:
     d = BIRD_DEFS[bird_id]
     return Card(kind=Kind.BIRD, bird_id=bird_id, name=d["name"], cost=d["cost"], power=d["power"])
+
+
+def make_ring(ring_id: str) -> Card:
+    d = RING_DEFS[ring_id]
+    return Card(kind=Kind.RING, ring_id=ring_id, name=d["name"], cost=RING_COST)

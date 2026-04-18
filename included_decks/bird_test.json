@@ -186,9 +186,10 @@
 			"verb": "insight"
 		},
 		{
-			"type": "Incantation",
-			"value": 2,
-			"verb": "insight"
+			"cost": 2,
+			"name": "Sinofia, Ring of Feathers",
+			"ring_id": "sinofia_feathers",
+			"type": "Ring"
 		},
 		{
 			"cost": 6,
@@ -227,7 +228,7 @@
 			"deluge_4": 0,
 			"dethrone_4": 0,
 			"insight_1": 0,
-			"insight_2": 4,
+			"insight_2": 3,
 			"insight_3": 0,
 			"insight_4": 0,
 			"revive_1": 0,
@@ -256,6 +257,13 @@
 			"yrss_power": 0,
 			"yytzr_occultation": 0,
 			"zytzr_annihilation": 0
+		},
+		"rings": {
+			"celadon_annihilation": 0,
+			"cymbil_occultation": 0,
+			"serraf_nobles": 0,
+			"sinofia_feathers": 1,
+			"sybiline_emanation": 0
 		},
 		"rituals": {
 			"1": 7,

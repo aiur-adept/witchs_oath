@@ -12,6 +12,7 @@ from .cards import (
     make_dethrone,
     make_incantation,
     make_noble,
+    make_ring,
     make_ritual,
     make_temple,
 )
@@ -36,6 +37,8 @@ def _card_from_json(entry: dict) -> Card | None:
         return make_temple(str(entry["temple_id"]))
     if t == "Bird":
         return make_bird(str(entry["bird_id"]))
+    if t == "Ring":
+        return make_ring(str(entry["ring_id"]))
     return None
 
 

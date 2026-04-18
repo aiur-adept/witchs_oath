@@ -52,6 +52,15 @@ const BIRD_DEFS := [
 	{"id": "eagle", "name": "Eagle", "cost": 4, "power": 3},
 	{"id": "raven", "name": "Raven", "cost": 4, "power": 3}
 ]
+const RING_DEFS := [
+	{"id": "sybiline_emanation", "name": "Sybiline, Ring of Emanation"},
+	{"id": "cymbil_occultation", "name": "Cymbil, Ring of Occultation"},
+	{"id": "celadon_annihilation", "name": "Celadon, Ring of Annihilation"},
+	{"id": "serraf_nobles", "name": "Serraf, Ring of Nobles"},
+	{"id": "sinofia_feathers", "name": "Sinofia, Ring of Feathers"}
+]
+const RING_COST := 2
+const MAX_RING_COPIES := 1
 
 @onready var deck_list: ItemList = %DeckList
 @onready var deck_name_edit: LineEdit = %DeckNameEdit
@@ -119,6 +128,13 @@ func _build_gallery_entries() -> Array[Dictionary]:
 			"name": str(bird.get("name", "")),
 			"cost": int(bird.get("cost", 0)),
 			"power": int(bird.get("power", 0))
+		})
+	for ring in RING_DEFS:
+		out.append({
+			"kind": "ring",
+			"ring_id": str(ring.get("id", "")),
+			"name": str(ring.get("name", "")),
+			"cost": RING_COST
 		})
 	return out
 
@@ -243,6 +259,17 @@ func _entry_key_bird(bird_id: String) -> String:
 	return "b_%s" % bird_id
 
 
+func _entry_key_ring(ring_id: String) -> String:
+	return "rg_%s" % ring_id
+
+
+func _canonical_ring_name(ring_id: String, fallback_name: String = "") -> String:
+	for ring in RING_DEFS:
+		if str(ring.get("id", "")) == ring_id:
+			return str(ring.get("name", fallback_name))
+	return fallback_name
+
+
 func _canonical_noble_name(noble_id: String, fallback_name: String = "") -> String:
 	for noble in NOBLE_DEFS:
 		if str(noble.get("id", "")) == noble_id:
@@ -259,6 +286,8 @@ func _entry_display_name(entry: Dictionary) -> String:
 		return str(entry.get("name", "Temple"))
 	if str(entry.get("kind", "")) == "bird":
 		return str(entry.get("name", "Bird"))
+	if str(entry.get("kind", "")) == "ring":
+		return str(entry.get("name", "Ring"))
 	var verb := str(entry.get("verb", ""))
 	if verb == "void":
 		return "Void"
@@ -281,6 +310,8 @@ func _entry_key(entry: Dictionary) -> String:
 		return _entry_key_temple(str(entry.get("temple_id", "")))
 	if kind == "bird":
 		return _entry_key_bird(str(entry.get("bird_id", "")))
+	if kind == "ring":
+		return _entry_key_ring(str(entry.get("ring_id", "")))
 	return _entry_key_incantation(str(entry.get("verb", "")), int(entry.get("value", 0)))
 
 
@@ -355,6 +386,15 @@ func _build_gallery_card(entry: Dictionary, readonly: bool) -> Control:
 		font_color = Color(0.05, 0.05, 0.05)
 		font_hover_color = Color(0.0, 0.0, 0.0)
 		font_disabled_color = Color(0.3, 0.3, 0.3)
+	elif kind == "ring":
+		base_bg = Color(0.14, 0.16, 0.19)
+		base_border = Color(0.82, 0.85, 0.92)
+		hover_border = Color(0.96, 0.98, 1.0)
+		disabled_bg = Color(0.1, 0.11, 0.13)
+		disabled_border = Color(0.45, 0.48, 0.54)
+		font_color = Color(0.92, 0.94, 0.98)
+		font_hover_color = Color(1.0, 1.0, 1.0)
+		font_disabled_color = Color(0.62, 0.65, 0.72)
 
 	var sb := StyleBoxFlat.new()
 	sb.set_corner_radius_all(10)
@@ -439,6 +479,16 @@ func _ingest_deck_dictionary(parsed_dict: Dictionary) -> void:
 					"name": bname,
 					"cost": int(card.get("cost", 0)),
 					"power": int(card.get("power", 0))
+				})
+		elif kind == "ring":
+			var rid := str(card.get("ring_id", ""))
+			var rname := str(card.get("name", ""))
+			if not rid.is_empty():
+				_add_or_increment_entry(_entry_key_ring(rid), {
+					"kind": "ring",
+					"ring_id": rid,
+					"name": _canonical_ring_name(rid, rname),
+					"cost": RING_COST
 				})
 
 
@@ -542,6 +592,9 @@ func _build_entry_pill(key: String, entry: Dictionary, readonly: bool) -> Contro
 	elif kind == "bird":
 		base_bg = Color(0.97, 0.97, 0.97)
 		border = Color(0.08, 0.08, 0.08)
+	elif kind == "ring":
+		base_bg = Color(0.14, 0.16, 0.19)
+		border = Color(0.82, 0.85, 0.92)
 	sb.bg_color = base_bg
 	sb.border_color = border
 	sb.set_border_width_all(2)
@@ -559,6 +612,8 @@ func _build_entry_pill(key: String, entry: Dictionary, readonly: bool) -> Contro
 	lbl.text = "%s x%d" % [_entry_display_name(entry), int(entry.get("count", 0))]
 	if kind == "bird":
 		lbl.add_theme_color_override("font_color", Color(0.05, 0.05, 0.05))
+	elif kind == "ring":
+		lbl.add_theme_color_override("font_color", Color(0.92, 0.94, 0.98))
 	lbl.mouse_filter = Control.MOUSE_FILTER_STOP
 	lbl.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	lbl.mouse_entered.connect(func() -> void:
@@ -678,6 +733,10 @@ func _can_increase_entry(entry: Dictionary) -> bool:
 		if count >= MAX_TEMPLE_COPIES:
 			return false
 		return int(totals.get("non_ritual", 0)) < TARGET_NON_RITUAL_COUNT
+	if kind == "ring":
+		if count >= MAX_RING_COPIES:
+			return false
+		return int(totals.get("non_ritual", 0)) < TARGET_NON_RITUAL_COUNT
 	return false
 
 
@@ -697,6 +756,11 @@ func _show_cannot_add_status(entry: Dictionary) -> void:
 	elif kind == "bird":
 		if int(entry.get("count", 0)) >= MAX_BIRD_COPIES:
 			status_label.text = "Cannot add: max %d copies of that bird." % MAX_BIRD_COPIES
+		else:
+			status_label.text = "Cannot add: non-ritual cap is %d." % TARGET_NON_RITUAL_COUNT
+	elif kind == "ring":
+		if int(entry.get("count", 0)) >= MAX_RING_COPIES:
+			status_label.text = "Cannot add: only %d copy of each named ring." % MAX_RING_COPIES
 		else:
 			status_label.text = "Cannot add: non-ritual cap is %d." % TARGET_NON_RITUAL_COUNT
 	else:
@@ -749,6 +813,15 @@ func _bird_copy_limit_ok() -> bool:
 	return true
 
 
+func _ring_copy_limit_ok() -> bool:
+	for entry in _entries.values():
+		if str(entry.get("kind", "")) != "ring":
+			continue
+		if int(entry.get("count", 0)) > MAX_RING_COPIES:
+			return false
+	return true
+
+
 func _noble_copy_limit_ok() -> bool:
 	var counts: Dictionary = {}
 	for entry in _entries.values():
@@ -770,6 +843,7 @@ func _totals() -> Dictionary:
 	var noble_total := 0
 	var temple_total := 0
 	var bird_total := 0
+	var ring_total := 0
 	for entry in _entries.values():
 		var count := int(entry.get("count", 0))
 		if count <= 0:
@@ -785,13 +859,16 @@ func _totals() -> Dictionary:
 			temple_total += count
 		elif kind == "bird":
 			bird_total += count
+		elif kind == "ring":
+			ring_total += count
 	return {
 		"rituals": ritual_total,
 		"incantations": incantation_total,
 		"nobles": noble_total,
 		"temples": temple_total,
 		"birds": bird_total,
-		"non_ritual": incantation_total + noble_total + temple_total + bird_total
+		"rings": ring_total,
+		"non_ritual": incantation_total + noble_total + temple_total + bird_total + ring_total
 	}
 
 
@@ -808,7 +885,8 @@ func _update_validation() -> void:
 	var copies_ok := _incantation_copy_limit_ok()
 	var noble_ok := _noble_copy_limit_ok()
 	var bird_ok := _bird_copy_limit_ok()
-	var is_valid: bool = totals["rituals"] == TARGET_RITUAL_COUNT and totals["non_ritual"] == TARGET_NON_RITUAL_COUNT and total_cards == DECK_SIZE and copies_ok and noble_ok and bird_ok
+	var ring_ok := _ring_copy_limit_ok()
+	var is_valid: bool = totals["rituals"] == TARGET_RITUAL_COUNT and totals["non_ritual"] == TARGET_NON_RITUAL_COUNT and total_cards == DECK_SIZE and copies_ok and noble_ok and bird_ok and ring_ok
 	var ro := _deck_readonly()
 	if ro:
 		is_valid = true
@@ -828,6 +906,9 @@ func _update_validation() -> void:
 	elif not bird_ok:
 		status_label.text = "Adjust counts: max %d copies of each bird." % MAX_BIRD_COPIES
 		status_label.modulate = Color(1, 0.95, 0.6)
+	elif not ring_ok:
+		status_label.text = "Adjust counts: only %d copy of each named ring." % MAX_RING_COPIES
+		status_label.modulate = Color(1, 0.95, 0.6)
 	else:
 		status_label.text = "Adjust counts to a legal 40 card deck."
 		status_label.modulate = Color(1, 0.95, 0.6)
@@ -840,6 +921,7 @@ func _build_deck_payload() -> Dictionary:
 	var noble_counts: Dictionary = {}
 	var temple_counts: Dictionary = {}
 	var bird_counts: Dictionary = {}
+	var ring_counts: Dictionary = {}
 	for value in RITUAL_VALUES:
 		ritual_counts[str(value)] = 0
 	for verb in INCANTATION_VERBS:
@@ -851,6 +933,8 @@ func _build_deck_payload() -> Dictionary:
 		temple_counts[str(tm.get("id", ""))] = 0
 	for bd in BIRD_DEFS:
 		bird_counts[str(bd.get("id", ""))] = 0
+	for rg in RING_DEFS:
+		ring_counts[str(rg.get("id", ""))] = 0
 
 	for entry in _entries.values():
 		var count := int(entry.get("count", 0))
@@ -886,6 +970,13 @@ func _build_deck_payload() -> Dictionary:
 				for _bi in count:
 					cards.append({"type": "Bird", "bird_id": bid, "name": bname, "cost": bcost, "power": bpower})
 				continue
+			if str(entry.get("kind", "")) == "ring":
+				var rid := str(entry.get("ring_id", ""))
+				var rname := str(entry.get("name", "Ring"))
+				ring_counts[rid] = count
+				for _ri in count:
+					cards.append({"type": "Ring", "ring_id": rid, "name": rname, "cost": RING_COST})
+				continue
 			var verb := str(entry.get("verb", ""))
 			var iv := int(entry.get("value", 0))
 			incantation_counts["%s_%d" % [verb, iv]] = count
@@ -901,7 +992,8 @@ func _build_deck_payload() -> Dictionary:
 			"incantations": incantation_counts,
 			"nobles": noble_counts,
 			"temples": temple_counts,
-			"birds": bird_counts
+			"birds": bird_counts,
+			"rings": ring_counts
 		},
 		"rules_snapshot": {
 			"total_cards_min": 40,
@@ -1039,6 +1131,10 @@ func _on_save_button_pressed() -> void:
 		return
 	if not _bird_copy_limit_ok():
 		status_label.text = "Deck is invalid. You may only have %d copies of each bird." % MAX_BIRD_COPIES
+		status_label.modulate = Color(1, 0.55, 0.55)
+		return
+	if not _ring_copy_limit_ok():
+		status_label.text = "Deck is invalid. Only %d copy of each named ring is allowed." % MAX_RING_COPIES
 		status_label.modulate = Color(1, 0.55, 0.55)
 		return
 	var total_cards := int(totals["rituals"]) + int(totals["non_ritual"])
