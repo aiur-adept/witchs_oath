@@ -11,6 +11,7 @@
 		"emanation",
 		"scion_test",
 		"temples_test",
-		"bird_test"
+		"bird_test",
+		"void_temples"
 	]
 }
