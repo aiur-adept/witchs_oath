@@ -5,14 +5,16 @@ class_name RingArtHost
 var _glyphs: Array = []
 var _art_font: Font
 var _font_size: int
-var _font_color: Color = Color.WHITE
+var _color_a: Color = Color.WHITE
+var _color_b: Color = Color.WHITE
 
 
-func set_ring(glyphs: Array, font: Font, font_size: int, color: Color) -> void:
+func set_ring(glyphs: Array, font: Font, font_size: int, color_a: Color, color_b: Color) -> void:
 	_glyphs = glyphs.duplicate()
 	_art_font = font
 	_font_size = font_size
-	_font_color = color
+	_color_a = color_a
+	_color_b = color_b
 	for c in get_children():
 		c.queue_free()
 	if _glyphs.is_empty():
@@ -37,16 +39,18 @@ func _rebuild() -> void:
 	var n: int = _glyphs.size()
 	var cx := w * 0.5
 	var cy := h * 0.5
-	var rr: float = float(mini(w, h)) * 0.36
+	var rr: float = minf(w, h) * 0.36
 	var n_f := float(n)
 	var i := 0
 	while i < n:
 		var ang := TAU * (float(i) / n_f) - PI * 0.5
+		var t := 0.0 if n <= 1 else float(i) / float(n - 1)
+		var gcol := _color_a.lerp(_color_b, t)
 		var lbl := Label.new()
 		lbl.text = str(_glyphs[i])
 		lbl.add_theme_font_override("font", _art_font)
 		lbl.add_theme_font_size_override("font_size", _font_size)
-		lbl.add_theme_color_override("font_color", _font_color)
+		lbl.add_theme_color_override("font_color", gcol)
 		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(lbl)
 		lbl.reset_size()

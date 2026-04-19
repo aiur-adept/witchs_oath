@@ -2,6 +2,7 @@ extends RefCounted
 class_name CardPreviewPresenter
 
 const CornerPipDraw = preload("res://corner_pip_draw.gd")
+const CardArtGradientLib = preload("res://card_art_gradient.gd")
 const CARD_TEXT_FONT: Font = preload("res://fonts/Macondo/Macondo-Regular.ttf")
 const CARD_ART_FONT: Font = preload("res://fonts/Datatype/static/Datatype-Regular.ttf")
 const PREVIEW_SCALE := 1.618
@@ -10,8 +11,10 @@ const PREVIEW_RITUAL_BORDER := Color(0.95, 0.78, 0.24)
 const PREVIEW_RITUAL_TEXT := Color(1.0, 0.86, 0.35)
 const PREVIEW_NOBLE_BORDER := Color(0.84, 0.7, 1.0)
 const PREVIEW_NOBLE_TEXT := Color(0.96, 0.93, 1.0)
+const PREVIEW_NOBLE_BG := Color(0.10, 0.07, 0.14, 0.95)
 const PREVIEW_TEMPLE_BORDER := Color(0.35, 0.82, 0.78)
 const PREVIEW_TEMPLE_TEXT := Color(0.88, 0.98, 0.95)
+const PREVIEW_TEMPLE_BG := Color(0.05, 0.10, 0.10, 0.95)
 const PREVIEW_BIRD_BORDER := Color(0.05, 0.05, 0.05)
 const PREVIEW_BIRD_TEXT := Color(0.05, 0.05, 0.05)
 const PREVIEW_RING_BORDER := Color(0.12, 0.12, 0.14)
@@ -126,18 +129,20 @@ static func build_preview_panel(host: Control, config: Dictionary = {}) -> Dicti
 	art_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	upper.add_child(art_area)
 
-	var art_label := Label.new()
+	var art_label := RichTextLabel.new()
 	art_label.set_anchors_preset(Control.PRESET_FULL_RECT)
 	art_label.offset_left = 0
 	art_label.offset_top = 0
 	art_label.offset_right = 0
 	art_label.offset_bottom = 0
+	art_label.bbcode_enabled = true
+	art_label.fit_content = false
+	art_label.scroll_active = false
+	art_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	art_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	art_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	art_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	art_label.clip_text = true
-	art_label.add_theme_font_override("font", CARD_ART_FONT)
-	art_label.add_theme_font_size_override("font_size", art_sz)
+	art_label.add_theme_font_override("normal_font", CARD_ART_FONT)
+	art_label.add_theme_font_size_override("normal_font_size", art_sz)
 	art_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	art_label.visible = false
 	art_area.add_child(art_label)
@@ -279,11 +284,12 @@ static func show_preview(preview: Dictionary, card: Dictionary, mouse_position: 
 	var power_pips: Container = preview.get("power_pips")
 	var cost_pips: Container = preview.get("cost_pips")
 	var cost_number: Label = preview.get("cost_number")
-	var art_label: Label = preview.get("art_label")
+	var art_label: RichTextLabel = preview.get("art_label")
 	var ring_art_host: RingArtHost = preview.get("ring_art_host")
 	var ring_art_sz := int(preview.get("ring_art_sz", int(round(10.0 * float(preview.get("ui", PREVIEW_SCALE))))))
 	var ui := float(preview.get("ui", PREVIEW_SCALE))
 	var ring_glyphs_cached: Array = []
+	var art_grad: PackedColorArray = CardArtGradientLib.gradient_endpoints_for_card(card)
 
 	title.text = card_title(card)
 	type_line.text = card_type_line(card)
@@ -303,9 +309,11 @@ static func show_preview(preview: Dictionary, card: Dictionary, mouse_position: 
 		"noble":
 			border_c = PREVIEW_NOBLE_BORDER
 			text_c = PREVIEW_NOBLE_TEXT
+			bg_c = PREVIEW_NOBLE_BG
 		"temple":
 			border_c = PREVIEW_TEMPLE_BORDER
 			text_c = PREVIEW_TEMPLE_TEXT
+			bg_c = PREVIEW_TEMPLE_BG
 		"bird":
 			border_c = PREVIEW_BIRD_BORDER
 			text_c = PREVIEW_BIRD_TEXT
@@ -339,14 +347,13 @@ static func show_preview(preview: Dictionary, card: Dictionary, mouse_position: 
 	elif art_label != null:
 		if ring_art_host != null:
 			ring_art_host.visible = false
-			ring_art_host.set_ring([], CARD_ART_FONT, ring_art_sz, text_c)
+			ring_art_host.set_ring([], CARD_ART_FONT, ring_art_sz, text_c, text_c)
 		if kind == "ritual":
 			art_label.visible = false
 		else:
 			var art_t := CardProceduralArt.generate_text(card, {"ui_scale": ui})
-			art_label.text = art_t
+			art_label.text = CardArtGradientLib.to_bbcode_centered_colored_lines(art_t, art_grad[0], art_grad[1])
 			art_label.visible = not art_t.is_empty()
-			art_label.add_theme_color_override("font_color", text_c)
 
 	_clear_children(power_pips)
 	if is_bird:
@@ -386,7 +393,7 @@ static func show_preview(preview: Dictionary, card: Dictionary, mouse_position: 
 	root.visible = true
 	root.move_to_front()
 	if kind == "ring" and ring_art_host != null:
-		ring_art_host.call_deferred("set_ring", ring_glyphs_cached, CARD_ART_FONT, ring_art_sz, text_c)
+		ring_art_host.call_deferred("set_ring", ring_glyphs_cached, CARD_ART_FONT, ring_art_sz, art_grad[0], art_grad[1])
 
 
 static func hide_preview(preview: Dictionary) -> void:
