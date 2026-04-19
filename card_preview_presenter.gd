@@ -2,7 +2,8 @@ extends RefCounted
 class_name CardPreviewPresenter
 
 const CornerPipDraw = preload("res://corner_pip_draw.gd")
-const CARD_TEXT_FONT: Font = preload("res://fonts/Macondo-Regular.ttf")
+const CARD_TEXT_FONT: Font = preload("res://fonts/Macondo/Macondo-Regular.ttf")
+const CARD_ART_FONT: Font = preload("res://fonts/Datatype/static/Datatype-Regular.ttf")
 const PREVIEW_SCALE := 1.618
 
 const PREVIEW_RITUAL_BORDER := Color(0.95, 0.78, 0.24)
@@ -84,14 +85,22 @@ static func build_preview_panel(host: Control, config: Dictionary = {}) -> Dicti
 	var big_sz := int(round(48.0 * ui))
 	var body_right_reserve := int(round(44.0 * ui))
 
+	var upper := VBoxContainer.new()
+	upper.set_anchors_preset(Control.PRESET_FULL_RECT, false)
+	upper.anchor_bottom = 0.5
+	upper.offset_left = pad_lr
+	upper.offset_top = pad_tb
+	upper.offset_right = -pad_lr
+	upper.offset_bottom = 0
+	upper.add_theme_constant_override("separation", maxi(1, int(round(3.0 * ui))))
+	upper.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(upper)
+
 	var top_row := HBoxContainer.new()
-	top_row.set_anchors_preset(Control.PRESET_TOP_WIDE, false)
-	top_row.offset_left = pad_lr
-	top_row.offset_top = pad_tb
-	top_row.offset_right = -pad_lr
+	top_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top_row.add_theme_constant_override("separation", sep)
 	top_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.add_child(top_row)
+	upper.add_child(top_row)
 
 	var title := Label.new()
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -106,6 +115,42 @@ static func build_preview_panel(host: Control, config: Dictionary = {}) -> Dicti
 	power_pips.size_flags_horizontal = Control.SIZE_SHRINK_END
 	power_pips.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	top_row.add_child(power_pips)
+
+	var art_sz := int(round(8.5 * ui))
+	var ring_art_sz := int(round(10.0 * ui))
+	var art_area := Control.new()
+	art_area.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	art_area.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	art_area.custom_minimum_size = Vector2(0, int(round(72.0 * ui)))
+	art_area.clip_contents = true
+	art_area.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	upper.add_child(art_area)
+
+	var art_label := Label.new()
+	art_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	art_label.offset_left = 0
+	art_label.offset_top = 0
+	art_label.offset_right = 0
+	art_label.offset_bottom = 0
+	art_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	art_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	art_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	art_label.clip_text = true
+	art_label.add_theme_font_override("font", CARD_ART_FONT)
+	art_label.add_theme_font_size_override("font_size", art_sz)
+	art_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	art_label.visible = false
+	art_area.add_child(art_label)
+
+	var ring_art_host: RingArtHost = RingArtHost.new()
+	ring_art_host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ring_art_host.offset_left = 0
+	ring_art_host.offset_top = 0
+	ring_art_host.offset_right = 0
+	ring_art_host.offset_bottom = 0
+	ring_art_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ring_art_host.visible = false
+	art_area.add_child(ring_art_host)
 
 	var ritual_big := Label.new()
 	ritual_big.set_anchors_preset(Control.PRESET_TOP_WIDE, false)
@@ -212,6 +257,9 @@ static func build_preview_panel(host: Control, config: Dictionary = {}) -> Dicti
 		"title": title,
 		"type_line": type_line,
 		"body": body,
+		"art_label": art_label,
+		"ring_art_host": ring_art_host,
+		"ring_art_sz": ring_art_sz,
 		"ritual_big": ritual_big,
 		"power_pips": power_pips,
 		"cost_pips": cost_pips,
@@ -231,7 +279,11 @@ static func show_preview(preview: Dictionary, card: Dictionary, mouse_position: 
 	var power_pips: Container = preview.get("power_pips")
 	var cost_pips: Container = preview.get("cost_pips")
 	var cost_number: Label = preview.get("cost_number")
+	var art_label: Label = preview.get("art_label")
+	var ring_art_host: RingArtHost = preview.get("ring_art_host")
+	var ring_art_sz := int(preview.get("ring_art_sz", int(round(10.0 * float(preview.get("ui", PREVIEW_SCALE))))))
 	var ui := float(preview.get("ui", PREVIEW_SCALE))
+	var ring_glyphs_cached: Array = []
 
 	title.text = card_title(card)
 	type_line.text = card_type_line(card)
@@ -279,6 +331,23 @@ static func show_preview(preview: Dictionary, card: Dictionary, mouse_position: 
 		else:
 			ritual_big.visible = false
 
+	if kind == "ring" and ring_art_host != null:
+		if art_label != null:
+			art_label.visible = false
+		ring_glyphs_cached = CardProceduralArt.ring_glyphs_for(card)
+		ring_art_host.visible = not ring_glyphs_cached.is_empty()
+	elif art_label != null:
+		if ring_art_host != null:
+			ring_art_host.visible = false
+			ring_art_host.set_ring([], CARD_ART_FONT, ring_art_sz, text_c)
+		if kind == "ritual":
+			art_label.visible = false
+		else:
+			var art_t := CardProceduralArt.generate_text(card, {"ui_scale": ui})
+			art_label.text = art_t
+			art_label.visible = not art_t.is_empty()
+			art_label.add_theme_color_override("font_color", text_c)
+
 	_clear_children(power_pips)
 	if is_bird:
 		var power := int(card.get("power", 0))
@@ -316,6 +385,8 @@ static func show_preview(preview: Dictionary, card: Dictionary, mouse_position: 
 			root.global_position = mouse_position + Vector2(18, 18)
 	root.visible = true
 	root.move_to_front()
+	if kind == "ring" and ring_art_host != null:
+		ring_art_host.call_deferred("set_ring", ring_glyphs_cached, CARD_ART_FONT, ring_art_sz, text_c)
 
 
 static func hide_preview(preview: Dictionary) -> void:

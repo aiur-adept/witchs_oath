@@ -9,7 +9,7 @@ const FIELD_CARD_SCALE := 0.8
 const FIELD_CARD_W := HAND_CARD_W * FIELD_CARD_SCALE
 const FIELD_CARD_H := HAND_CARD_H * FIELD_CARD_SCALE
 const FIELD_CARD_FONT_SIZE := int(round(HAND_CARD_FONT_SIZE * FIELD_CARD_SCALE))
-const CARD_TEXT_FONT: Font = preload("res://fonts/Macondo-Regular.ttf")
+const CARD_TEXT_FONT: Font = preload("res://fonts/Macondo/Macondo-Regular.ttf")
 
 const INC_PICK_SAC := 1
 const INC_PICK_WRATH := 2

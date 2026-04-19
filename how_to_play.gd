@@ -3,7 +3,7 @@ extends Control
 const CARD_SCALE := 1.618
 const HAND_CARD_W := 72.0 * CARD_SCALE
 const HAND_CARD_H := 102.0 * CARD_SCALE
-const CARD_TEXT_FONT: Font = preload("res://fonts/Macondo-Regular.ttf")
+const CARD_TEXT_FONT: Font = preload("res://fonts/Macondo/Macondo-Regular.ttf")
 const CornerPipDraw = preload("res://corner_pip_draw.gd")
 const HAND_CARD_FONT_SIZE := 21
 

@@ -2,7 +2,7 @@ extends Control
 
 const IncludedDecks = preload("res://included_decks.gd")
 const CornerPipDraw = preload("res://corner_pip_draw.gd")
-const CARD_TEXT_FONT: Font = preload("res://fonts/Macondo-Regular.ttf")
+const CARD_TEXT_FONT: Font = preload("res://fonts/Macondo/Macondo-Regular.ttf")
 const _ArcanaCpuOpponent = preload("res://arcana_cpu_opponent.gd")
 const _GameSnapshotUtils = preload("res://game_snapshot_utils.gd")
 const _InsightDnDSlot = preload("res://insight_dnd_slot.gd")
