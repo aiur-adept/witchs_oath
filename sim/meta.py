@@ -1,8 +1,10 @@
 """Meta-analysis: run ``--runs`` games with every deck as P0 (P1 uniformly
 sampled from all included decks) and emit a CSV matchup matrix.
 
-Each matrix cell ``M[row, col]`` is P(row beats col) = p0_wins / games,
-computed from the shard where ``row`` is P0 and ``col`` is a P1 opponent.
+Each cell ``M[row, col]`` is the expected match points for the **column** deck
+as P1 facing the **row** deck as P0: ``(3*p1_wins + 1*draws) / games`` (loss = 0).
+Row labels are the P0 opponent; column headers are the focal deck as P1.
+This avoids win-rate distortion when some matchups draw often.
 
 Usage:
     # Baseline pilots (class default GreedyAI weights; no JSON overrides)
@@ -11,7 +13,7 @@ Usage:
     # Trained weights from data/pilot_weights.json (per slug when present)
     python -m sim.meta --runs 100000 --seed 42 --use-saved-weights [--weights PATH]
 
-Common flags: ``--workers N``, ``--include-draws-as-half``, ``--games-out``.
+Common flags: ``--workers N``, ``--games-out``.
 
 This reuses ``sim.run.run_shard`` (multiprocess shards per P0 slug) so the
 per-game pilot / mulligan / invariant plumbing is identical to the CLI
@@ -58,18 +60,16 @@ def _simulate_p0(p0_slug: str, total_runs: int, seed: int, seed_offset: int,
     return agg
 
 
-def _cell_winrate(bucket: dict[str, Any], count_draws_as_half: bool) -> tuple[float, int]:
+def _cell_expected_mp_p1(bucket: dict[str, Any]) -> tuple[float, int]:
     g = bucket["games"]
     if g == 0:
         return (0.0, 0)
-    w = bucket["p0_wins"]
-    if count_draws_as_half:
-        w += 0.5 * bucket["draws"]
-    return (w / g, g)
+    pts = 3 * bucket["p1_wins"] + bucket["draws"]
+    return (pts / g, g)
 
 
 def run_meta(runs_per_deck: int, seed: int, workers: int,
-             out_path: Path, count_draws_as_half: bool,
+             out_path: Path,
              games_out_path: Path | None = None,
              weights_path_str: str = "",
              use_saved_weights: bool = False) -> None:
@@ -93,7 +93,7 @@ def run_meta(runs_per_deck: int, seed: int, workers: int,
 
     with out_path.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(["row_beats_col"] + slugs)
+        w.writerow(["exp_match_pts_col"] + slugs)
         for row_slug in slugs:
             row = [row_slug]
             for col_slug in slugs:
@@ -101,8 +101,8 @@ def run_meta(runs_per_deck: int, seed: int, workers: int,
                 if bucket is None or bucket["games"] == 0:
                     row.append("")
                 else:
-                    wr, _ = _cell_winrate(bucket, count_draws_as_half)
-                    row.append(f"{wr:.4f}")
+                    mp, _ = _cell_expected_mp_p1(bucket)
+                    row.append(f"{mp:.4f}")
             w.writerow(row)
     print(f"Wrote matchup matrix: {out_path}")
 
@@ -118,31 +118,30 @@ def run_meta(runs_per_deck: int, seed: int, workers: int,
                 w.writerow(row)
         print(f"Wrote sample-size matrix: {games_out_path}")
 
-    _print_summary_table(slugs, all_agg, count_draws_as_half)
+    _print_summary_table(slugs, all_agg)
 
 
 def _print_summary_table(slugs: list[str],
-                         all_agg: dict[str, dict[str, dict[str, Any]]],
-                         count_draws_as_half: bool) -> None:
+                         all_agg: dict[str, dict[str, dict[str, Any]]]) -> None:
     print()
-    print("--- overall row-deck win% (averaged across all columns) ---")
+    print("--- overall expected MP (P1 / column deck, 3/1/0; uniform random P0) ---")
     rows = []
-    for row_slug in slugs:
-        total_w = 0.0
+    for col_slug in slugs:
+        total_pts = 0.0
         total_g = 0
-        for col_slug in slugs:
+        for row_slug in slugs:
             bucket = all_agg[row_slug].get(col_slug)
             if bucket is None or bucket["games"] == 0:
                 continue
-            wr, g = _cell_winrate(bucket, count_draws_as_half)
-            total_w += wr * g
+            mp, g = _cell_expected_mp_p1(bucket)
+            total_pts += mp * g
             total_g += g
-        avg = (total_w / total_g) if total_g > 0 else 0.0
-        rows.append((row_slug, avg, total_g))
+        avg = (total_pts / total_g) if total_g > 0 else 0.0
+        rows.append((col_slug, avg, total_g))
     rows.sort(key=lambda r: -r[1])
     width = max(len(s) for s in slugs)
     for slug, avg, g in rows:
-        print(f"  {slug:<{width}s}   {avg * 100:6.2f}%  ({g} games)")
+        print(f"  {slug:<{width}s}   {avg:6.3f}  ({g} games)")
 
 
 def main() -> None:
@@ -157,8 +156,6 @@ def main() -> None:
                     help="output CSV path")
     ap.add_argument("--games-out", type=str, default="",
                     help="optional: write a second CSV with per-cell sample sizes")
-    ap.add_argument("--include-draws-as-half", action="store_true",
-                    help="count each draw as 0.5 of a win (default: draws count as losses)")
     ap.add_argument(
         "--use-saved-weights",
         action="store_true",
@@ -179,7 +176,7 @@ def main() -> None:
         weights_path_str = str(wp.resolve())
     run_meta(
         args.runs, args.seed, workers, out_path,
-        args.include_draws_as_half, games_out_path,
+        games_out_path,
         weights_path_str, args.use_saved_weights,
     )
 
