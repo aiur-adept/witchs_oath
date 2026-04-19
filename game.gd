@@ -95,6 +95,7 @@ const INC_PICK_BIRD_TARGET := 12
 const INC_PICK_NEST_BIRD := 13
 const INC_PICK_NEST_TEMPLE := 14
 const INC_PICK_RING_TARGET := 15
+const INC_PICK_DELPHA := 16
 var _sacrifice_selecting: bool = false
 var _nest_pick_bird_mid: int = -1
 var _crypt_nest_temple_mid: int = -1
@@ -159,7 +160,7 @@ var _yytzr_pending_first_ctx: Dictionary = {}
 var _yytzr_first_step: Dictionary = {}
 var _yytzr_waits_second_crypt: bool = false
 var _yytzr_extra_sac_mids: Array = []
-var _smrsk_selected_mid: int = -1
+var _single_ritual_pick_mid: int = -1
 var _last_scion_prompt_id: int = -1
 
 var _aeoiu_overlay: Control
@@ -167,7 +168,7 @@ var _aeoiu_crypt_row: VBoxContainer
 var _aeoiu_noble_mid: int = -1
 
 var _delpha_overlay: Control
-var _delpha_ritual_row: VBoxContainer
+var _delpha_label: Label
 var _delpha_crypt_row: VBoxContainer
 var _delpha_temple_mid: int = -1
 var _delpha_ritual_mid: int = -1
@@ -795,12 +796,11 @@ func _build_delpha_overlay() -> void:
 	var inner_d := VBoxContainer.new()
 	inner_d.add_theme_constant_override("separation", 10)
 	ccd.add_child(inner_d)
-	var ld := Label.new()
-	ld.text = "Delpha — choose one of your rituals to send to the abyss. Its power is X."
-	inner_d.add_child(ld)
-	_delpha_ritual_row = VBoxContainer.new()
-	_delpha_ritual_row.add_theme_constant_override("separation", 6)
-	inner_d.add_child(_delpha_ritual_row)
+	_delpha_label = Label.new()
+	_delpha_label.custom_minimum_size = Vector2(420, 0)
+	_delpha_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_delpha_label.text = "Delpha — choose a ritual to return from your crypt."
+	inner_d.add_child(_delpha_label)
 	_delpha_crypt_row = VBoxContainer.new()
 	_delpha_crypt_row.add_theme_constant_override("separation", 6)
 	inner_d.add_child(_delpha_crypt_row)
@@ -1489,7 +1489,7 @@ func _should_abort_sacrifice_for_snap(snap: Dictionary) -> bool:
 	if int(snap.get("current", -1)) != you:
 		return true
 	if _pending_inc_hand_idx < 0:
-		if _inc_pick_phase != INC_PICK_BIRD_ATTACK and _inc_pick_phase != INC_PICK_BIRD_TARGET and _inc_pick_phase != INC_PICK_NEST_BIRD and _inc_pick_phase != INC_PICK_NEST_TEMPLE:
+		if _inc_pick_phase != INC_PICK_BIRD_ATTACK and _inc_pick_phase != INC_PICK_BIRD_TARGET and _inc_pick_phase != INC_PICK_NEST_BIRD and _inc_pick_phase != INC_PICK_NEST_TEMPLE and _inc_pick_phase != INC_PICK_SMRSK and _inc_pick_phase != INC_PICK_DELPHA:
 			return true
 	var h: Array = snap.get("your_hand", []) as Array
 	return _pending_inc_hand_idx >= h.size()
@@ -2457,6 +2457,22 @@ func _enter_wrath_only_mode(hand_idx: int, n: int, wneed: int, card_label: Strin
 	_rebuild_hand(_last_snap.get("your_hand", []))
 
 
+func _enter_single_ritual_sacrifice_mode(phase: int, hint: String, confirm_text: String, cancel_text: String = "Cancel") -> void:
+	_sacrifice_selecting = true
+	_inc_pick_phase = phase
+	_single_ritual_pick_mid = -1
+	_sacrifice_selected_mids.clear()
+	_wrath_selected_mids.clear()
+	_locked_sacrifice_mids.clear()
+	sacrifice_row.visible = true
+	sacrifice_confirm_button.text = confirm_text
+	sacrifice_cancel_button.text = cancel_text
+	sacrifice_hint.text = hint
+	_update_inc_modal_ui()
+	_rebuild_field_strips_from_snap(_last_snap)
+	_rebuild_hand(_last_snap.get("your_hand", []))
+
+
 func _start_yytzr_bonus_sacrifice_ui() -> void:
 	var st: Array = _yytzr_pending_first_ctx.get("revive_steps", []) as Array
 	if st.is_empty():
@@ -2492,7 +2508,7 @@ func _clear_sacrifice_mode() -> void:
 	_sacrifice_selected_mids.clear()
 	_wrath_selected_mids.clear()
 	_locked_sacrifice_mids.clear()
-	_smrsk_selected_mid = -1
+	_single_ritual_pick_mid = -1
 	_bird_attack_selected.clear()
 	_bird_defender_mid = -1
 	_nest_pick_bird_mid = -1
@@ -2519,8 +2535,8 @@ func _update_inc_modal_ui() -> void:
 		sacrifice_confirm_button.disabled = _wrath_selected_mids.size() != _pending_wrath_need
 	elif _inc_pick_phase == INC_PICK_DETHRONE:
 		sacrifice_confirm_button.disabled = _dethrone_selected_mid < 0
-	elif _inc_pick_phase == INC_PICK_SMRSK:
-		sacrifice_confirm_button.disabled = _smrsk_selected_mid < 0
+	elif _inc_pick_phase == INC_PICK_SMRSK or _inc_pick_phase == INC_PICK_DELPHA:
+		sacrifice_confirm_button.disabled = _single_ritual_pick_mid < 0
 	elif _inc_pick_phase == INC_PICK_RMRSK:
 		sacrifice_confirm_button.disabled = false
 	elif _inc_pick_phase == INC_PICK_BIRD_ATTACK:
@@ -2701,15 +2717,12 @@ func _show_scion_prompt_ui(snap: Dictionary) -> void:
 		_rebuild_hand(snap.get("your_hand", []))
 		return
 	if st == "smrsk_burn":
-		_sacrifice_selecting = true
-		_inc_pick_phase = INC_PICK_SMRSK
-		_smrsk_selected_mid = -1
-		sacrifice_row.visible = true
-		sacrifice_confirm_button.text = "Sacrifice and Burn self"
-		sacrifice_cancel_button.text = "Skip"
-		sacrifice_hint.text = "Smrsk: choose one ritual to sacrifice; then Burn yourself by its power."
-		_update_inc_modal_ui()
-		_rebuild_field_strips_from_snap(snap)
+		_enter_single_ritual_sacrifice_mode(
+			INC_PICK_SMRSK,
+			"Smrsk: choose one ritual to sacrifice; then Burn yourself by its power.",
+			"Sacrifice and Burn self",
+			"Skip"
+		)
 		return
 	if st == "tmrsk_woe":
 		_burn_woe_mode = "tmrsk_woe"
@@ -2728,8 +2741,8 @@ func _on_sacrifice_field_clicked(mid: int) -> void:
 	if not _sacrifice_selecting:
 		return
 	if _inc_pick_phase != INC_PICK_SAC and _inc_pick_phase != INC_PICK_YTTR:
-		if _inc_pick_phase == INC_PICK_SMRSK:
-			_smrsk_selected_mid = -1 if _smrsk_selected_mid == mid else mid
+		if _inc_pick_phase == INC_PICK_SMRSK or _inc_pick_phase == INC_PICK_DELPHA:
+			_single_ritual_pick_mid = -1 if _single_ritual_pick_mid == mid else mid
 			_update_inc_modal_ui()
 			_rebuild_field_strips_from_snap(_last_snap)
 		return
@@ -3296,10 +3309,10 @@ func _on_sacrifice_confirm_pressed() -> void:
 		_begin_revive_hand_ui(hi_y, nn_y, esac_y)
 		return
 	if _inc_pick_phase == INC_PICK_SMRSK:
-		if _smrsk_selected_mid < 0:
+		if _single_ritual_pick_mid < 0:
 			return
 		var sid := int(_last_snap.get("scion_pending_id", -1))
-		var ctxs := {"scion_id": sid, "ritual_mid": _smrsk_selected_mid}
+		var ctxs := {"scion_id": sid, "ritual_mid": _single_ritual_pick_mid}
 		if _is_network_client():
 			submit_scion_trigger_response.rpc_id(1, "accept", ctxs)
 		else:
@@ -3307,6 +3320,21 @@ func _on_sacrifice_confirm_pressed() -> void:
 				_match.submit_scion_trigger_response(_my_player_for_action(), "accept", ctxs)
 		_clear_sacrifice_mode()
 		_broadcast_sync(true)
+		return
+	if _inc_pick_phase == INC_PICK_DELPHA:
+		if _single_ritual_pick_mid < 0 or _delpha_temple_mid < 0:
+			return
+		var dmid := _single_ritual_pick_mid
+		var dx := _delpha_ritual_power_for_mid(_last_snap, dmid)
+		if dx < 1:
+			_clear_sacrifice_mode()
+			_delpha_temple_mid = -1
+			status_label.text = "Could not activate Delpha."
+			return
+		_delpha_ritual_mid = dmid
+		_delpha_x = dx
+		_clear_sacrifice_mode()
+		_show_delpha_crypt_pick()
 		return
 	if _inc_pick_phase == INC_PICK_RMRSK:
 		var sidr := int(_last_snap.get("scion_pending_id", -1))
@@ -3471,6 +3499,14 @@ func _on_sacrifice_cancel_pressed() -> void:
 				_match.submit_scion_trigger_response(_my_player_for_action(), "skip", ctx_skip_r)
 		_clear_sacrifice_mode()
 		_broadcast_sync(true)
+		return
+	if _inc_pick_phase == INC_PICK_DELPHA:
+		_delpha_temple_mid = -1
+		_delpha_ritual_mid = -1
+		_delpha_x = 0
+		_clear_sacrifice_mode()
+		if not _last_snap.is_empty():
+			_apply_snap(_last_snap)
 		return
 	_clear_sacrifice_mode()
 	if not _last_snap.is_empty():
@@ -3799,63 +3835,57 @@ func _start_delpha_pick(temple_mid: int) -> void:
 	_delpha_temple_mid = temple_mid
 	_delpha_ritual_mid = -1
 	_delpha_x = 0
-	for c in _delpha_ritual_row.get_children():
-		c.queue_free()
-	for r in field:
-		if typeof(r) != TYPE_DICTIONARY:
-			continue
-		var rm := int(r.get("mid", -1))
-		var rv := int(r.get("value", 0))
-		if rm < 0 or rv < 1:
-			continue
-		var rb := Button.new()
-		rb.text = "Field ritual %d (mid %d)" % [rv, rm]
-		var rm_cap := rm
-		var rv_cap := rv
-		rb.pressed.connect(func() -> void:
-			_on_delpha_ritual_chosen(rm_cap, rv_cap)
-		)
-		_delpha_ritual_row.add_child(rb)
-	if _delpha_ritual_row.get_child_count() == 0:
-		status_label.text = "No field ritual has valid power X for your current deck size."
-		return
-	for c in _delpha_crypt_row.get_children():
-		c.queue_free()
-	var rg2: Array = _filtered_crypt_cards(_your_crypt_cards_from_snap(_last_snap), ["ritual"])
-	var idx := 0
-	for i in rg2.size():
-		var card: Dictionary = rg2[i]
-		var vv := int(card.get("value", 0))
-		var b := Button.new()
-		b.text = "Ritual %d (crypt #%d)" % [vv, idx]
-		var capture := idx
-		b.pressed.connect(func() -> void:
-			_on_delpha_crypt_chosen(capture)
-		)
-		b.disabled = true
-		_delpha_crypt_row.add_child(b)
-		idx += 1
-	if _delpha_crypt_row.get_child_count() == 0:
-		status_label.text = "No rituals in your crypt."
-		return
-	_delpha_overlay.visible = true
+	_enter_single_ritual_sacrifice_mode(
+		INC_PICK_DELPHA,
+		"Delpha: choose a ritual on your field to send to the abyss — you will Burn yourself by its power, then return a ritual from your crypt.",
+		"Send to abyss & Burn self",
+		"Cancel"
+	)
 	end_turn_button.disabled = true
 	discard_draw_button.disabled = true
 
 
-func _on_delpha_ritual_chosen(ritual_mid: int, x: int) -> void:
-	_delpha_ritual_mid = ritual_mid
-	_delpha_x = x
+func _delpha_ritual_power_for_mid(snap: Dictionary, mid: int) -> int:
+	var field: Array = snap.get("your_field", []) as Array
+	for r in field:
+		if typeof(r) != TYPE_DICTIONARY:
+			continue
+		if int((r as Dictionary).get("mid", -1)) == mid:
+			return int((r as Dictionary).get("value", 0))
+	return 0
+
+
+func _show_delpha_crypt_pick() -> void:
 	for c in _delpha_crypt_row.get_children():
-		if c is Button:
-			(c as Button).disabled = false
+		c.queue_free()
+	var rg: Array = _filtered_crypt_cards(_your_crypt_cards_from_snap(_last_snap), ["ritual"])
+	for i in rg.size():
+		var card: Dictionary = rg[i]
+		var vv := int(card.get("value", 0))
+		var b := Button.new()
+		b.text = "Ritual %d (crypt #%d)" % [vv, i]
+		_apply_ui_button_padding(b)
+		var capture := i
+		b.pressed.connect(func() -> void:
+			_on_delpha_crypt_chosen(capture)
+		)
+		_delpha_crypt_row.add_child(b)
+	if _delpha_crypt_row.get_child_count() == 0:
+		status_label.text = "No rituals in your crypt."
+		_on_delpha_cancel_pressed()
+		return
+	if _delpha_label != null:
+		_delpha_label.text = "Delpha — Burn %d to self. Now choose a ritual from your crypt to return to your field." % _delpha_x
+	_delpha_overlay.visible = true
+	end_turn_button.disabled = true
+	discard_draw_button.disabled = true
 
 
 func _on_delpha_crypt_chosen(crypt_idx: int) -> void:
 	var tm := _delpha_temple_mid
 	var ritual_mid := _delpha_ritual_mid
 	var x := _delpha_x
-	if ritual_mid < 0 or x < 1:
+	if ritual_mid < 0 or x < 1 or tm < 0:
 		status_label.text = "Pick a field ritual first."
 		return
 	_delpha_overlay.visible = false

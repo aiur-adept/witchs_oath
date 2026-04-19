@@ -20,6 +20,7 @@ const INC_PICK_BIRD_TARGET := 12
 const INC_PICK_NEST_BIRD := 13
 const INC_PICK_NEST_TEMPLE := 14
 const INC_PICK_RING_TARGET := 15
+const INC_PICK_DELPHA := 16
 
 var game: Control
 
@@ -65,7 +66,7 @@ func rebuild_ritual_field(row: HBoxContainer, field: Variant, ours: bool) -> voi
 		var pick_mode := 0
 		if ours and game._sacrifice_selecting and game._inc_pick_phase == INC_PICK_SAC:
 			pick_mode = 1
-		elif ours and game._sacrifice_selecting and game._inc_pick_phase == INC_PICK_SMRSK:
+		elif ours and game._sacrifice_selecting and (game._inc_pick_phase == INC_PICK_SMRSK or game._inc_pick_phase == INC_PICK_DELPHA):
 			pick_mode = 1
 		elif not ours and game._sacrifice_selecting and game._inc_pick_phase == INC_PICK_WRATH:
 			pick_mode = 2
@@ -167,7 +168,7 @@ func make_ritual_stack(cards: Array, ours: bool, pick_mode: int) -> Control:
 	for i in count:
 		var d: Dictionary = cards[i]
 		var mid: int = int(d.get("mid", -1))
-		var picked: bool = (pick_mode == 1 and (game._sacrifice_selected_mids.has(mid) or game._smrsk_selected_mid == mid)) or (pick_mode == 2 and game._wrath_selected_mids.has(mid))
+		var picked: bool = (pick_mode == 1 and (game._sacrifice_selected_mids.has(mid) or game._single_ritual_pick_mid == mid)) or (pick_mode == 2 and game._wrath_selected_mids.has(mid))
 		var card := make_ritual_card(
 			int(d.get("value", 0)),
 			ours,
