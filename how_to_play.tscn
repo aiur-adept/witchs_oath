@@ -1,6 +1,25 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://how_to_play.gd" id="1_howto"]
+
+[sub_resource type="StyleBoxFlat" id="SectionCard"]
+content_margin_left = 18.0
+content_margin_top = 16.0
+content_margin_right = 18.0
+content_margin_bottom = 16.0
+bg_color = Color(0.12, 0.13, 0.16, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.22, 0.24, 0.3, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+shadow_color = Color(0, 0, 0, 0.35)
+shadow_size = 4
+shadow_offset = Vector2(0, 2)
 
 [node name="HowToPlay" type="Control"]
 layout_mode = 3
@@ -31,7 +50,7 @@ theme_override_constants/separation = 18
 
 [node name="Title" type="Label" parent="Margin/VBox"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 28
+theme_override_font_sizes/font_size = 32
 text = "How To Play"
 
 [node name="Scroll" type="ScrollContainer" parent="Margin/VBox"]
@@ -42,17 +61,29 @@ size_flags_vertical = 3
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
-theme_override_constants/separation = 28
+theme_override_constants/separation = 18
 
-[node name="Content" type="RichTextLabel" parent="Margin/VBox/Scroll/ContentRoot"]
+[node name="TurnFlowCard" type="PanelContainer" parent="Margin/VBox/Scroll/ContentRoot"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("SectionCard")
+
+[node name="Inner" type="VBoxContainer" parent="Margin/VBox/Scroll/ContentRoot/TurnFlowCard"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="SectionTitle" type="Label" parent="Margin/VBox/Scroll/ContentRoot/TurnFlowCard/Inner"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Your Turn"
+
+[node name="Content" type="RichTextLabel" parent="Margin/VBox/Scroll/ContentRoot/TurnFlowCard/Inner"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 bbcode_enabled = false
 fit_content = true
 scroll_active = false
-text = "During Your Turn
-1. Draw — Draw 1 card from your deck (the player who goes first skips this on turn 1).
+text = "1. Draw — Draw 1 card from your deck (the player who goes first skips this on turn 1).
 2. Play cards — In any order, you may play:
    - Any number of Incantations (each needs a matching active Ritual lane, or sacrifice Rituals to cover the cost)
    - Up to 1 Ritual from hand
@@ -66,17 +97,25 @@ text = "During Your Turn
 6. Loot (optional, once per turn) — Discard a card to draw a card.
 7. Discard down — At the end of your turn, discard until you have 7 cards in hand."
 
-[node name="ExamplesTitle" type="Label" parent="Margin/VBox/Scroll/ContentRoot"]
+[node name="CardTypesCard" type="PanelContainer" parent="Margin/VBox/Scroll/ContentRoot"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
+theme_override_styles/panel = SubResource("SectionCard")
+
+[node name="Inner" type="VBoxContainer" parent="Margin/VBox/Scroll/ContentRoot/CardTypesCard"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ExamplesTitle" type="Label" parent="Margin/VBox/Scroll/ContentRoot/CardTypesCard/Inner"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
 text = "Card Types"
 
-[node name="ExampleTypeRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot"]
+[node name="ExampleTypeRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot/CardTypesCard/Inner"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="RitualText" type="RichTextLabel" parent="Margin/VBox/Scroll/ContentRoot"]
+[node name="RitualText" type="RichTextLabel" parent="Margin/VBox/Scroll/ContentRoot/CardTypesCard/Inner"]
 layout_mode = 2
 bbcode_enabled = false
 fit_content = true
@@ -87,53 +126,77 @@ Ritual values are 1, 2, 3, and 4.
 - A Ritual of value N (N > 1) is active only if you also control at least one active Ritual of every value from 1 to N-1.
 - Ritual power is the sum of your active Ritual values only."
 
-[node name="ExampleComboTitle" type="Label" parent="Margin/VBox/Scroll/ContentRoot"]
+[node name="ActiveInactiveCard" type="PanelContainer" parent="Margin/VBox/Scroll/ContentRoot"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
+theme_override_styles/panel = SubResource("SectionCard")
+
+[node name="Inner" type="VBoxContainer" parent="Margin/VBox/Scroll/ContentRoot/ActiveInactiveCard"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ExampleComboTitle" type="Label" parent="Margin/VBox/Scroll/ContentRoot/ActiveInactiveCard/Inner"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
 text = "Active vs Inactive"
 
-[node name="ExampleComboRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot"]
+[node name="ExampleComboRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot/ActiveInactiveCard/Inner"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="CostText" type="RichTextLabel" parent="Margin/VBox/Scroll/ContentRoot"]
+[node name="PayCard" type="PanelContainer" parent="Margin/VBox/Scroll/ContentRoot"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("SectionCard")
+
+[node name="Inner" type="VBoxContainer" parent="Margin/VBox/Scroll/ContentRoot/PayCard"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ExamplePayTitle" type="Label" parent="Margin/VBox/Scroll/ContentRoot/PayCard/Inner"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "What Rituals Can Pay For"
+
+[node name="CostText" type="RichTextLabel" parent="Margin/VBox/Scroll/ContentRoot/PayCard/Inner"]
 layout_mode = 2
 bbcode_enabled = false
 fit_content = true
 scroll_active = false
-text = "You need an active Ritual of matching value to play Incantations, or you can sacrifice Rituals whose values add up to at least the cost.
+text = "Rituals are the engine of the game — every other card type is paid for with your Rituals, either by having the matching active lane or by sacrificing Rituals.
 
-Nobles require their cost lane to be active (no sacrifice payment for Noble play).
+- Incantations — active lane of matching value, or sacrifice Rituals totaling at least the cost.
+- Lower Nobles (cost 4 or less) — active lane only. Sacrifice cannot pay for them.
+- Higher Nobles (cost 6 or more) — sacrifice only. Active lanes cannot pay for them.
+- Temples — sacrifice only. Most Temples cost 7; Ytria, Temple of Cycles, costs 9.
+- Rings — all Rings cost 2, so an active 2-lane (or higher active lane) is required. Sacrifice cannot pay for Rings.
+- Birds — active lane of matching cost. Sacrifice cannot pay for Birds.
 
-Temples are paid by sacrificing Rituals from your field.
-- Most Temples cost 7.
-- Ytria, Temple of Cycles, costs 9.
+Example (cards below): with active 1-, 2-, and 3-Rituals you can play anything whose cost lane is active — an Incantation (Woe 3), a Lower Noble (Trss, cost 3), a Ring (Sybiline, cost 2), and a Bird (Sparrow, cost 2). See the Temple Payment and Higher vs Lower Nobles sections below for sacrifice-based plays."
 
-Example Temple payment:
-To play Delpha, Temple of Oracles (cost 7), you can sacrifice a 4-Ritual + 2-Ritual + 1-Ritual (total 7)."
-
-[node name="ExamplePayTitle" type="Label" parent="Margin/VBox/Scroll/ContentRoot"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 20
-text = "What Rituals Can Pay For"
-
-[node name="ExamplePayRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot"]
+[node name="ExamplePayRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot/PayCard/Inner"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="ExampleTempleTitle" type="Label" parent="Margin/VBox/Scroll/ContentRoot"]
+[node name="TemplePayCard" type="PanelContainer" parent="Margin/VBox/Scroll/ContentRoot"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
+theme_override_styles/panel = SubResource("SectionCard")
+
+[node name="Inner" type="VBoxContainer" parent="Margin/VBox/Scroll/ContentRoot/TemplePayCard"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ExampleTempleTitle" type="Label" parent="Margin/VBox/Scroll/ContentRoot/TemplePayCard/Inner"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
 text = "Temple Payment Example"
 
-[node name="ExampleTempleRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot"]
+[node name="ExampleTempleRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot/TemplePayCard/Inner"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="ExampleTempleText" type="RichTextLabel" parent="Margin/VBox/Scroll/ContentRoot"]
+[node name="ExampleTempleText" type="RichTextLabel" parent="Margin/VBox/Scroll/ContentRoot/TemplePayCard/Inner"]
 layout_mode = 2
 bbcode_enabled = false
 fit_content = true
@@ -141,12 +204,67 @@ scroll_active = false
 text = "Example shown above:
 Delpha, Temple of Oracles costs 7, so sacrificing 4-Ritual + 2-Ritual + 1-Ritual pays exactly."
 
-[node name="BirdsFightTitle" type="Label" parent="Margin/VBox/Scroll/ContentRoot"]
+[node name="NoblesCard" type="PanelContainer" parent="Margin/VBox/Scroll/ContentRoot"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
-text = "Bird combat"
+theme_override_styles/panel = SubResource("SectionCard")
 
-[node name="BirdsFightText" type="RichTextLabel" parent="Margin/VBox/Scroll/ContentRoot"]
+[node name="Inner" type="VBoxContainer" parent="Margin/VBox/Scroll/ContentRoot/NoblesCard"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="NoblesTitle" type="Label" parent="Margin/VBox/Scroll/ContentRoot/NoblesCard/Inner"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Higher vs Lower Nobles"
+
+[node name="NoblesText" type="RichTextLabel" parent="Margin/VBox/Scroll/ContentRoot/NoblesCard/Inner"]
+layout_mode = 2
+bbcode_enabled = false
+fit_content = true
+scroll_active = false
+text = "Nobles split into two groups based on their printed cost:
+
+Lower Nobles (cost 4 or less) — pay only by having their cost lane active. You cannot sacrifice Rituals to play a Lower Noble; you need the matching active lane.
+- Krss (cost 2), Trss (cost 3), the cost-3 Incantation Nobles, Yrss (cost 4).
+
+Higher Nobles (cost 6 or more) — pay only by sacrificing Rituals whose values total at least the cost. Active lanes do not pay for them; you must sacrifice.
+- Xytzr and Yytzr (cost 6), Aeoiu and Zytzr (cost 8).
+
+Only one Noble may be played from hand per turn, regardless of which type."
+
+[node name="ExampleLowerNobleRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot/NoblesCard/Inner"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ExampleHigherNobleRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot/NoblesCard/Inner"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ExampleNoblesText" type="RichTextLabel" parent="Margin/VBox/Scroll/ContentRoot/NoblesCard/Inner"]
+layout_mode = 2
+bbcode_enabled = false
+fit_content = true
+scroll_active = false
+text = "Shown above:
+- Lower Noble Trss (cost 3) plays because the 3-lane is active — no sacrifice needed.
+- Higher Noble Xytzr (cost 6) cannot be paid by lanes; sacrificing a 4-Ritual + 2-Ritual (total 6) pays exactly. A 4-Ritual + 3-Ritual (total 7) would also work."
+
+[node name="BirdsFightCard" type="PanelContainer" parent="Margin/VBox/Scroll/ContentRoot"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("SectionCard")
+
+[node name="Inner" type="VBoxContainer" parent="Margin/VBox/Scroll/ContentRoot/BirdsFightCard"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="BirdsFightTitle" type="Label" parent="Margin/VBox/Scroll/ContentRoot/BirdsFightCard/Inner"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Bird Combat"
+
+[node name="BirdsFightText" type="RichTextLabel" parent="Margin/VBox/Scroll/ContentRoot/BirdsFightCard/Inner"]
 layout_mode = 2
 bbcode_enabled = false
 fit_content = true
@@ -159,32 +277,40 @@ Example (cards below): Finch attacks the opponent's Sparrow. Each has power 1, s
 
 Second example: Kestrel and Shrike (power 2 each) attack Hawk (power 3). Your birds deal 4 damage total, so Hawk is destroyed. Hawk deals 3 damage for you to assign among your attackers — for example 2 to Kestrel and 1 to Shrike — so Kestrel is destroyed and Shrike survives."
 
-[node name="ExampleBirdFightSetupRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot"]
+[node name="ExampleBirdFightSetupRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot/BirdsFightCard/Inner"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="ExampleBirdFightOutcomeRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot"]
+[node name="ExampleBirdFightOutcomeRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot/BirdsFightCard/Inner"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="ExampleBirdFight2SetupRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot"]
+[node name="ExampleBirdFight2SetupRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot/BirdsFightCard/Inner"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="ExampleBirdFight2OutcomeRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot"]
+[node name="ExampleBirdFight2OutcomeRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot/BirdsFightCard/Inner"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="BirdsNestTitle" type="Label" parent="Margin/VBox/Scroll/ContentRoot"]
+[node name="NestCard" type="PanelContainer" parent="Margin/VBox/Scroll/ContentRoot"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
+theme_override_styles/panel = SubResource("SectionCard")
+
+[node name="Inner" type="VBoxContainer" parent="Margin/VBox/Scroll/ContentRoot/NestCard"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="BirdsNestTitle" type="Label" parent="Margin/VBox/Scroll/ContentRoot/NestCard/Inner"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
 text = "Nesting"
 
-[node name="BirdsNestText" type="RichTextLabel" parent="Margin/VBox/Scroll/ContentRoot"]
+[node name="BirdsNestText" type="RichTextLabel" parent="Margin/VBox/Scroll/ContentRoot/NestCard/Inner"]
 layout_mode = 2
 bbcode_enabled = false
 fit_content = true
@@ -194,22 +320,30 @@ Each bird still counts for match power +1 additional each, while nested. Nested 
 
 Example (cards below): Wren starts on your field, then nests under Delpha — the stack tab shows how many birds are inside."
 
-[node name="ExampleBirdNestBeforeRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot"]
+[node name="ExampleBirdNestBeforeRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot/NestCard/Inner"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="ExampleBirdNestAfterRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot"]
+[node name="ExampleBirdNestAfterRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot/NestCard/Inner"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="RingsTitle" type="Label" parent="Margin/VBox/Scroll/ContentRoot"]
+[node name="RingsCard" type="PanelContainer" parent="Margin/VBox/Scroll/ContentRoot"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 20
+theme_override_styles/panel = SubResource("SectionCard")
+
+[node name="Inner" type="VBoxContainer" parent="Margin/VBox/Scroll/ContentRoot/RingsCard"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="RingsTitle" type="Label" parent="Margin/VBox/Scroll/ContentRoot/RingsCard/Inner"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
 text = "Rings"
 
-[node name="RingsText" type="RichTextLabel" parent="Margin/VBox/Scroll/ContentRoot"]
+[node name="RingsText" type="RichTextLabel" parent="Margin/VBox/Scroll/ContentRoot/RingsCard/Inner"]
 layout_mode = 2
 bbcode_enabled = false
 fit_content = true
@@ -228,23 +362,35 @@ Example Rings:
 - Serraf, Ring of Nobles — Nobles cost 1 less.
 - Sinofia, Ring of Feathers — Birds and Tears cost 1 less."
 
-[node name="ExampleRingCardRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot"]
+[node name="ExampleRingCardRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot/RingsCard/Inner"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="ExampleRingAttachRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot"]
+[node name="ExampleRingAttachRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot/RingsCard/Inner"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="WinText" type="RichTextLabel" parent="Margin/VBox/Scroll/ContentRoot"]
+[node name="WinCard" type="PanelContainer" parent="Margin/VBox/Scroll/ContentRoot"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("SectionCard")
+
+[node name="Inner" type="VBoxContainer" parent="Margin/VBox/Scroll/ContentRoot/WinCard"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="WinTitle" type="Label" parent="Margin/VBox/Scroll/ContentRoot/WinCard/Inner"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Win Conditions"
+
+[node name="WinText" type="RichTextLabel" parent="Margin/VBox/Scroll/ContentRoot/WinCard/Inner"]
 layout_mode = 2
 bbcode_enabled = false
 fit_content = true
 scroll_active = false
-text = "Win Conditions
-- Reach 20 active Ritual power and you win immediately.
+text = "- Reach 20 active Ritual power and you win immediately.
 - If a player must draw from an empty deck, the game ends:
   - Higher active Ritual power wins.
   - If active Ritual power is tied, the game is a draw."

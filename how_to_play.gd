@@ -40,6 +40,7 @@ func _build_examples() -> void:
 	_build_active_vs_inactive_examples()
 	_build_pay_examples()
 	_build_temple_pay_example()
+	_build_noble_pay_examples()
 	_build_bird_fight_example()
 	_build_bird_fight_example_multi()
 	_build_nest_example()
@@ -105,7 +106,7 @@ func _build_pay_examples() -> void:
 	row.add_child(_make_ritual_card(1, true))
 	row.add_child(_make_ritual_card(2, true))
 	row.add_child(_make_ritual_card(3, true))
-	row.add_child(_caption("can cast"))
+	row.add_child(_caption("can play"))
 	row.add_child(_make_hand_card_widget({
 		"type": "incantation",
 		"verb": "Woe",
@@ -115,6 +116,19 @@ func _build_pay_examples() -> void:
 		"type": "noble",
 		"name": "Trss, Noble of Power",
 		"noble_id": "trss_power"
+	}))
+	row.add_child(_make_hand_card_widget({
+		"type": "ring",
+		"ring_id": "sybiline_emanation",
+		"name": "Sybiline, Ring of Emanation",
+		"cost": 2
+	}))
+	row.add_child(_make_bird_card({
+		"type": "bird",
+		"bird_id": "sparrow",
+		"name": "Sparrow",
+		"cost": 2,
+		"power": 1
 	}))
 
 
@@ -126,6 +140,31 @@ func _build_temple_pay_example() -> void:
 	row.add_child(_make_ritual_card(1, true))
 	row.add_child(_caption("total 7 -> play"))
 	row.add_child(_make_temple_card(_delpha_temple()))
+
+
+func _build_noble_pay_examples() -> void:
+	var lower_row: HBoxContainer = %ExampleLowerNobleRow
+	lower_row.add_child(_caption("Lower Noble"))
+	lower_row.add_child(_make_ritual_card(1, true))
+	lower_row.add_child(_make_ritual_card(2, true))
+	lower_row.add_child(_make_ritual_card(3, true))
+	lower_row.add_child(_caption("3-lane active -> play"))
+	lower_row.add_child(_make_noble_card({
+		"type": "noble",
+		"name": "Trss, Noble of Power",
+		"noble_id": "trss_power"
+	}))
+	var higher_row: HBoxContainer = %ExampleHigherNobleRow
+	higher_row.add_child(_caption("Higher Noble"))
+	higher_row.add_child(_caption("Sacrifice"))
+	higher_row.add_child(_make_ritual_card(4, true))
+	higher_row.add_child(_make_ritual_card(2, true))
+	higher_row.add_child(_caption("total 6 -> play"))
+	higher_row.add_child(_make_noble_card({
+		"type": "noble",
+		"name": "Xytzr, Avatar of Emanation",
+		"noble_id": "xytzr_emanation"
+	}))
 
 
 func _delpha_temple() -> Dictionary:

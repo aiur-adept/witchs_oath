@@ -178,7 +178,12 @@ If empty-deck draw is attempted:
 
 ## 10) Noble Abilities (Set 1)
 
-All noble static abilities apply while that noble remains on the field.
+All Noble static abilities apply while that noble remains on the field.
+Noble triggered abilities occur when their triggering event occurs.
+Noble activated abilities may be activated once per turn.
+
+Nobles of cost 6+ (Higher Nobles) can only be played by sacrificing rituals.
+Nobles of cost 4- (Lower Nobles) can only be played by having the active ritual lane.
 
 ### 10.1 Cost 8
 

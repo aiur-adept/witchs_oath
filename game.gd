@@ -7,6 +7,7 @@ const _ArcanaCpuOpponent = preload("res://arcana_cpu_opponent.gd")
 const _GameSnapshotUtils = preload("res://game_snapshot_utils.gd")
 const _InsightDnDSlot = preload("res://insight_dnd_slot.gd")
 const _GameRitualFieldView = preload("res://game_ritual_field_view.gd")
+const _HowToPlayScene: PackedScene = preload("res://how_to_play.tscn")
 
 var _cpu_opponent: RefCounted = _ArcanaCpuOpponent.new()
 var _ritual_field: RefCounted
@@ -36,9 +37,14 @@ var _deck_path: String = DEFAULT_DECK_PATH
 @onready var status_label: Label = %StatusLabel
 @onready var log_label: RichTextLabel = %LogLabel
 @onready var left_action_panel: PanelContainer = %LeftActionPanel
+@onready var left_action_collapsed_row: HBoxContainer = %LeftActionCollapsedRow
 @onready var left_action_hamburger_button: Button = %LeftActionHamburgerButton
+@onready var left_action_help_button: Button = %LeftActionHelpButton
 @onready var left_action_expanded_panel: PanelContainer = %LeftActionExpandedPanel
 @onready var left_action_close_button: Button = %LeftActionCloseButton
+@onready var how_to_play_overlay: Control = %HowToPlayOverlay
+@onready var how_to_play_host: Control = %HowToPlayHost
+@onready var how_to_play_close_button: Button = %HowToPlayCloseButton
 @onready var concede_button: Button = %ConcedeButton
 @onready var exit_match_button: Button = %ExitMatchButton
 @onready var hand_row: HBoxContainer = %HandRow
@@ -333,7 +339,10 @@ func _ready() -> void:
 	sacrifice_cancel_button.pressed.connect(_on_sacrifice_cancel_pressed)
 	quit_to_menu_button.pressed.connect(_on_quit_to_menu_pressed)
 	left_action_hamburger_button.pressed.connect(_on_left_action_hamburger_pressed)
+	left_action_help_button.pressed.connect(_on_left_action_help_pressed)
 	left_action_close_button.pressed.connect(_on_left_action_close_pressed)
+	how_to_play_close_button.pressed.connect(_hide_how_to_play_overlay)
+	_build_how_to_play_overlay_content()
 	concede_button.pressed.connect(_on_concede_pressed)
 	exit_match_button.pressed.connect(_on_exit_match_pressed)
 	pause_return_button.pressed.connect(_on_pause_return_pressed)
@@ -359,7 +368,11 @@ func _ready() -> void:
 	_apply_ui_button_padding(pause_quit_button)
 	left_action_hamburger_button.custom_minimum_size = Vector2(38, 34)
 	left_action_hamburger_button.add_theme_font_size_override("font_size", 20)
+	left_action_help_button.custom_minimum_size = Vector2(38, 34)
+	left_action_help_button.add_theme_font_size_override("font_size", 20)
 	left_action_close_button.custom_minimum_size = Vector2(34, 30)
+	how_to_play_close_button.custom_minimum_size = Vector2(42, 42)
+	how_to_play_close_button.add_theme_font_size_override("font_size", 20)
 	var left_panel_style := StyleBoxFlat.new()
 	left_panel_style.bg_color = Color(0, 0, 0, 1)
 	left_panel_style.border_color = Color(0.18, 0.18, 0.18, 1)
@@ -5372,7 +5385,7 @@ func _on_exit_match_confirmed() -> void:
 
 func _set_left_action_expanded(expanded: bool) -> void:
 	left_action_expanded_panel.visible = expanded
-	left_action_hamburger_button.visible = not expanded
+	left_action_collapsed_row.visible = not expanded
 
 
 func _on_left_action_hamburger_pressed() -> void:
@@ -5381,6 +5394,31 @@ func _on_left_action_hamburger_pressed() -> void:
 
 func _on_left_action_close_pressed() -> void:
 	_set_left_action_expanded(false)
+
+
+func _on_left_action_help_pressed() -> void:
+	_show_how_to_play_overlay()
+
+
+func _build_how_to_play_overlay_content() -> void:
+	if how_to_play_host == null or how_to_play_host.get_child_count() > 0:
+		return
+	var instance: Control = _HowToPlayScene.instantiate()
+	instance.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	how_to_play_host.add_child(instance)
+	var back_btn := instance.find_child("BackButton", true, false)
+	if back_btn is Button:
+		(back_btn as Button).visible = false
+
+
+func _show_how_to_play_overlay() -> void:
+	how_to_play_overlay.visible = true
+	how_to_play_overlay.move_to_front()
+	how_to_play_close_button.grab_focus()
+
+
+func _hide_how_to_play_overlay() -> void:
+	how_to_play_overlay.visible = false
 
 
 func _on_quit_to_menu_confirmed() -> void:
