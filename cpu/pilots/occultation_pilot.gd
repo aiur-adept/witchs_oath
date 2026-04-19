@@ -7,12 +7,11 @@ func _init() -> void:
 	W_NOBLE_BIG_TRIPLET = 55.0
 	W_EFFECT_BURN_BASE = 4.0
 	W_EFFECT_BURN_VALUE = 2.0
-	REVIVE_VERB_PRIORITY = {
-		VERB_BURN: 8,
-		VERB_WOE: 4,
-		VERB_SEEK: 3,
-		VERB_INSIGHT: 2,
-	}
+	W_REVIVE_PRIO_BURN = 8.0
+	W_REVIVE_PRIO_WOE = 4.0
+	W_REVIVE_PRIO_SEEK = 3.0
+	W_REVIVE_PRIO_INSIGHT = 2.0
+	W_REVIVE_PRIO_WRATH = 0.0
 
 
 func mulligan(_host: Node, snap: Dictionary) -> bool:

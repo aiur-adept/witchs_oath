@@ -12,18 +12,16 @@ from __future__ import annotations
 from typing import Optional
 
 from ..ai import GreedyAI
-from ..cards import Kind, VERB_BURN, VERB_INSIGHT, VERB_SEEK, VERB_WOE, VERB_WRATH
+from ..cards import Kind, VERB_WRATH
 from ..match import MatchState
 
 
 class WrathseekSacPilot(GreedyAI):
-    REVIVE_VERB_PRIORITY = {
-        VERB_WRATH: 10,
-        VERB_WOE: 5,
-        VERB_SEEK: 3,
-        VERB_INSIGHT: 2,
-        VERB_BURN: 1,
-    }
+    W_REVIVE_PRIO_WRATH: float = 10.0
+    W_REVIVE_PRIO_WOE: float = 5.0
+    W_REVIVE_PRIO_SEEK: float = 3.0
+    W_REVIVE_PRIO_INSIGHT: float = 2.0
+    W_REVIVE_PRIO_BURN: float = 1.0
     SAC_PENALTY_PER_RITUAL = 1.0  # sacing is the plan; don't over-penalize
 
     def mulligan(self, state: MatchState, pid: int) -> bool:

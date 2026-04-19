@@ -25,6 +25,8 @@ from .pilot_weights import (
     default_pilot_weights_path,
     greedy_ai_float_weight_keys,
     merge_slug_into_weights_file,
+    weights_for_slug_from_file,
+    write_ea_opponent_snapshot,
 )
 
 
@@ -37,6 +39,29 @@ def _mutate(rng: random.Random, w: dict[str, float], sigma: float) -> dict[str, 
     for k, v in w.items():
         out[k] = v + rng.gauss(0.0, sigma)
     return clamp_genome(out)
+
+
+def _init_individual(
+    rng: random.Random,
+    baseline: dict[str, float],
+    keys: list[str],
+    sigma_init: float,
+    init_spread: float,
+    init_uniform_fraction: float,
+    init_uniform_delta: float,
+) -> dict[str, float]:
+    if rng.random() < init_uniform_fraction:
+        g = {k: baseline[k] for k in keys}
+        for k in keys:
+            lo = baseline[k] - init_uniform_delta
+            hi = baseline[k] + init_uniform_delta
+            g[k] = rng.uniform(lo, hi)
+        return clamp_genome(g)
+    g = _mutate(rng, baseline, sigma_init * 2.0 * init_spread)
+    for k in keys:
+        if k not in g:
+            g[k] = baseline[k]
+    return clamp_genome(g)
 
 
 def _tournament_pick(
@@ -61,6 +86,11 @@ def run_ea(
     sigma_decay: float,
     tournament_k: int,
     workers: int,
+    weights_file_path: Path,
+    init_spread: float,
+    init_uniform_fraction: float,
+    init_uniform_delta: float,
+    p1_use_saved_weights: bool,
 ) -> dict[str, float]:
     rng = random.Random(seed)
     baseline = baseline_weights_for_slug(slug)
@@ -68,18 +98,34 @@ def run_ea(
 
     pop: list[dict[str, float]] = []
     for _ in range(population):
-        g = _mutate(rng, baseline, sigma_init * 2.0)
-        for k in keys:
-            if k not in g:
-                g[k] = baseline[k]
-        pop.append(clamp_genome(g))
+        pop.append(
+            _init_individual(
+                rng, baseline, keys, sigma_init,
+                init_spread, init_uniform_fraction, init_uniform_delta,
+            )
+        )
 
     best_ever: dict[str, float] = baseline.copy()
     best_fit = -1.0
 
+    p1_snapshot_path = weights_file_path.parent / f".ea_p1_snapshot_{slug}.json"
+    p1_snap_str = str(p1_snapshot_path.resolve())
+    if p1_use_saved_weights:
+        snap0 = dict(baseline)
+        disk_w = weights_for_slug_from_file(weights_file_path, slug)
+        if disk_w:
+            for k in keys:
+                if k in disk_w:
+                    snap0[k] = disk_w[k]
+        write_ea_opponent_snapshot(p1_snapshot_path, weights_file_path, slug, snap0)
+        _log(f"P1 opponents: trained weights from snapshot (merged with {weights_file_path.name}).")
+    else:
+        p1_snap_str = ""
+        _log("P1 opponents: baseline pilot classes (no JSON weights).")
+
     _log(
         f"Initial population ready: {population} individuals, {len(keys)} genes each "
-        f"(mutated from pilot {slug!r} baseline)."
+        f"(pilot {slug!r}; init_spread={init_spread}, uniform_frac={init_uniform_fraction})."
     )
 
     pool = None
@@ -97,7 +143,9 @@ def run_ea(
             for i in range(population):
                 eval_seed = seed + gen * 1_000_003 + i * 17 + 1
                 wt = tuple(sorted(pop[i].items()))
-                payloads.append((i, slug, wt, games_per_eval, eval_seed))
+                payloads.append(
+                    (i, slug, wt, games_per_eval, eval_seed, p1_snap_str, p1_use_saved_weights)
+                )
 
             _log("")
             _log(
@@ -135,6 +183,9 @@ def run_ea(
                 if fitness[i] > best_fit:
                     best_fit = fitness[i]
                     best_ever = pop[i].copy()
+
+            if p1_use_saved_weights:
+                write_ea_opponent_snapshot(p1_snapshot_path, weights_file_path, slug, best_ever)
 
             next_gen: list[dict[str, float]] = [best_ever.copy()]
             while len(next_gen) < population:
@@ -185,6 +236,29 @@ def main() -> None:
         default="",
         help=f"output JSON path (default: data/{DEFAULT_PILOT_WEIGHTS_FILENAME} under project root)",
     )
+    ap.add_argument(
+        "--init-spread",
+        type=float,
+        default=1.0,
+        help="multiplier on Gaussian init sigma (default 1.0)",
+    )
+    ap.add_argument(
+        "--init-uniform-fraction",
+        type=float,
+        default=0.0,
+        help="fraction of population initialized uniformly in [baseline ± delta] (default 0)",
+    )
+    ap.add_argument(
+        "--init-uniform-delta",
+        type=float,
+        default=0.0,
+        help="half-width for uniform init per gene; if 0, uses 3 * --sigma (default 0)",
+    )
+    ap.add_argument(
+        "--p1-trained-weights",
+        action="store_true",
+        help="P1 uses weights from --out JSON merged with per-generation best for training slug",
+    )
     args = ap.parse_args()
 
     slugs = included_deck_slugs()
@@ -208,6 +282,12 @@ def main() -> None:
     )
     _log(f"seed={args.seed}  workers={workers}")
     _log(f"output: {out_path.resolve()}")
+    udelta = args.init_uniform_delta if args.init_uniform_delta > 0 else (args.sigma * 3.0)
+    _log(
+        f"init: spread={args.init_spread}  uniform_fraction={args.init_uniform_fraction}  "
+        f"uniform_delta={udelta}"
+    )
+    _log(f"p1_trained_weights={bool(args.p1_trained_weights)}")
     _log(f"~{est_games} total simulated games upper bound (gen x pop x games/eval)")
     _log("")
 
@@ -222,6 +302,11 @@ def main() -> None:
         sigma_decay=args.sigma_decay,
         tournament_k=args.tournament_k,
         workers=workers,
+        weights_file_path=out_path,
+        init_spread=args.init_spread,
+        init_uniform_fraction=args.init_uniform_fraction,
+        init_uniform_delta=udelta,
+        p1_use_saved_weights=args.p1_trained_weights,
     )
 
     merge_slug_into_weights_file(out_path, args.deck, best, genome_version=1)

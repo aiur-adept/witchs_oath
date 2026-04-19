@@ -2,36 +2,69 @@
 
 A Python multiprocess Monte Carlo simulator that mirrors the GDScript match engine
 (`arcana_match_state.gd`) and plays two deck-specialized pilots against each other.
-Both sides of every game use the pilot registered for their deck slug (see
-`sim/pilots/`), so matchup win-rates reflect each archetype executing its real
-meta plan rather than the generic greedy fallback.
+Both sides use the pilot registered for their deck slug (see `sim/pilots/`), optionally
+overlaid with **trained floats** from `data/pilot_weights.json`, so matchups reflect
+each archetype's plan rather than a single generic greedy policy.
 
-## Usage
+## `sim.run` — one deck vs the field
 
 ```powershell
 python -m sim.run --deck noble_test --runs 100000 [--seed 0] [--workers N]
 ```
 
-To use **trained weights** from the same JSON as Godot (`data/pilot_weights.json`), add `--use-saved-weights`. For each deck slug, if `weights_by_slug` contains that slug, the sim builds a weighted `GreedyAI` subclass; otherwise it uses the hand-tuned pilot class. Optional: `--weights path/to/pilot_weights.json`.
+- `--deck`: P0 deck slug (must appear in `included_decks/index.json`).
+- `--runs`: total games for that P0; P1 deck is sampled uniformly each game.
+- `--seed`, `--workers`: reproducibility and process count (`workers` defaults to CPU count).
 
-### EA training (pilot weights)
+To use **saved weights** (same JSON as Godot), add `--use-saved-weights`. For each slug,
+if `weights_by_slug` has an entry, the sim builds a weighted `GreedyAI` subclass; otherwise
+it uses the hand-tuned pilot class. Optional: `--weights path/to/pilot_weights.json`.
 
-Evolves `GreedyAI` float weights for one P0 deck and **merges** the result into
-`data/pilot_weights.json` (same schema as [`ea_pilot_training_implementation_guide.md`](../ea_pilot_training_implementation_guide.md) §6). Godot loads this file at runtime via
-`ArcanaCpuPilotRegistry.create_for_slug`.
+## `sim.meta` — full matchup matrix
+
+Runs every included deck as P0 with the same shard/merge pipeline as `sim.run`, then writes a CSV
+whose cell `(row, col)` is **expected match points for the column deck as P1** vs the row deck as P0,
+using Swiss-style scoring **3 / 1 / 0** (win / draw / loss from the column player’s perspective).
+
+```powershell
+python -m sim.meta --runs 100000 --seed 42 [--out sim_meta_matrix.csv] [--use-saved-weights] [--workers N]
+```
+
+Optional `--games-out path.csv` writes per-cell sample sizes. See `sim/meta.py` for details.
+
+## `sim.train_ea` — evolve pilot weights
+
+Evolves all **float** class attributes on `GreedyAI` (see `sim.pilot_weights.greedy_ai_float_weight_keys`)
+for one P0 deck and **merges** the best genome into `data/pilot_weights.json` (schema in
+[`ea_pilot_training_implementation_guide.md`](../ea_pilot_training_implementation_guide.md) §6).
+Godot loads the same file via `ArcanaCpuPilotRegistry.create_for_slug`.
 
 ```powershell
 python -m sim.train_ea --deck bird_test --generations 30 --population 24 --games 400 [--seed 0] [--workers N]
 ```
 
-- `--out`: optional path; default is `data/pilot_weights.json` under the repo root.
-- Evaluation uses `sim.ea_eval.evaluate_genome` (same match loop as `sim.run`).
-- Worker entry points live in `sim/ea_eval.py` so multiprocessing works on Windows.
+**Core flags**
 
-- `--deck`: P0 deck slug. Must be listed in `included_decks/index.json`.
-- `--runs`: total simulated games (default 100k).
-- `--seed`: master RNG seed for reproducibility. Each worker seeds from this.
-- `--workers`: override worker count; defaults to `os.cpu_count()`.
+- `--deck` (required), `--generations`, `--population`, `--games` (games **per genome per generation**).
+- `--sigma`, `--sigma-floor`, `--sigma-decay`, `--tournament-k`.
+- `--out`: JSON path; default `data/pilot_weights.json` under the repo root.
+
+**Population initialization**
+
+- `--init-spread`: multiplier on the Gaussian init sigma (default `1.0`).
+- `--init-uniform-fraction`: fraction of individuals drawn uniformly in `[baseline ± δ]` per gene.
+- `--init-uniform-delta`: half-width for that uniform draw; if `0`, uses `3 * --sigma`.
+
+**Opponents during fitness**
+
+- Default: P1 uses **baseline** `get_pilot(p1_slug)` (code defaults, no JSON).
+- `--p1-trained-weights`: P1 uses `pilot_class_for_slug` against a **snapshot** JSON that merges
+  `--out` with the **best-so-far** genome for the training slug after each generation (written next to
+  the output file as `data/.ea_p1_snapshot_<slug>.json`).
+
+Evaluation uses `sim.ea_eval.evaluate_genome` (same `_play_one_game` loop as `sim.run`). Fitness is
+`(p0_wins + 0.5 * draws) / games`. Worker entry points live in `sim/ea_eval.py` for Windows-friendly
+multiprocessing.
 
 ## What it does
 
@@ -74,31 +107,33 @@ All of Set 1 per `design_document.md` is implemented:
 ## Pilots
 
 Per-deck pilots live in `sim/pilots/<slug>.py` and all subclass
-`GreedyAI` from `sim/ai.py`. The base class exposes scoring weights as
-class constants (`W_RITUAL_BASE`, `W_NOBLE_BIG_TRIPLET`,
-`W_EFFECT_WRATH_PER_KILLED`, …) and decision hooks
+`GreedyAI` from `sim/ai.py`. The base class exposes a large set of tunable **floats**
+(evolved by EA when present on the class), including play scoring (`W_*` / `INC_*` / `SAC_*`),
+discard and discard-draw helpers (`DD_*`), ring savings (`W_RING_SAVE_*`), temple activation
+slopes (`W_TEMPLE_*` …), revive verb priorities (`W_REVIVE_PRIO_*`), and optional state
+“sensor” terms (`W_SF_*`, default `0`). It also provides decision hooks
 (`mulligan`, `score_ritual_play`, `score_noble_play`,
-`score_incantation`, `score_temple_play`, `score_dethrone`,
-`adjust_ring_score`, `choose_wrath_targets`, `choose_revive_target`,
+`score_temple_play`, `score_dethrone`,
+`adjust_incantation_score`, `adjust_ring_score`, `choose_wrath_targets`, `choose_revive_target`,
 `choose_burn_target`, `choose_insight_bottom`, `should_nest`,
 `scion_response`, `woe_response`, `end_turn_discards`, …). Each pilot
-overrides only the hooks that differentiate its archetype:
+overrides only the hooks (and selectively overrides weight defaults) that matter for its archetype:
 
 | Slug | Pilot class | Key behavior |
 |---|---|---|
-| `incantations` | `IncantationsPilot` | 1R+2R mulligan; save Wrath 4 vs weak boards; revive prefers Woe/Wrath/Burn. |
+| `incantations` | `IncantationsPilot` | 1R+2R mulligan; save Wrath 4 vs weak boards; revive priorities via `W_REVIVE_PRIO_*` (Woe/Wrath/Burn biased). |
 | `noble_test` | `NobleTestPilot` | Serraf-first; Power-noble play priority; aggressive Dethrone targeting. |
-| `wrathseek-sac` | `WrathseekSacPilot` | Wrath gets +12 play bonus and revives first; lowered sac penalty. |
+| `wrathseek-sac` | `WrathseekSacPilot` | Wrath gets +12 play bonus; revive prio favors Wrath; lowered sac penalty. |
 | `ritual_reanimator` | `RitualReanimatorPilot` | Aeoiu priority; self-Burn to seed crypt rituals; Phaedra-on-full-hand bonus. |
 | `topheavy_annihilator` | `TopheavyAnnihilatorPilot` | Refuses incantation sacs (preserves 1/2/3 ladder to keep lane 4 live); Zytzr-only Wrath sac exception. |
-| `occultation` | `OccultationPilot` | Yytzr/Cymbil priority; Burn-base weights doubled; revive prefers Burn. |
+| `occultation` | `OccultationPilot` | Yytzr/Cymbil priority; Burn-base weights doubled; revive prio favors Burn. |
 | `annihilation` | `AnnihilationPilot` | Celadon ring priority; Wrath and Woe base weights elevated; always accept Tmrsk. |
 | `emanation` | `EmanationPilot` | Sybiline priority; always accept Rmrsk; save Dethrone for cost-6+ targets. |
 | `scions` | `ScionsPilot` | Scion + Serraf priority; Smrsk always declined, Tmrsk always accepted. |
 | `temples` | `TemplesPilot` | Explicit Phaedra>Delpha>Gotha>Ytria play ordering; Ytria needs hand ≥ 5. |
 | `bird_test` | `BirdTestPilot` | Eyrie bonus boosted; Sinofia homes to a Raven; Ravens/Hawks never nest. |
 | `void_temples` | `VoidTemplesPilot` | Temple play ordering (see `temples`); Void discard-cost left at default (lowest among incantations). |
-| `revive` | `RevivePilot` | Rndrr priority; revive prefers highest-value Seek/Insight. |
+| `revive` | `RevivePilot` | Rndrr priority; revive prio favors Seek/Insight over other verbs. |
 
 The registry is exposed via `sim.pilots.get_pilot(slug)` and a shared
 `PILOTS` dict. Any slug not registered falls back to the base

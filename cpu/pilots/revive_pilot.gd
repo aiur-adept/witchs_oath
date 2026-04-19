@@ -4,10 +4,11 @@ class_name ArcanaRevivePilot
 # Port of sim/pilots/revive.py
 
 func _init() -> void:
-	REVIVE_VERB_PRIORITY = {
-		VERB_SEEK: 10,
-		VERB_INSIGHT: 6,
-	}
+	W_REVIVE_PRIO_WRATH = 0.0
+	W_REVIVE_PRIO_WOE = 0.0
+	W_REVIVE_PRIO_BURN = 0.0
+	W_REVIVE_PRIO_SEEK = 10.0
+	W_REVIVE_PRIO_INSIGHT = 6.0
 
 
 func mulligan(_host: Node, snap: Dictionary) -> bool:

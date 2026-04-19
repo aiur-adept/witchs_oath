@@ -28,11 +28,12 @@ def main() -> None:
         "--generations",
         "6",
         "--population",
-        "100",
+        "500",
         "--games",
         "100",
         "--seed",
-        "42",
+        "108",
+        "--p1-trained-weights",
     ]
     for i, deck in enumerate(slugs):
         print(f"\n========== [{i + 1}/{len(slugs)}] deck={deck!r} ==========\n", flush=True)

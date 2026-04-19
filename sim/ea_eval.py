@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import random
+from pathlib import Path
 from typing import Any
 
 from .decks import included_deck_slugs, load_all_included_decks
-from .pilot_weights import make_weighted_pilot
+from .pilot_weights import make_weighted_pilot, pilot_class_for_slug
 from .pilots import get_pilot
 from .run import _play_one_game
 
@@ -22,6 +23,8 @@ def evaluate_genome(
     weights: dict[str, float],
     n_games: int,
     seed: int,
+    p1_snapshot_path: str = "",
+    p1_use_saved_weights: bool = False,
 ) -> dict[str, Any]:
     decks = load_all_included_decks()
     slugs = included_deck_slugs()
@@ -33,12 +36,16 @@ def evaluate_genome(
     rng = random.Random(seed)
     p0_wins = p1_wins = draws = 0
     pilot_cache: dict[str, type] = {}
+    snap_path = Path(p1_snapshot_path) if p1_snapshot_path else None
     for _ in range(n_games):
         p1_slug = slugs[rng.randrange(len(slugs))]
         p1_deck = decks[p1_slug]
         p1_cls = pilot_cache.get(p1_slug)
         if p1_cls is None:
-            p1_cls = get_pilot(p1_slug)
+            if p1_use_saved_weights and snap_path is not None and snap_path.is_file():
+                p1_cls = pilot_class_for_slug(p1_slug, snap_path, True)
+            else:
+                p1_cls = get_pilot(p1_slug)
             pilot_cache[p1_slug] = p1_cls
         game_rng = random.Random(rng.getrandbits(64))
         res = _play_one_game(p0_deck, p1_deck, game_rng, p0_cls, p1_cls)
@@ -59,7 +66,9 @@ def evaluate_genome(
 
 
 def eval_genome_worker(args: tuple[Any, ...]) -> tuple[int, float]:
-    idx, slug, weights_tuple, n_games, seed = args
+    idx, slug, weights_tuple, n_games, seed = args[0], args[1], args[2], args[3], args[4]
+    p1_snap = str(args[5]) if len(args) > 5 else ""
+    p1_saved = bool(args[6]) if len(args) > 6 else False
     weights = dict(weights_tuple)
-    stats = evaluate_genome(slug, weights, n_games, seed)
+    stats = evaluate_genome(slug, weights, n_games, seed, p1_snap, p1_saved)
     return idx, float(stats["fitness"])

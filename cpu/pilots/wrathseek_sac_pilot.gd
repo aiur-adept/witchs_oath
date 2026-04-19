@@ -4,13 +4,11 @@ class_name ArcanaWrathseekSacPilot
 # Port of sim/pilots/wrathseek_sac.py
 
 func _init() -> void:
-	REVIVE_VERB_PRIORITY = {
-		VERB_WRATH: 10,
-		VERB_WOE: 5,
-		VERB_SEEK: 3,
-		VERB_INSIGHT: 2,
-		VERB_BURN: 1,
-	}
+	W_REVIVE_PRIO_WRATH = 10.0
+	W_REVIVE_PRIO_WOE = 5.0
+	W_REVIVE_PRIO_SEEK = 3.0
+	W_REVIVE_PRIO_INSIGHT = 2.0
+	W_REVIVE_PRIO_BURN = 1.0
 	SAC_PENALTY_PER_RITUAL = 1.0
 
 

@@ -104,6 +104,41 @@ class GreedyAI:
     DD_W_FIELD_CONTRIB: float = 0.0  # × _card_discard_score(worst card): keep-affinity of the card we would bin
     DD_W_CARD_COST: float = 0.0    # × mana/value cost of that card
 
+    DD_W_RITUAL_BASE: float = 1.0
+    DD_W_RITUAL_PER_VALUE: float = 0.3
+    DD_W_INC_BASE: float = 2.0
+    DD_W_INC_PER_VALUE: float = 0.4
+    DD_W_INC_DETHRONE: float = 5.0
+    DD_W_INC_WRATH: float = 5.0
+    DD_W_NOBLE_BASE: float = 4.0
+    DD_W_NOBLE_PER_COST: float = 0.5
+    DD_W_TEMPLE_BASE: float = 6.0
+    DD_W_TEMPLE_PER_COST: float = 0.2
+    DD_W_BIRD_BASE: float = 3.0
+    DD_W_BIRD_PER_POWER: float = 0.3
+    DD_W_RING: float = 4.0
+
+    W_RING_SAVE_INC: float = 2.0
+    W_RING_SAVE_NOBLE: float = 1.5
+    W_RING_SAVE_BIRD: float = 1.0
+
+    W_NEST_POWER_BONUS: float = 1.0
+    W_AEOIU_RITUAL_VALUE: float = 1.0
+    W_TEMPLE_DELPHA_PER_DELTA: float = 10.0
+    W_TEMPLE_GOTHA_PER_DRAW: float = 3.0
+    W_TEMPLE_YTRIA_PER_HAND: float = 2.0
+
+    W_REVIVE_PRIO_WRATH: float = 6.0
+    W_REVIVE_PRIO_SEEK: float = 5.0
+    W_REVIVE_PRIO_WOE: float = 4.0
+    W_REVIVE_PRIO_BURN: float = 3.0
+    W_REVIVE_PRIO_INSIGHT: float = 2.0
+
+    W_SF_RITUAL_MP_PUSH: float = 0.0
+    W_SF_INC_BEHIND: float = 0.0
+    W_SF_RING_OPP_BOARD: float = 0.0
+    W_SF_DISCARD_FLOOD: float = 0.0
+
     # verb effect scoring
     W_EFFECT_SEEK_BASE: float = 8.0
     W_EFFECT_SEEK_VALUE: float = 3.0
@@ -119,21 +154,6 @@ class GreedyAI:
     W_EFFECT_DELUGE_BASE: float = 5.0
     W_EFFECT_DELUGE_PER_NET: float = 4.0
     W_EFFECT_TEARS_BASE: float = 10.0
-
-    # revive-from-crypt target preference (verb -> bonus)
-    REVIVE_VERB_PRIORITY: dict[str, int] = {
-        VERB_WRATH: 6,
-        VERB_SEEK: 5,
-        VERB_WOE: 4,
-        VERB_BURN: 3,
-        VERB_INSIGHT: 2,
-    }
-    REVIVE_PICK_VERB_PRIORITY: dict[str, int] = {
-        VERB_SEEK: 2,
-        VERB_WOE: 2,
-        VERB_INSIGHT: 1,
-        VERB_BURN: 1,
-    }
 
     def __init__(self, pid: int) -> None:
         self.pid = pid
@@ -192,21 +212,21 @@ class GreedyAI:
     # --------------------------------------------------------------- scoring
     def _card_discard_score(self, c) -> float:
         if c.kind is Kind.RITUAL:
-            return 1.0 + c.value * 0.3
+            return self.DD_W_RITUAL_BASE + c.value * self.DD_W_RITUAL_PER_VALUE
         if c.kind is Kind.INCANTATION:
             if c.verb == VERB_DETHRONE:
-                return 5.0
+                return self.DD_W_INC_DETHRONE
             if c.verb == VERB_WRATH:
-                return 5.0
-            return 2.0 + c.value * 0.4
+                return self.DD_W_INC_WRATH
+            return self.DD_W_INC_BASE + c.value * self.DD_W_INC_PER_VALUE
         if c.kind is Kind.NOBLE:
-            return 4.0 + c.cost * 0.5
+            return self.DD_W_NOBLE_BASE + c.cost * self.DD_W_NOBLE_PER_COST
         if c.kind is Kind.TEMPLE:
-            return 6.0 + c.cost * 0.2
+            return self.DD_W_TEMPLE_BASE + c.cost * self.DD_W_TEMPLE_PER_COST
         if c.kind is Kind.BIRD:
-            return 3.0 + c.power * 0.3
+            return self.DD_W_BIRD_BASE + c.power * self.DD_W_BIRD_PER_POWER
         if c.kind is Kind.RING:
-            return 4.0
+            return self.DD_W_RING
         return 0.0
 
     def _take_best_action(self, state: MatchState) -> bool:
@@ -300,7 +320,7 @@ class GreedyAI:
                 if not crypt_rituals:
                     continue
                 best_idx, best_card = max(crypt_rituals, key=lambda t: t[1].value)
-                score = self.W_AEOIU_ACTIVATION_BASE + best_card.value
+                score = self.W_AEOIU_ACTIVATION_BASE + best_card.value * self.W_AEOIU_RITUAL_VALUE
                 actions.append((score, "activate_aeoiu", (n.mid, best_idx)))
                 continue
             verb = info.get("activated_verb")
@@ -340,7 +360,7 @@ class GreedyAI:
             for t in p.temple_field:
                 if len(t.nested) < t.cost:
                     if self.should_nest(state, b, t):
-                        score = self.W_NEST_BASE + b.power
+                        score = self.W_NEST_BASE + b.power * self.W_NEST_POWER_BONUS
                         actions.append((score, "nest", (b.mid, t.mid)))
                     break
 
@@ -355,7 +375,7 @@ class GreedyAI:
             scored = sorted(range(len(p.hand)), key=lambda i: self._card_discard_score(p.hand[i]))
             worst = scored[0]
             worst_c = p.hand[worst]
-            score = self._discard_draw_action_score(worst_c)
+            score = self._discard_draw_action_score(state, worst_c)
             actions.append((score, "discard_draw", (worst,)))
 
         actions.sort(key=lambda t: t[0], reverse=True)
@@ -372,6 +392,8 @@ class GreedyAI:
         score = self.W_RITUAL_BASE + card.value * self.W_RITUAL_VALUE_BONUS + self.W_RITUAL_NEW_LANE * lanes_unlocked
         if card.value == 1 and 1 in before_lanes:
             score += self.W_RITUAL_DUP_LANE_1
+        deficit = max(0, 18 - state.match_power(self.pid))
+        score += self.W_SF_RITUAL_MP_PUSH * deficit * lanes_unlocked
         return score
 
     def score_noble_play(self, state: MatchState, card, eff_cost: int, sac: list[int]) -> Optional[float]:
@@ -465,10 +487,17 @@ class GreedyAI:
             return float(RING_COST)
         return 0.0
 
-    def _discard_draw_action_score(self, worst_card) -> float:
+    def _discard_draw_action_score(self, state: MatchState, worst_card) -> float:
         contrib = self._card_discard_score(worst_card)
         cost = self._card_dd_cost(worst_card)
-        return self.W_DISCARD_DRAW + self.DD_W_FIELD_CONTRIB * contrib + self.DD_W_CARD_COST * cost
+        p = state.players[self.pid]
+        flood = max(0, len(p.hand) - 6)
+        return (
+            self.W_DISCARD_DRAW
+            + self.DD_W_FIELD_CONTRIB * contrib
+            + self.DD_W_CARD_COST * cost
+            + self.W_SF_DISCARD_FLOOD * flood
+        )
 
     def _score_incantation(self, state: MatchState, pid: int, card) -> Optional[tuple[float, list[int]]]:
         p = state.players[pid]
@@ -493,6 +522,9 @@ class GreedyAI:
         score = self.adjust_incantation_score(state, pid, card, sac, score)
         if score is None:
             return None
+        opp_pid = state.opponent(pid)
+        gap = max(0, state.match_power(opp_pid) - state.match_power(pid))
+        score += self.W_SF_INC_BEHIND * gap * card.value * 0.1
         return score, sac
 
     def adjust_incantation_score(self, state: MatchState, pid: int, card, sac: list[int], score: float) -> Optional[float]:
@@ -509,13 +541,15 @@ class GreedyAI:
         savings = 0.0
         for c in p.hand + p.deck:
             if c.kind is Kind.INCANTATION and c.verb in reductions:
-                savings += 2.0
+                savings += self.W_RING_SAVE_INC
             elif c.kind is Kind.NOBLE and "noble" in reductions:
-                savings += 1.5
+                savings += self.W_RING_SAVE_NOBLE
             elif c.kind is Kind.BIRD and "bird" in reductions:
-                savings += 1.0
+                savings += self.W_RING_SAVE_BIRD
         score = self.W_RING_BASE + savings
         score = self.adjust_ring_score(state, pid, card, score)
+        opp = state.players[state.opponent(pid)]
+        score += self.W_SF_RING_OPP_BOARD * (len(opp.field) + len(opp.bird_field))
         host_kind, host_mid = self._pick_ring_host(state, pid, card, hosts)
         return (score, "ring", (hand_idx, host_kind, host_mid))
 
@@ -550,7 +584,7 @@ class GreedyAI:
             ci, cc = max(crypt_rituals, key=lambda u: u[1].value)
             if cc.value <= ritual.value:
                 return None
-            score = self.W_TEMPLE_DELPHA_ACT_BASE + (cc.value - ritual.value) * 10
+            score = self.W_TEMPLE_DELPHA_ACT_BASE + (cc.value - ritual.value) * self.W_TEMPLE_DELPHA_PER_DELTA
             return (score, "activate_temple", (t.mid, {"ritual_mid": ritual.mid, "crypt_ritual_idx": ci}))
         if t.temple_id == "gotha_illness":
             best_i = -1
@@ -569,12 +603,12 @@ class GreedyAI:
                     best_draw = draw_n
                     best_i = i
             if best_i >= 0 and best_draw >= 2:
-                score = self.W_TEMPLE_GOTHA_ACT_BASE + best_draw * 3
+                score = self.W_TEMPLE_GOTHA_ACT_BASE + best_draw * self.W_TEMPLE_GOTHA_PER_DRAW
                 return (score, "activate_temple", (t.mid, {"hand_idx": best_i}))
             return None
         if t.temple_id == "ytria_cycles":
             if len(p.hand) >= self.ytria_min_hand(state):
-                score = self.W_TEMPLE_YTRIA_ACT_BASE + len(p.hand) * 2
+                score = self.W_TEMPLE_YTRIA_ACT_BASE + len(p.hand) * self.W_TEMPLE_YTRIA_PER_HAND
                 return (score, "activate_temple", (t.mid, {}))
         return None
 
@@ -673,13 +707,27 @@ class GreedyAI:
         ritvals = sorted(opp.field, key=lambda r: -r.value)
         return [r.mid for r in ritvals[:count]]
 
+    def _revive_verb_prio_bonus(self, verb: str) -> float:
+        v = verb.lower()
+        if v == VERB_WRATH:
+            return self.W_REVIVE_PRIO_WRATH
+        if v == VERB_SEEK:
+            return self.W_REVIVE_PRIO_SEEK
+        if v == VERB_WOE:
+            return self.W_REVIVE_PRIO_WOE
+        if v == VERB_BURN:
+            return self.W_REVIVE_PRIO_BURN
+        if v == VERB_INSIGHT:
+            return self.W_REVIVE_PRIO_INSIGHT
+        return 0.0
+
     def choose_revive_target(self, state: MatchState, pid: int, crypt_indices: list[int]) -> Optional[int]:
         p = state.players[pid]
         best = None
         best_score = -10**9
         for i in crypt_indices:
             c = p.crypt[i]
-            score = c.value + self.REVIVE_VERB_PRIORITY.get(c.verb, 0)
+            score = c.value + self._revive_verb_prio_bonus(c.verb)
             if score > best_score:
                 best_score = score
                 best = i

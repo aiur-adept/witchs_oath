@@ -13,13 +13,11 @@ from ..match import MatchState
 
 
 class IncantationsPilot(GreedyAI):
-    REVIVE_VERB_PRIORITY = {
-        VERB_WOE: 7,
-        VERB_BURN: 5,
-        VERB_WRATH: 9,
-        VERB_SEEK: 3,
-        VERB_INSIGHT: 2,
-    }
+    W_REVIVE_PRIO_WOE: float = 7.0
+    W_REVIVE_PRIO_BURN: float = 5.0
+    W_REVIVE_PRIO_WRATH: float = 9.0
+    W_REVIVE_PRIO_SEEK: float = 3.0
+    W_REVIVE_PRIO_INSIGHT: float = 2.0
 
     def mulligan(self, state: MatchState, pid: int) -> bool:
         hand = state.players[pid].hand

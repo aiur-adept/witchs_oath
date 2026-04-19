@@ -14,10 +14,11 @@ from ..match import MatchState
 
 
 class RevivePilot(GreedyAI):
-    REVIVE_VERB_PRIORITY = {
-        VERB_SEEK: 10,
-        VERB_INSIGHT: 6,
-    }
+    W_REVIVE_PRIO_WRATH: float = 0.0
+    W_REVIVE_PRIO_WOE: float = 0.0
+    W_REVIVE_PRIO_BURN: float = 0.0
+    W_REVIVE_PRIO_SEEK: float = 10.0
+    W_REVIVE_PRIO_INSIGHT: float = 6.0
 
     def mulligan(self, state: MatchState, pid: int) -> bool:
         hand = state.players[pid].hand

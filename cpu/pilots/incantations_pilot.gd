@@ -4,13 +4,11 @@ class_name ArcanaIncantationsPilot
 # Port of sim/pilots/incantations.py
 
 func _init() -> void:
-	REVIVE_VERB_PRIORITY = {
-		VERB_WOE: 7,
-		VERB_BURN: 5,
-		VERB_WRATH: 9,
-		VERB_SEEK: 3,
-		VERB_INSIGHT: 2,
-	}
+	W_REVIVE_PRIO_WOE = 7.0
+	W_REVIVE_PRIO_BURN = 5.0
+	W_REVIVE_PRIO_WRATH = 9.0
+	W_REVIVE_PRIO_SEEK = 3.0
+	W_REVIVE_PRIO_INSIGHT = 2.0
 
 
 func mulligan(_host: Node, snap: Dictionary) -> bool:

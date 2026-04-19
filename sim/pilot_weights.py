@@ -88,6 +88,35 @@ def load_weights_file(path: Path) -> dict[str, Any]:
     return data
 
 
+def weights_for_slug_from_file(path: Path, slug: str) -> dict[str, float] | None:
+    data = load_weights_file(path)
+    wbs = data.get("weights_by_slug", {})
+    if not isinstance(wbs, dict):
+        return None
+    raw = wbs.get(slug)
+    if not isinstance(raw, dict) or not raw:
+        return None
+    return {str(k): float(v) for k, v in raw.items() if isinstance(v, (int, float))}
+
+
+def write_ea_opponent_snapshot(
+    snapshot_path: Path, base_weights_path: Path, train_slug: str, train_weights: dict[str, float]
+) -> None:
+    data = load_weights_file(base_weights_path)
+    wbs_in = data.get("weights_by_slug", {})
+    wbs: dict[str, Any] = {}
+    if isinstance(wbs_in, dict):
+        for sk, sv in wbs_in.items():
+            if isinstance(sv, dict):
+                wbs[str(sk)] = {str(k): float(v) for k, v in sv.items() if isinstance(v, (int, float))}
+    wbs[train_slug] = {k: float(v) for k, v in sorted(train_weights.items())}
+    out = {"genome_version": int(data.get("genome_version", 1)), "weights_by_slug": wbs}
+    snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+    with snapshot_path.open("w", encoding="utf-8") as f:
+        json.dump(out, f, indent=2, sort_keys=False)
+        f.write("\n")
+
+
 def merge_slug_into_weights_file(path: Path, slug: str, weights: dict[str, float], genome_version: int = 1) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     data = load_weights_file(path)

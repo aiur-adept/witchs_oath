@@ -98,6 +98,41 @@ var W_DISCARD_DRAW: float = 3.0
 var DD_W_FIELD_CONTRIB: float = 0.0
 var DD_W_CARD_COST: float = 0.0
 
+var DD_W_RITUAL_BASE: float = 1.0
+var DD_W_RITUAL_PER_VALUE: float = 0.3
+var DD_W_INC_BASE: float = 2.0
+var DD_W_INC_PER_VALUE: float = 0.4
+var DD_W_INC_DETHRONE: float = 5.0
+var DD_W_INC_WRATH: float = 5.0
+var DD_W_NOBLE_BASE: float = 4.0
+var DD_W_NOBLE_PER_COST: float = 0.5
+var DD_W_TEMPLE_BASE: float = 6.0
+var DD_W_TEMPLE_PER_COST: float = 0.2
+var DD_W_BIRD_BASE: float = 3.0
+var DD_W_BIRD_PER_POWER: float = 0.3
+var DD_W_RING: float = 4.0
+
+var W_RING_SAVE_INC: float = 2.0
+var W_RING_SAVE_NOBLE: float = 1.5
+var W_RING_SAVE_BIRD: float = 1.0
+
+var W_NEST_POWER_BONUS: float = 1.0
+var W_AEOIU_RITUAL_VALUE: float = 1.0
+var W_TEMPLE_DELPHA_PER_DELTA: float = 10.0
+var W_TEMPLE_GOTHA_PER_DRAW: float = 3.0
+var W_TEMPLE_YTRIA_PER_HAND: float = 2.0
+
+var W_REVIVE_PRIO_WRATH: float = 6.0
+var W_REVIVE_PRIO_SEEK: float = 5.0
+var W_REVIVE_PRIO_WOE: float = 4.0
+var W_REVIVE_PRIO_BURN: float = 3.0
+var W_REVIVE_PRIO_INSIGHT: float = 2.0
+
+var W_SF_RITUAL_MP_PUSH: float = 0.0
+var W_SF_INC_BEHIND: float = 0.0
+var W_SF_RING_OPP_BOARD: float = 0.0
+var W_SF_DISCARD_FLOOD: float = 0.0
+
 var W_EFFECT_SEEK_BASE: float = 8.0
 var W_EFFECT_SEEK_VALUE: float = 3.0
 var W_EFFECT_INSIGHT_BASE: float = 4.0
@@ -112,14 +147,6 @@ var W_EFFECT_REVIVE_BASE: float = 12.0
 var W_EFFECT_DELUGE_BASE: float = 5.0
 var W_EFFECT_DELUGE_PER_NET: float = 4.0
 var W_EFFECT_TEARS_BASE: float = 10.0
-
-var REVIVE_VERB_PRIORITY: Dictionary = {
-	VERB_WRATH: 6,
-	VERB_SEEK: 5,
-	VERB_WOE: 4,
-	VERB_BURN: 3,
-	VERB_INSIGHT: 2,
-}
 
 # =========================================================================
 # Top-level orchestration
@@ -335,7 +362,8 @@ func _enumerate_best(host: Node, snap: Dictionary) -> Variant:
 				continue
 			var v := int(c.get("value", 0))
 			var unlocked := _count_new_lanes_if_ritual(your_field, your_nobles, v)
-			var score := score_ritual_play(c, active_lanes, unlocked)
+			var ymp := int(snap.get("your_match_power", 0))
+			var score := score_ritual_play(c, active_lanes, unlocked, ymp)
 			actions.append({"score": score, "kind": "ritual", "hand_idx": i})
 		elif kind == "noble":
 			if noble_played:
@@ -426,7 +454,7 @@ func _enumerate_best(host: Node, snap: Dictionary) -> Variant:
 			var ritual_filtered_idx := _ritual_crypt_index(your_crypt, best_ci)
 			if ritual_filtered_idx < 0:
 				continue
-			var ascore := W_AEOIU_ACTIVATION_BASE + float(best_v)
+			var ascore := W_AEOIU_ACTIVATION_BASE + float(best_v) * W_AEOIU_RITUAL_VALUE
 			actions.append({"score": ascore, "kind": "activate_aeoiu", "noble_mid": nmid, "ritual_crypt_idx": ritual_filtered_idx})
 			continue
 		var info: Dictionary = NOBLE_DEFS.get(nid, {}) as Dictionary
@@ -470,7 +498,7 @@ func _enumerate_best(host: Node, snap: Dictionary) -> Variant:
 			if nested.size() >= cap:
 				continue
 			if should_nest(bd, td2):
-				var nscore := W_NEST_BASE + float(bd.get("power", 0))
+				var nscore := W_NEST_BASE + float(bd.get("power", 0)) * W_NEST_POWER_BONUS
 				actions.append({"score": nscore, "kind": "nest", "bird_mid": int(bd.get("mid", -1)), "temple_mid": int(td2.get("mid", -1))})
 			break
 
@@ -482,7 +510,7 @@ func _enumerate_best(host: Node, snap: Dictionary) -> Variant:
 	if not bool(snap.get("discard_draw_used", true)) and not hand.is_empty():
 		var worst_dd := _pick_worst_hand_index(hand)
 		var worst_c: Dictionary = hand[worst_dd] as Dictionary
-		var dd_score := _discard_draw_action_score(worst_c)
+		var dd_score := _discard_draw_action_score(snap, worst_c)
 		actions.append({"score": dd_score, "kind": "discard_draw", "hand_idx": worst_dd})
 
 	if actions.is_empty():
@@ -498,10 +526,12 @@ func _enumerate_best(host: Node, snap: Dictionary) -> Variant:
 
 # -------- scoring hooks (per-play) --------
 
-func score_ritual_play(card: Dictionary, before_lanes: Array, lanes_unlocked: int) -> float:
+func score_ritual_play(card: Dictionary, before_lanes: Array, lanes_unlocked: int, your_mp: int) -> float:
 	var score := W_RITUAL_BASE + float(card.get("value", 0)) * W_RITUAL_VALUE_BONUS + W_RITUAL_NEW_LANE * float(lanes_unlocked)
 	if int(card.get("value", 0)) == 1 and _lane_in_set(before_lanes, 1):
 		score += W_RITUAL_DUP_LANE_1
+	var deficit := maxi(0, 18 - your_mp)
+	score += W_SF_RITUAL_MP_PUSH * float(deficit) * float(lanes_unlocked)
 	return score
 
 
@@ -589,11 +619,11 @@ func _score_ring_action(_host: Node, snap: Dictionary, card: Dictionary, hand_id
 		if k == "incantation":
 			var v := str(cd.get("verb", "")).to_lower()
 			if reductions.has(v):
-				savings += 2.0
+				savings += W_RING_SAVE_INC
 		elif k == "noble" and reductions.has("noble"):
-			savings += 1.5
+			savings += W_RING_SAVE_NOBLE
 		elif k == "bird" and reductions.has("bird"):
-			savings += 1.0
+			savings += W_RING_SAVE_BIRD
 	var crypt: Array = snap.get("your_crypt_cards", []) as Array
 	for c in crypt:
 		var cd2 := c as Dictionary
@@ -601,13 +631,16 @@ func _score_ring_action(_host: Node, snap: Dictionary, card: Dictionary, hand_id
 		if k2 == "incantation":
 			var v2 := str(cd2.get("verb", "")).to_lower()
 			if reductions.has(v2):
-				savings += 2.0
+				savings += W_RING_SAVE_INC
 		elif k2 == "noble" and reductions.has("noble"):
-			savings += 1.5
+			savings += W_RING_SAVE_NOBLE
 		elif k2 == "bird" and reductions.has("bird"):
-			savings += 1.0
+			savings += W_RING_SAVE_BIRD
 	var score := W_RING_BASE + savings
 	score = adjust_ring_score(card, score)
+	var opp_field_sz: int = (snap.get("opp_field", []) as Array).size()
+	var opp_bird_sz: int = (snap.get("opp_birds", []) as Array).size()
+	score += W_SF_RING_OPP_BOARD * float(opp_field_sz + opp_bird_sz)
 	var pick := _pick_ring_host(card, hosts, your_nobles, your_birds)
 	return {"score": score, "kind": "ring", "hand_idx": hand_idx, "host_kind": pick["kind"], "host_mid": pick["mid"]}
 
@@ -671,7 +704,12 @@ func _score_incantation(host: Node, snap: Dictionary, card: Dictionary, hand_idx
 	var adj: Variant = adjust_incantation_score(card, sac, score)
 	if adj == null:
 		return null
-	return {"score": float(adj), "kind": "incantation", "hand_idx": hand_idx, "sac": sac, "ctx": ctx, "verb": verb, "value": val}
+	var fadj := float(adj)
+	var ymp2 := int(snap.get("your_match_power", 0))
+	var omp2 := int(snap.get("opp_match_power", 0))
+	var gap := maxi(0, omp2 - ymp2)
+	fadj += W_SF_INC_BEHIND * float(gap) * float(val) * 0.1
+	return {"score": fadj, "kind": "incantation", "hand_idx": hand_idx, "sac": sac, "ctx": ctx, "verb": verb, "value": val}
 
 
 func adjust_incantation_score(_card: Dictionary, _sac: Array, score: float) -> Variant:
@@ -720,7 +758,7 @@ func _score_temple_activation(_host: Node, snap: Dictionary, temple: Dictionary)
 			return null
 		if int(snap.get("your_deck", 0)) < 2 * min_val:
 			return null
-		var score := W_TEMPLE_DELPHA_ACT_BASE + float(best_v - min_val) * 10.0
+		var score := W_TEMPLE_DELPHA_ACT_BASE + float(best_v - min_val) * W_TEMPLE_DELPHA_PER_DELTA
 		return {"score": score, "kind": "activate_temple_delpha", "temple_mid": tmid, "ritual_mid": min_mid, "ritual_crypt_idx": rit_filtered}
 	if tid == "gotha_illness":
 		var hand: Array = snap.get("your_hand", []) as Array
@@ -746,13 +784,13 @@ func _score_temple_activation(_host: Node, snap: Dictionary, temple: Dictionary)
 				best_draw = draw_n
 				best_i = i
 		if best_i >= 0 and best_draw >= 2:
-			var score := W_TEMPLE_GOTHA_ACT_BASE + float(best_draw) * 3.0
+			var score := W_TEMPLE_GOTHA_ACT_BASE + float(best_draw) * W_TEMPLE_GOTHA_PER_DRAW
 			return {"score": score, "kind": "activate_temple_gotha", "temple_mid": tmid, "hand_idx": best_i}
 		return null
 	if tid == "ytria_cycles":
 		var hand2: Array = snap.get("your_hand", []) as Array
 		if hand2.size() >= ytria_min_hand():
-			var score := W_TEMPLE_YTRIA_ACT_BASE + float(hand2.size()) * 2.0
+			var score := W_TEMPLE_YTRIA_ACT_BASE + float(hand2.size()) * W_TEMPLE_YTRIA_PER_HAND
 			return {"score": score, "kind": "activate_temple_ytria", "temple_mid": tmid}
 		return null
 	return null
@@ -917,13 +955,28 @@ func choose_wrath_targets(snap: Dictionary, count: int) -> Array:
 	return out
 
 
+func _revive_verb_prio_bonus(verb: String) -> float:
+	var v := verb.to_lower()
+	if v == VERB_WRATH:
+		return W_REVIVE_PRIO_WRATH
+	if v == VERB_SEEK:
+		return W_REVIVE_PRIO_SEEK
+	if v == VERB_WOE:
+		return W_REVIVE_PRIO_WOE
+	if v == VERB_BURN:
+		return W_REVIVE_PRIO_BURN
+	if v == VERB_INSIGHT:
+		return W_REVIVE_PRIO_INSIGHT
+	return 0.0
+
+
 func choose_revive_target(your_crypt: Array, elig_indices: Array) -> int:
 	var best := -1
-	var best_score := -1000000
+	var best_score := -1000000.0
 	for i in elig_indices:
 		var c := your_crypt[int(i)] as Dictionary
 		var verb := str(c.get("verb", "")).to_lower()
-		var score := int(c.get("value", 0)) + int(REVIVE_VERB_PRIORITY.get(verb, 0))
+		var score := float(c.get("value", 0)) + _revive_verb_prio_bonus(verb)
 		if score > best_score:
 			best_score = score
 			best = int(i)
@@ -1129,22 +1182,22 @@ func _card_discard_score(c: Variant) -> float:
 	var cd := c as Dictionary
 	var k := _card_kind(cd)
 	if k == "ritual":
-		return 1.0 + float(cd.get("value", 0)) * 0.3
+		return DD_W_RITUAL_BASE + float(cd.get("value", 0)) * DD_W_RITUAL_PER_VALUE
 	if k == "incantation":
 		var v := str(cd.get("verb", "")).to_lower()
 		if v == "wrath":
-			return 5.0
+			return DD_W_INC_WRATH
 		if _CardTraits.is_dethrone(cd):
-			return 5.0
-		return 2.0 + float(cd.get("value", 0)) * 0.4
+			return DD_W_INC_DETHRONE
+		return DD_W_INC_BASE + float(cd.get("value", 0)) * DD_W_INC_PER_VALUE
 	if k == "noble":
-		return 4.0 + float(_GameSnapshotUtils.noble_cost_for_id(str(cd.get("noble_id", "")))) * 0.5
+		return DD_W_NOBLE_BASE + float(_GameSnapshotUtils.noble_cost_for_id(str(cd.get("noble_id", "")))) * DD_W_NOBLE_PER_COST
 	if k == "temple":
-		return 6.0 + float(_GameSnapshotUtils.temple_cost_for_id(str(cd.get("temple_id", "")))) * 0.2
+		return DD_W_TEMPLE_BASE + float(_GameSnapshotUtils.temple_cost_for_id(str(cd.get("temple_id", "")))) * DD_W_TEMPLE_PER_COST
 	if k == "bird":
-		return 3.0 + float(cd.get("power", 0)) * 0.3
+		return DD_W_BIRD_BASE + float(cd.get("power", 0)) * DD_W_BIRD_PER_POWER
 	if k == "ring":
-		return 4.0
+		return DD_W_RING
 	return 0.0
 
 
@@ -1197,10 +1250,12 @@ func _card_dd_cost(cd: Dictionary) -> float:
 	return 0.0
 
 
-func _discard_draw_action_score(card: Dictionary) -> float:
+func _discard_draw_action_score(snap: Dictionary, card: Dictionary) -> float:
 	var contrib := _card_discard_score(card)
 	var cost := _card_dd_cost(card)
-	return W_DISCARD_DRAW + DD_W_FIELD_CONTRIB * contrib + DD_W_CARD_COST * cost
+	var hand: Array = snap.get("your_hand", []) as Array
+	var flood := maxi(0, hand.size() - 6)
+	return W_DISCARD_DRAW + DD_W_FIELD_CONTRIB * contrib + DD_W_CARD_COST * cost + W_SF_DISCARD_FLOOD * float(flood)
 
 
 func _active_lanes(your_field: Array, your_nobles: Array) -> Array:

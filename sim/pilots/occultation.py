@@ -18,12 +18,11 @@ class OccultationPilot(GreedyAI):
     W_NOBLE_BIG_TRIPLET = 55.0   # yytzr ~doubles deck output
     W_EFFECT_BURN_BASE = 4.0
     W_EFFECT_BURN_VALUE = 2.0
-    REVIVE_VERB_PRIORITY = {
-        VERB_BURN: 8,
-        VERB_WOE: 4,
-        VERB_SEEK: 3,
-        VERB_INSIGHT: 2,
-    }
+    W_REVIVE_PRIO_BURN: float = 8.0
+    W_REVIVE_PRIO_WOE: float = 4.0
+    W_REVIVE_PRIO_SEEK: float = 3.0
+    W_REVIVE_PRIO_INSIGHT: float = 2.0
+    W_REVIVE_PRIO_WRATH: float = 0.0
 
     def mulligan(self, state: MatchState, pid: int) -> bool:
         hand = state.players[pid].hand
