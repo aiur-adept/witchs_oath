@@ -267,7 +267,7 @@ Temple activations are once per turn per temple.
 ### 12.1 Cost 6 temples
 
 **Eyrie, Temple of Feathers**:
-  - When this Temple enters, search your deck for a Bird card and put it onto your field, then shuffle your deck.
+  - When this Temple enters, search your deck for two Bird cards and put them onto your field, then shuffle your deck.
 
 ### 12.2 Cost 7 temples
 

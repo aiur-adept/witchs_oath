@@ -8,7 +8,7 @@ const NOBLES_DIR := "res://nobles"
 
 const TEMPLE_PLAY_COST := 7
 const TEMPLE_EYRIE_COST := 6
-const EYRIE_SEARCH_COUNT := 1
+const EYRIE_SEARCH_COUNT := 2
 const TEMPLE_PHAEDRA := "phaedra_illusion"
 const TEMPLE_DELPHA := "delpha_oracles"
 const TEMPLE_GOTHA := "gotha_illness"
@@ -1101,7 +1101,7 @@ func _trigger_eyrie_enter(p: int) -> void:
 		return
 	_eyrie_pending_player = p
 	_eyrie_pending_remaining = mini(EYRIE_SEARCH_COUNT, candidates.size())
-	_log("P%d's Eyrie searches the deck for a bird." % p)
+	_log("P%d's Eyrie searches the deck for %d birds." % [p, _eyrie_pending_remaining])
 
 
 func _eyrie_snapshot_candidates(p: int) -> Array:
