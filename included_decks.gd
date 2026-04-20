@@ -182,9 +182,9 @@ static func _log_data_issues_once() -> void:
 					print("INFO: included_decks data issue: deck '%s' incantation card[%d] missing verb." % [slug, j])
 				var ok_value := value >= 1 and value <= 4
 				if verb == "revive":
-					ok_value = value == 1
-				elif verb == "renew":
 					ok_value = value == 2
+				elif verb == "renew":
+					ok_value = value == 3
 				elif verb == "wrath":
 					ok_value = value == 4
 				elif verb == "deluge":

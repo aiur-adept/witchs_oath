@@ -1,7 +1,7 @@
 """Pilot for the pure Revive-engine deck.
 
 Every non-ritual is cost 1 or 2, so a 1R + 2R opener runs the entire
-deck. Rndrr's free-Revive-1 activation every turn is the whole engine;
+deck. Rndrr's free-Revive-2 activation every turn is the whole engine;
 the base class already activates nobles whose effects score positively.
 Revive targeting prefers the highest-value Seek/Insight (these decks
 want to draw through the deck to stack rituals, not recur removal)."""

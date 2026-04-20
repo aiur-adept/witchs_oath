@@ -134,6 +134,7 @@ class GreedyAI:
     W_REVIVE_PRIO_WOE: float = 4.0
     W_REVIVE_PRIO_BURN: float = 3.0
     W_REVIVE_PRIO_INSIGHT: float = 2.0
+    W_REVIVE_PRIO_RENEW: float = 0.0
 
     W_SF_RITUAL_MP_PUSH: float = 0.0
     W_SF_INC_BEHIND: float = 0.0
@@ -732,6 +733,8 @@ class GreedyAI:
             return self.W_REVIVE_PRIO_BURN
         if v == VERB_INSIGHT:
             return self.W_REVIVE_PRIO_INSIGHT
+        if v == VERB_RENEW:
+            return self.W_REVIVE_PRIO_RENEW
         return 0.0
 
     def choose_revive_target(self, state: MatchState, pid: int, crypt_indices: list[int]) -> Optional[int]:
@@ -773,6 +776,7 @@ class GreedyAI:
                     pick = self.choose_revive_target(state, pid, elig_idx)
                     if pick is not None:
                         ctx["revive_crypt_idx"] = pick
+                        ctx = self.amend_revive_ctx(state, pid, pick, ctx)
                 state.play_incantation(pid, hand_idx, ctx, list(sac) if sac else None)
             elif kind == "dethrone":
                 hand_idx, sac, target_mid = args
@@ -803,6 +807,9 @@ class GreedyAI:
 
     def choose_aeoiu_crypt_ritual(self, state: MatchState, pid: int, default_idx: int) -> int:
         return default_idx
+
+    def amend_revive_ctx(self, state: MatchState, pid: int, crypt_idx: int, ctx: dict) -> dict:
+        return ctx
 
     def _end_turn(self, state: MatchState) -> None:
         if state.pending is not None:

@@ -2,7 +2,7 @@
 
 A pure spell-slinger that wants its 1R+2R lanes online immediately. The
 one-of Wrath 4 is a precious answer that should only be fired when it
-actually wipes meaningful opposing ritual power. Revive 1 targeting
+actually wipes meaningful opposing ritual power. Revive 2 targeting
 emphasizes high-impact verbs (Woe/Burn) over simple card draw."""
 
 from __future__ import annotations

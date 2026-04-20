@@ -168,10 +168,10 @@ If empty-deck draw is attempted:
 - **Burn X**: Mill `2 * X` cards from target player's deck into that player's crypt.
 - **Woe X**: Target player discards X-2 chosen cards from hand. [comes in Woe 3 and 4]
 - **Wrath 4**: Destroy 1 opponent ritual. That opponent draws a card.
-- **Revive 1**: Cast 1 eligible incantation from your crypt.
+- **Revive 2**: Cast 1 eligible incantation from your crypt.
   - Revive itself cannot be revived.
   - Cards cast this way go to abyss (not crypt).
-  **Renew 2**: Play 1 Ritual from your crypt.
+  **Renew 3**: Play 1 Ritual from your crypt.
   - This is in addition to your regular Ritual play for turn.
 - **Dethrone 4**: Destroy one opposing noble.
 - **Deluge X**: Destroy all wild Birds of power X-1 or less, then all nested birds become wild again. [comes in Deluge 2, 3 and 4]
@@ -215,7 +215,7 @@ Nobles of cost 4- (Lower Nobles) can only be played by having the active ritual 
 - **Trss, Noble of Power**: Grants ritual lane 2 while on field (static).
 - **Bndrr, Noble of Incantation**: Once per turn, Burn 2.
 - **Indrr, Noble of Incantation**: Once per turn, Insight 1.
-- **Rndrr, Noble of Incantation**: Once per turn, Revive 1.
+- **Rndrr, Noble of Incantation**: Once per turn, Revive 2.
 - **Sndrr, Noble of Incantation**: Once per turn, you may discard a card to Seek 1.
 - **Wndrr, Noble of Incantation**: Once per turn, you may discard a card to Woe 3.
 
@@ -257,7 +257,7 @@ Rings are cards that attach to a Noble or Bird you control. Their static effects
 ### 11.5 Set 1 Rings
 
 - **Sybiline, Ring of Emanation**: Your Seek and Insight cost 1 less to play.
-- **Cymbil, Ring of Occultation**: Your Burn and Revive cost 1 less to play.
+- **Cymbil, Ring of Occultation**: Your Burn, Revive and Renew cost 1 less to play.
 - **Celadon, Ring of Annihilation**: Your Woe and Wrath cost 1 less to play.
 - **Serraf, Ring of Nobles**: Your Nobles cost 1 less to play.
 - **Sinofia, Ring of Feathers**: Your Birds and your Tears cost 1 less to play.

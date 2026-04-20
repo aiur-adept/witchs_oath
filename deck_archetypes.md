@@ -9,16 +9,16 @@ Unless otherwise noted, the win condition is reaching **20 match power** before 
 ## 1. Incantations
 
 **Ritual curve**: 7/6/3/3 (1s/2s/3s/4s)
-**Non-rituals**: 4x Seek 2, 4x Insight 2, 4x Burn 2, 4x Woe 3, 4x Revive 1, 1x Wrath 4
+**Non-rituals**: 4x Seek 2, 4x Insight 2, 4x Burn 2, 4x Woe 3, 2x Revive 2, 2x Renew 3, 1x Wrath 4
 **Nobles / Temples / Rings**: none
 
 ### Game plan
-A pure spellslinger that commits almost nothing to the field beyond rituals. The curve is heavily weighted toward the 2-lane so every non-ritual is castable off a single active 2R. The deck aims to convert Seek/Insight into reliable draws, erode the opponent's hand with Woe 3, and mill with Burn 2 while using Revive 1 to replay any of those incantations from crypt for a second pass.
+A pure spellslinger that commits almost nothing to the field beyond rituals. The curve is heavily weighted toward the 2-lane so most non-rituals are castable off a single active 2R. The deck aims to convert Seek/Insight into reliable draws, erode the opponent's hand with Woe 3, and mill with Burn 2 while using Revive 2 to replay any of those incantations from crypt for a second pass; Renew 3 wants a 3-lane, Wrath 4 wants a 4-lane.
 
 ### Key synergies
-- Revive 1 effectively doubles the Woe/Burn/Seek/Insight payload once the crypt fills up.
+- Revive 2 effectively doubles the Woe/Burn/Seek/Insight payload once the crypt fills up (Renew 3 pulls rituals from crypt instead).
 - The single Wrath 4 is the only disruption against opposing ritual boards; save it for a lane the opponent actually needs (usually their 3-lane for Woe or their 4-lane for Wrath mirror).
-- With every incantation at value 1-3, a single 1R + 2R open is enough to run the entire deck; the 3-lane only gates Woe.
+- A 1R + 2R open runs most of the deck; the 2-lane gates Revive 2; the 3-lane gates Woe 3 and Renew 3; the 4-lane gates Wrath 4.
 
 ### Weaknesses
 - No nobles, temples, or rings means no ceiling beyond raw ritual power. Reaching 20 match power depends entirely on resolving rituals.
@@ -50,14 +50,14 @@ A tutor/toolbox deck designed to exercise every noble in Set 1. Play a Power-nob
 ## 3. Wrathseek-Sac
 
 **Ritual curve**: 5/5/9/0 (no 4s — maxed-out 3-ritual stack)
-**Non-rituals**: 4x Seek 1, 4x Seek 2, 4x Insight 3, 4x Wrath 4, 4x Revive 1, 1x Sndrr
+**Non-rituals**: 4x Seek 1, 4x Seek 2, 4x Insight 3, 4x Wrath 4, 4x Revive 2, 1x Sndrr
 
 ### Game plan
-A sacrifice-based control/tempo deck. With zero 4-rituals in the list, Wrath 4 is never paid via lane — it is always paid by sacrificing 3-rituals (or a 1+2, etc.). Nine value-3 rituals guarantee a fat 3-lane that both fuels Wrath sacrifices and enables Insight 3 and Revive chains. Seek 1/2 cycle to find Wrath targets, Revive 1 recurs anything already used.
+A sacrifice-based control/tempo deck. With zero 4-rituals in the list, Wrath 4 is never paid via lane — it is always paid by sacrificing 3-rituals (or a 1+2, etc.). Nine value-3 rituals guarantee a fat 3-lane that both fuels Wrath sacrifices and enables Insight 3 and Revive 2. Seek 1/2 cycle to find Wrath targets, Revive 2 recurs anything already used.
 
 ### Key synergies
 - **3R glut + Wrath 4**: sacrificing one 3-ritual pays for a Wrath and still nets the opponent only 1 draw back; the user loses 3 ritual power but usually removes 3+ on the opposing side.
-- **Revive 1 + Wrath 4** is the key engine — recasting buried Wraths from crypt turns this into an almost infinite-removal deck as long as the 1-lane stays live and there are 3-rituals to sacrifice.
+- **Revive 2 + Wrath 4** is the key engine — recasting buried Wraths from crypt turns this into an almost infinite-removal deck as long as the 2-lane stays live for Revive 2 and there are 3-rituals to sacrifice.
 - **Sndrr** (discard-to-Seek 1) smooths draws late when the hand runs dry.
 
 ### Weaknesses
@@ -70,7 +70,7 @@ A sacrifice-based control/tempo deck. With zero 4-rituals in the list, Wrath 4 i
 ## 4. Ritual Reanimator
 
 **Ritual curve**: 6/4/4/5
-**Non-rituals**: 4x Burn 1, 4x Burn 2, 4x Burn 3, 1x Burn 4, 3x Insight 2, 3x Revive 1, 1x Aeoiu (Scion of Rituals), 1x Phaedra (Temple of Illusion)
+**Non-rituals**: 4x Burn 1, 4x Burn 2, 4x Burn 3, 1x Burn 4, 3x Insight 2, 3x Revive 2, 1x Aeoiu (Scion of Rituals), 1x Phaedra (Temple of Illusion)
 
 ### Game plan
 A mill/reanimation hybrid. The curve is barbell-shaped (lots of 1s and 4s) to both guarantee early Burn pressure and sacrifice-fuel for Phaedra (cost 7). Aeoiu's activated ability lets the deck replay one ritual per turn from crypt, pairing with Burn spells that mill into the crypt and Phaedra's Insight+draw to fix the top of the deck.
@@ -110,19 +110,19 @@ Aggressive high-lane removal/burst. With eight 4-rituals the deck almost always 
 ## 6. Occultation
 
 **Ritual curve**: 5/5/5/4
-**Non-rituals**: 3x Burn 1, 3x Burn 2, 3x Burn 3, 3x Burn 4, 4x Revive 1, 2x Dethrone 4, 1x Yytzr (Noble of Occultation), 1x Aeoiu (Scion of Rituals), 1x Cymbil (Ring of Occultation)
+**Non-rituals**: 2x Burn 1, 2x Burn 2, 2x Burn 3, 2x Burn 4, 4x Revive 2, 4x Renew 3, 2x Dethrone 4, 1x Yytzr (Noble of Occultation), 1x Aeoiu (Scion of Rituals), 1x Cymbil (Ring of Occultation)
 
 ### Game plan
-A mill-win deck built around Yytzr's static ability: "Your Burn mills +3". The curve is an even 5/5/5/4 spread so every Burn value can be cast on-lane. Cymbil reduces Burn and Revive by 1, turning Burn 1 into a free 1-lane-is-always-active mill and stacking Revive 1 at cost 0. Aeoiu recycles rituals from the crypt as the deck self-mills, keeping lanes live.
+A mill-win deck built around Yytzr's static ability: "Your Burn mills +3". The curve is an even 5/5/5/4 spread so every Burn value can be cast on-lane. Cymbil reduces Burn and Revive by 1, turning Burn 1 into a free 1-lane-is-always-active mill and Revive 2 into a 1-lane cast; Renew 3 becomes a 2-lane cast. Aeoiu recycles rituals from the crypt as the deck self-mills, keeping lanes live.
 
 ### Key synergies
 - **Yytzr + Burn** — every Burn mills an extra 3 cards. Burn 4 then mills 11, and Yytzr's optional Revive-extension sacrifices rituals to stack extra Revive steps on top.
-- **Cymbil + Burn 1** — a cost-0 Burn castable with no lane required; repeatedly recurable via Revive 1.
+- **Cymbil + Burn 1** — a cost-0 Burn castable with no lane required; repeatedly recurable via Revive 2.
 - **Aeoiu + self-mill** — Burn also dumps your own rituals if paid via sacrifice; Aeoiu brings them back for free.
 - **Dethrone 4 x2** protects Yytzr from being out-noble'd.
 
 ### Weaknesses
-- 21 Burns-plus-Revives but no Seek or Insight → weak card selection and vulnerable to flooding on rituals.
+- Eight Burns plus eight Revive/Renew copies but no Seek or Insight → weak card selection and vulnerable to flooding on rituals.
 - Losing Yytzr roughly halves the deck's mill output.
 - No defensive answers to opposing Woe/Wrath beyond Dethrone 4.
 
@@ -257,15 +257,15 @@ A defensive temple/bird combo: use Void reactively to counter opposing game-endi
 ## 13. Revive
 
 **Ritual curve**: 7/5/4/3
-**Non-rituals**: 4x Seek 1, 4x Seek 2, 4x Insight 1, 4x Insight 2, 4x Revive 1, 1x Rndrr (Noble of Incantation)
+**Non-rituals**: 4x Seek 1, 4x Seek 2, 4x Insight 1, 4x Insight 2, 4x Revive 2, 1x Rndrr (Noble of Incantation)
 
 ### Game plan
-An engine deck focused on recycling incantations from crypt. Every non-ritual is cost 1 or 2, so the whole deck runs off a 1R + 2R opening. Revive 1 is cast from hand to re-cast an eligible incantation from crypt (into abyss); Rndrr provides a once-per-turn free Revive 1, effectively doubling up on the most powerful Seek/Insight resolved so far.
+An engine deck focused on recycling incantations from crypt. Most non-rituals are cost 1 or 2, so the deck opens on a 1R + 2R ladder, but Revive 2 needs the 2-lane online. Revive 2 is cast from hand to re-cast an eligible incantation from crypt (into abyss); Rndrr provides a once-per-turn free Revive 2, effectively doubling up on the most powerful Seek/Insight resolved so far.
 
 ### Key synergies
 - **Rndrr + crypt full of Seek 2** — free extra Seek 2 every turn after a single Seek has been resolved.
-- **Revive 1 + Insight 2** — cast an Insight 2 from crypt for a second helping of top-deck sculpting with the same ritual footprint.
-- **Heavy 1-ritual base** (7x) ensures the 1-lane stays active even through Wraths, preserving Revive 1 castability.
+- **Revive 2 + Insight 2** — cast an Insight 2 from crypt for a second helping of top-deck sculpting with the same ritual footprint.
+- **Heavy 1-ritual base** (7x) keeps the ladder warm; the 2-lane must stay active for Revive 2 from hand, while Rndrr’s free Revive 2 does not consume a lane.
 
 ### Weaknesses
 - No removal, no temples, no Wrath, no Dethrone — the deck has no board-impacting cards at all. Opposing nobles and rituals go unanswered.
@@ -278,7 +278,7 @@ An engine deck focused on recycling incantations from crypt. Every non-ritual is
 
 | Deck | Axis | Primary Win Path | Core Engine |
 |---|---|---|---|
-| Incantations | Midrange spells | Ritual power + disruption | Revive 1 loops |
+| Incantations | Midrange spells | Ritual power + disruption | Revive 2 loops |
 | Noble Test | Noble toolbox | Noble static/activated value | Serraf + Power-nobles |
 | Wrathseek-Sac | Control | Ritual power + opponent denial | 3R glut → Wrath 4 |
 | Ritual Reanimator | Mill/reanimate | Deck-out + lane grinding | Aeoiu + Burn |
@@ -290,4 +290,4 @@ An engine deck focused on recycling incantations from crypt. Every non-ritual is
 | Temples | Big-mana toolbox | Overwhelming temple value | Ytria refill + Delpha recursion |
 | Bird Test | Bird tribal | Match-power via birds + nesting | Eyrie + Phaedra nesting |
 | Void Temples | Reactive control | Outlast, then temple finish | Void + Ytria reset |
-| Revive | Engine combo | Ritual power via incantation loops | Rndrr + Revive 1 |
+| Revive | Engine combo | Ritual power via incantation loops | Rndrr + Revive 2 |

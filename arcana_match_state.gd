@@ -1867,16 +1867,16 @@ func _validate_play_ctx(p: int, verb: String, value: int, wrath_mids: Array, ctx
 			return "ok"
 
 
-func _validate_revive_chain(p: int, value: int, ctx: Dictionary) -> String:
+func _validate_revive_chain(p: int, _value: int, ctx: Dictionary) -> String:
 	var steps: Array = ctx.get("revive_steps", []) as Array
-	if steps.is_empty() and value == 1:
+	if steps.is_empty():
 		steps = [ctx]
 	var yyt: Array = ctx.get("yytzr_extra_sac_mids", []) as Array
-	var want_steps := value
+	var want_steps := 1
 	if not yyt.is_empty():
 		if not _noble_on_field(p, "yytzr_occultation"):
 			return "illegal"
-		want_steps = value + 1
+		want_steps = 2
 	if steps.size() != want_steps:
 		return "illegal"
 	var sim: Array = _inc_crypt_cards(_players[p]).duplicate()
@@ -1907,7 +1907,7 @@ func _validate_revive_chain(p: int, value: int, ctx: Dictionary) -> String:
 
 func _run_revive_steps_after_payment(p: int, value: int, ctx: Dictionary, payment_text: String, revive_wrapper: Dictionary) -> String:
 	var steps: Array = ctx.get("revive_steps", []) as Array
-	if steps.is_empty() and value == 1:
+	if steps.is_empty():
 		steps = [ctx]
 	var pl: Dictionary = _players[p]
 	var any_cast := false
@@ -2104,7 +2104,7 @@ func apply_noble_revive_from_crypt(p: int, noble_mid: int, ctx: Dictionary) -> S
 	var d0: Dictionary = steps[0]
 	if bool(d0.get("revive_skip", false)):
 		_mark_noble_used_this_turn(p, noble_mid)
-		_log("P%d activates Rndrr (Revive 1 skipped)." % p)
+		_log("P%d activates Rndrr (Revive 2 skipped)." % p)
 		return "ok"
 	_log("P%d activates Rndrr (Revive from crypt)." % p)
 	var pl: Dictionary = _players[p]

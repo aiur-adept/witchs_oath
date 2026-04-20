@@ -1,13 +1,14 @@
 extends ArcanaCpuBase
 class_name ArcanaOccultationPilot
 
-# Port of sim/pilots/occultation.py
+# Port of sim/pilots/occultation.py — ramp via self-mill, Revive→Renew, Renew.
 
 func _init() -> void:
 	W_NOBLE_BIG_TRIPLET = 55.0
 	W_EFFECT_BURN_BASE = 4.0
 	W_EFFECT_BURN_VALUE = 2.0
-	W_REVIVE_PRIO_BURN = 8.0
+	W_REVIVE_PRIO_RENEW = 30.0
+	W_REVIVE_PRIO_BURN = 18.0
 	W_REVIVE_PRIO_WOE = 4.0
 	W_REVIVE_PRIO_SEEK = 3.0
 	W_REVIVE_PRIO_INSIGHT = 2.0
@@ -40,11 +41,59 @@ func choose_burn_target(snap: Dictionary, val: int) -> int:
 	for c in your_crypt:
 		if _card_kind(c) == "ritual":
 			rit_count += 1
-	var has_aeoiu := _has_noble_on_field(snap.get("your_nobles", []) as Array, "aeoiu_rituals")
 	var deck_len := int(snap.get("your_deck", 0))
+	var has_aeoiu := _has_noble_on_field(snap.get("your_nobles", []) as Array, "aeoiu_rituals")
+	var yyt := _has_noble_on_field(snap.get("your_nobles", []) as Array, "yytzr_occultation")
+	var ymp := int(snap.get("your_match_power", 0))
+	var omp := int(snap.get("opp_match_power", 0))
+	if deck_len <= 2 * val + 1:
+		return opp
+	if rit_count < 3 and deck_len > 2 * val + 2:
+		return you
+	if yyt and rit_count < 5 and deck_len > 2 * val + 2:
+		return you
 	if has_aeoiu and rit_count < 3 and deck_len > 2 * val + 3:
 		return you
+	if omp > ymp + 2 and rit_count < 3:
+		return you
 	return opp
+
+
+func amend_revive_ctx(snap: Dictionary, your_crypt: Array, global_pick: int, ctx: Dictionary) -> void:
+	if global_pick < 0 or global_pick >= your_crypt.size():
+		return
+	var c := your_crypt[global_pick] as Dictionary
+	if _card_kind(c) != "incantation":
+		return
+	if str(c.get("verb", "")).to_lower() != VERB_BURN:
+		return
+	var val := int(c.get("value", 0))
+	var you := int(snap.get("you", 0))
+	if choose_burn_target(snap, val) != you:
+		return
+	var steps: Array = ctx.get("revive_steps", []) as Array
+	if steps.is_empty():
+		return
+	var s0: Dictionary = (steps[0] as Dictionary).duplicate(true)
+	var nested: Dictionary = s0.get("nested", {}) as Dictionary
+	nested = nested.duplicate(true) if not nested.is_empty() else {}
+	nested["mill_target"] = you
+	s0["nested"] = nested
+	steps[0] = s0
+	ctx["revive_steps"] = steps
+
+
+func adjust_incantation_score(card: Dictionary, sac: Array, score: float) -> Variant:
+	var b: Variant = super.adjust_incantation_score(card, sac, score)
+	if b == null:
+		return null
+	var out := float(b)
+	var v := str(card.get("verb", "")).to_lower()
+	if v == VERB_REVIVE:
+		out += 6.0
+	elif v == VERB_RENEW:
+		out += 10.0
+	return out
 
 
 func adjust_ring_score(card: Dictionary, score: float) -> float:
@@ -57,7 +106,7 @@ func score_noble_play(card: Dictionary, eff_cost: int, sac: Array, active_lanes:
 	var base: Variant = super(card, eff_cost, sac, active_lanes, snap)
 	if base == null:
 		return null
-	var score := float(base)
+	var sc := float(base)
 	if str(card.get("noble_id", "")) == "aeoiu_rituals":
-		score += 30.0
-	return score
+		sc += 30.0
+	return sc

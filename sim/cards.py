@@ -74,7 +74,7 @@ NOBLE_DEFS: dict[str, dict] = {
     "indrr_incantation":   {"cost": 3, "name": "Indrr, Noble of Incantation", "activated_verb": VERB_INSIGHT, "activated_value": 1},
     "bndrr_incantation":   {"cost": 3, "name": "Bndrr, Noble of Incantation", "activated_verb": VERB_BURN,    "activated_value": 2},
     "wndrr_incantation":   {"cost": 3, "name": "Wndrr, Noble of Incantation", "activated_verb": VERB_WOE,     "activated_value": 3, "activation_discard": True},
-    "rndrr_incantation":   {"cost": 3, "name": "Rndrr, Noble of Incantation", "activated_verb": VERB_REVIVE,  "activated_value": 1},
+    "rndrr_incantation":   {"cost": 3, "name": "Rndrr, Noble of Incantation", "activated_verb": VERB_REVIVE,  "activated_value": 2},
     "rmrsk_emanation":     {"cost": 2, "name": "Rmrsk, Scion of Emanation"},
     "smrsk_occultation":   {"cost": 2, "name": "Smrsk, Scion of Occultation"},
     "tmrsk_annihilation":  {"cost": 2, "name": "Tmrsk, Scion of Annihilation"},

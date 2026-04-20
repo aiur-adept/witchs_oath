@@ -158,22 +158,22 @@
 		},
 		{
 			"type": "Incantation",
-			"value": 1.0,
+			"value": 2.0,
 			"verb": "revive"
 		},
 		{
 			"type": "Incantation",
-			"value": 1.0,
+			"value": 2.0,
 			"verb": "revive"
 		},
 		{
 			"type": "Incantation",
-			"value": 1.0,
+			"value": 2.0,
 			"verb": "revive"
 		},
 		{
 			"type": "Incantation",
-			"value": 1.0,
+			"value": 2.0,
 			"verb": "revive"
 		},
 		{
@@ -194,7 +194,7 @@
 			"insight_2": 0.0,
 			"insight_3": 4.0,
 			"insight_4": 0.0,
-			"revive_1": 4.0,
+			"revive_2": 4.0,
 			"seek_1": 4.0,
 			"seek_2": 4.0,
 			"seek_3": 0.0,

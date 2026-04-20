@@ -1,28 +1,29 @@
-"""Pilot for the Occultation mill deck.
+"""Pilot for the Occultation ramp/mill deck.
 
-Yytzr's +3 mill-per-Burn is the centerpiece, so drop it as early as
-possible. Cymbil reduces Burn/Revive by 1 so every Burn 1 becomes free
-to cast. Burn always targets the opponent (this is a mill deck).
-Aeoiu recovers rituals from the crypt after self-mill."""
+Yytzr fuels mill; Cymbil discounts Burn/Revive/Renew. The deck wins by
+self-milling rituals into the crypt, then **Renew** (or **Revive** picking
+**Renew** from crypt) to replay rituals and out-pace the opponent on lanes.
+Revived **Burn** uses the same self/opponent heuristic as hand Burns."""
 
 from __future__ import annotations
 
 from typing import Optional
 
 from ..ai import GreedyAI
-from ..cards import Kind
+from ..cards import Kind, VERB_BURN, VERB_REVIVE, VERB_RENEW
 from ..match import MatchState
 
 
 class OccultationPilot(GreedyAI):
-    W_NOBLE_BIG_TRIPLET = 55.0   # yytzr ~doubles deck output
+    W_NOBLE_BIG_TRIPLET = 55.0
     W_EFFECT_BURN_BASE = 4.0
     W_EFFECT_BURN_VALUE = 2.0
-    W_REVIVE_PRIO_BURN: float = 8.0
-    W_REVIVE_PRIO_WOE: float = 4.0
-    W_REVIVE_PRIO_SEEK: float = 3.0
-    W_REVIVE_PRIO_INSIGHT: float = 2.0
-    W_REVIVE_PRIO_WRATH: float = 0.0
+    W_REVIVE_PRIO_RENEW = 30.0
+    W_REVIVE_PRIO_BURN = 18.0
+    W_REVIVE_PRIO_WOE = 4.0
+    W_REVIVE_PRIO_SEEK = 3.0
+    W_REVIVE_PRIO_INSIGHT = 2.0
+    W_REVIVE_PRIO_WRATH = 0.0
 
     def mulligan(self, state: MatchState, pid: int) -> bool:
         hand = state.players[pid].hand
@@ -38,12 +39,47 @@ class OccultationPilot(GreedyAI):
 
     def choose_burn_target(self, state: MatchState, pid: int, val: int) -> int:
         me = state.players[pid]
+        opp = state.opponent(pid)
         crypt_rituals = sum(1 for c in me.crypt if c.kind is Kind.RITUAL)
-        has_aeoiu = state.has_noble(pid, "aeoiu_rituals")
+        deck_rituals = sum(1 for c in me.deck if c.kind is Kind.RITUAL)
         deck_len = len(me.deck)
+        has_aeoiu = state.has_noble(pid, "aeoiu_rituals")
+        yyt = state.has_noble(pid, "yytzr_occultation")
+        behind = state.match_power(opp) > state.match_power(pid)
+
+        if deck_len <= 2 * val + 1:
+            return opp
+        if crypt_rituals < 3 and deck_rituals >= 2:
+            return pid
+        if yyt and crypt_rituals < 5 and deck_rituals >= 1:
+            return pid
         if has_aeoiu and crypt_rituals < 3 and deck_len > 2 * val + 3:
             return pid
-        return state.opponent(pid)
+        if behind and crypt_rituals < 3 and deck_rituals >= 1:
+            return pid
+        return opp
+
+    def amend_revive_ctx(self, state: MatchState, pid: int, crypt_idx: int, ctx: dict) -> dict:
+        me = state.players[pid]
+        if crypt_idx < 0 or crypt_idx >= len(me.crypt):
+            return ctx
+        card = me.crypt[crypt_idx]
+        if card.kind is Kind.INCANTATION and card.verb == VERB_BURN:
+            if self.choose_burn_target(state, pid, card.value) == pid:
+                sub = dict(ctx.get("revive_sub_ctx", {}))
+                sub["burn_target"] = pid
+                ctx["revive_sub_ctx"] = sub
+        return ctx
+
+    def adjust_incantation_score(self, state: MatchState, pid: int, card, sac: list[int], score: float) -> Optional[float]:
+        out = super().adjust_incantation_score(state, pid, card, sac, score)
+        if out is None:
+            return None
+        if card.verb == VERB_REVIVE:
+            out += 6.0
+        elif card.verb == VERB_RENEW:
+            out += 10.0
+        return out
 
     def adjust_ring_score(self, state: MatchState, pid: int, card, score: float) -> float:
         if card.ring_id == "cymbil_occultation":

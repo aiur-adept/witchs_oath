@@ -158,22 +158,22 @@
 		},
 		{
 			"type": "Incantation",
-			"value": 1.0,
-			"verb": "revive"
-		},
-		{
-			"type": "Incantation",
-			"value": 1.0,
+			"value": 2.0,
 			"verb": "revive"
 		},
 		{
 			"type": "Incantation",
 			"value": 2.0,
+			"verb": "revive"
+		},
+		{
+			"type": "Incantation",
+			"value": 3.0,
 			"verb": "renew"
 		},
 		{
 			"type": "Incantation",
-			"value": 2.0,
+			"value": 3.0,
 			"verb": "renew"
 		},
 		{
@@ -194,8 +194,8 @@
 			"insight_2": 4.0,
 			"insight_3": 0.0,
 			"insight_4": 0.0,
-			"revive_1": 2.0,
-			"renew_2": 2.0,
+			"revive_2": 2.0,
+			"renew_3": 2.0,
 			"seek_1": 0.0,
 			"seek_2": 4.0,
 			"seek_3": 0.0,

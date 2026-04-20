@@ -39,7 +39,7 @@ const NOBLE_DEFS := {
 	"indrr_incantation":   {"activated_verb": VERB_INSIGHT, "activated_value": 1},
 	"bndrr_incantation":   {"activated_verb": VERB_BURN,    "activated_value": 2},
 	"wndrr_incantation":   {"activated_verb": VERB_WOE,     "activated_value": 3, "activation_discard": true},
-	"rndrr_incantation":   {"activated_verb": VERB_REVIVE,  "activated_value": 1},
+	"rndrr_incantation":   {"activated_verb": VERB_REVIVE,  "activated_value": 2},
 	"rmrsk_emanation":     {},
 	"smrsk_occultation":   {},
 	"tmrsk_annihilation":  {},
@@ -128,6 +128,7 @@ var W_REVIVE_PRIO_SEEK: float = 5.0
 var W_REVIVE_PRIO_WOE: float = 4.0
 var W_REVIVE_PRIO_BURN: float = 3.0
 var W_REVIVE_PRIO_INSIGHT: float = 2.0
+var W_REVIVE_PRIO_RENEW: float = 0.0
 
 var W_SF_RITUAL_MP_PUSH: float = 0.0
 var W_SF_INC_BEHIND: float = 0.0
@@ -981,6 +982,8 @@ func _revive_verb_prio_bonus(verb: String) -> float:
 		return W_REVIVE_PRIO_BURN
 	if v == VERB_INSIGHT:
 		return W_REVIVE_PRIO_INSIGHT
+	if v == VERB_RENEW:
+		return W_REVIVE_PRIO_RENEW
 	return 0.0
 
 
@@ -999,6 +1002,10 @@ func choose_revive_target(your_crypt: Array, elig_indices: Array) -> int:
 
 func choose_aeoiu_crypt_ritual(_snap: Dictionary, default_filtered_idx: int) -> int:
 	return default_filtered_idx
+
+
+func amend_revive_ctx(_snap: Dictionary, _your_crypt: Array, _global_pick: int, _ctx: Dictionary) -> void:
+	pass
 
 
 # =========================================================================
@@ -1053,6 +1060,7 @@ func _execute_action(host: Node, snap: Dictionary, action: Dictionary) -> bool:
 						running += 1
 					if inc_filtered >= 0:
 						ctx["revive_steps"] = [{"revive_crypt_idx": inc_filtered}]
+						amend_revive_ctx(snap, your_crypt, pick, ctx)
 					else:
 						ctx["revive_steps"] = [{"revive_skip": true}]
 				else:

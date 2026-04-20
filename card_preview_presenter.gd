@@ -467,7 +467,7 @@ static func card_rules_text(card: Dictionary) -> String:
 		"woe":
 			return "Woe %d: a chosen player discards %d chosen card(s) from hand." % [n, maxi(n - 2, 0)]
 		"revive":
-			return "Revive %d: you may cast %d incantation from your crypt (chosen; no ritual cost)." % [n, n]
+			return "Revive %d: you may cast 1 incantation from your crypt (chosen; no ritual cost)." % n
 		"renew":
 			return "Renew %d: play 1 Ritual from your crypt (in addition to your normal ritual play for the turn)." % n
 		"wrath":

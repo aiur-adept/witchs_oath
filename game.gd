@@ -307,8 +307,6 @@ func _woe_discard_count_ui(snap: Dictionary, value: int, victim_is_you: bool) ->
 func _yytzr_should_offer_bonus(ctx: Dictionary) -> bool:
 	if _yytzr_waits_second_crypt:
 		return false
-	if _pending_inc_n != 1:
-		return false
 	if not _player_has_noble_id(_last_snap, "yytzr_occultation"):
 		return false
 	var st: Array = ctx.get("revive_steps", []) as Array
@@ -3991,9 +3989,9 @@ func _start_noble_seek(noble_mid: int) -> void:
 
 func _start_noble_revive(noble_mid: int) -> void:
 	_effect_sac = []
-	_pending_inc_n = 1
+	_pending_inc_n = 2
 	_pending_inc_hand_idx = -1
-	_begin_revive_hand_ui(-1, 1, [], noble_mid)
+	_begin_revive_hand_ui(-1, 2, [], noble_mid)
 
 
 func _start_aeoiu_ritual_pick(noble_mid: int) -> void:

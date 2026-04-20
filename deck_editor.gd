@@ -250,9 +250,9 @@ func _current_deck_path() -> String:
 
 func _incantation_values_for_verb(verb: String) -> Array[int]:
 	if verb == "revive":
-		return [1]
-	if verb == "renew":
 		return [2]
+	if verb == "renew":
+		return [3]
 	if verb == "wrath":
 		return [4]
 	if verb == "deluge":
