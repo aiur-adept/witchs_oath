@@ -189,6 +189,35 @@ func _validate_renew_ctx(p: int, ctx: Dictionary) -> String:
 	return "ok"
 
 
+func _ritual_count_after_main_and_yyt_sacrifice(p: int, mids_main: Dictionary, mids_yyt: Dictionary) -> int:
+	var n: int = _ritual_crypt_cards(_players[p]).size()
+	for x in _players[p]["field"]:
+		if _card_kind(x) != "ritual":
+			continue
+		var mid := int(x["mid"])
+		if mids_main.has(mid) or mids_yyt.has(mid):
+			n += 1
+	return n
+
+
+func _validate_renew_ctx_presacrifice(p: int, ctx: Dictionary, mids_main: Dictionary, mids_yyt: Dictionary) -> String:
+	var total: int = _ritual_count_after_main_and_yyt_sacrifice(p, mids_main, mids_yyt)
+	var ridx := int(ctx.get("renew_ritual_crypt_idx", -1))
+	if ridx < 0 or ridx >= total:
+		return "illegal_target"
+	var yyt: Array = ctx.get("yytzr_extra_sac_mids", []) as Array
+	var r2 := int(ctx.get("renew_second_ritual_crypt_idx", -1))
+	if yyt.is_empty():
+		if r2 >= 0:
+			return "illegal"
+		return "ok"
+	if not _noble_on_field(p, "yytzr_occultation"):
+		return "illegal"
+	if r2 < 0 or r2 >= total or r2 == ridx:
+		return "illegal"
+	return "ok"
+
+
 func _init(p0_deck: Array, p1_deck: Array, p0_first: bool, p_rng: RandomNumberGenerator, p_goldfish: bool) -> void:
 	rng = p_rng
 	goldfish = p_goldfish
@@ -1647,9 +1676,14 @@ func can_play_incantation(p: int, hand_idx: int) -> bool:
 	var n: int = int(c["value"])
 	if n < 1 and vl != "wrath":
 		return false
-	if vl == "renew" and _ritual_crypt_cards(_players[p]).is_empty():
-		return false
 	var n_eff := effective_incantation_cost(p, verb, n)
+	if vl == "renew" and _ritual_crypt_cards(_players[p]).is_empty():
+		if n_eff <= 0:
+			return false
+		if has_active_incantation_lane(p, n_eff):
+			return false
+		if not _can_sacrifice(p, n_eff):
+			return false
 	if vl == "wrath":
 		return not (_players[p]["field"] as Array).is_empty()
 	if n_eff <= 0:
@@ -2146,6 +2180,15 @@ func apply_noble_revive_from_crypt(p: int, noble_mid: int, ctx: Dictionary) -> S
 				_woe_pending_revive_wrapper = null
 				_woe_pending_noble_mid = noble_mid
 				return "ok"
+		if cv == "renew":
+			var rerr := _renew_subcast_play_ritual_from_nested(p, nested, "Rndrr")
+			if rerr != "ok":
+				crypt.insert(crypt_idx, crypt_card)
+				return rerr
+			pl["inc_abyss"].append(crypt_card)
+			_log("P%d Revive casts Renew %d from crypt (Rndrr)." % [p, cn])
+			_queue_post_effect_scion_trigger(p, "renew")
+			continue
 		var err := execute_incantation_effect(p, cv, cn, wr_r, nested)
 		if err != "ok":
 			crypt.insert(crypt_idx, crypt_card)
@@ -2455,8 +2498,6 @@ func play_incantation(p: int, hand_idx: int, sacrifice_mids: Array, wrath_mids: 
 			if not _sacrifice_valid(p, n_eff, mids):
 				return "illegal_sacrifice"
 	var ctx_use: Dictionary = ctx.duplicate(true)
-	if _validate_play_ctx(p, verb, n, wrath_mids, ctx_use) != "ok":
-		return "illegal"
 	var yyt_extra: Array = ctx_use.get("yytzr_extra_sac_mids", []) as Array
 	if verb == "revive" and not yyt_extra.is_empty():
 		if not _noble_on_field(p, "yytzr_occultation"):
@@ -2484,6 +2525,14 @@ func play_incantation(p: int, hand_idx: int, sacrifice_mids: Array, wrath_mids: 
 			var wtx := int(ctx_use.get("wrath_instigator_sac_mid", -1))
 			if wtx >= 0:
 				mids[wtx] = true
+	if verb == "renew":
+		var mids_yyt_val: Dictionary = {}
+		for m in yyt_extra:
+			mids_yyt_val[int(m)] = true
+		if _validate_renew_ctx_presacrifice(p, ctx_use, mids, mids_yyt_val) != "ok":
+			return "illegal"
+	elif _validate_play_ctx(p, verb, n, wrath_mids, ctx_use) != "ok":
+		return "illegal"
 	var payment_text: String
 	if wrath_one:
 		payment_text = "0-cost Wrath — paid by sacrificing one ritual"

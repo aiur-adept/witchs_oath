@@ -22,6 +22,7 @@ const DEFAULT_DECK_PATH := "user://decks/default_deck.json"
 const SELECTED_DECK_PATH_FILE := "user://selected_deck_path.txt"
 const SELECTED_OPPONENT_DECK_PATH_FILE := "user://selected_opponent_deck_path.txt"
 const PLAY_MODE_FILE := "user://arcana_play_mode.txt"
+const LAN_JOIN_FILE := "user://arcana_lan_join.txt"
 const CPU_ACTION_SEC := 1.618
 const CARD_SCALE := 1.618
 const HAND_CARD_W := 72.0 * CARD_SCALE
@@ -230,6 +231,7 @@ var _eyrie_confirm_button: Button
 var _eyrie_picked: Array[int] = []
 var _eyrie_candidate_buttons: Array[Button] = []
 
+var _lan_opponent_cards: Array = []
 var _hover_preview: Dictionary = {}
 var _game_end_overlay: Control
 var _game_end_modal: PanelContainer
@@ -267,13 +269,46 @@ var _bird_assign_remaining: int = 0
 var _bird_damage_assign: Dictionary = {}
 
 
-func _is_network_pvp() -> bool:
+func _read_play_mode_string() -> String:
+	var f := FileAccess.open(PLAY_MODE_FILE, FileAccess.READ)
+	if f == null:
+		return ""
+	return f.get_as_text().strip_edges()
+
+
+func _is_network_host_session() -> bool:
 	if USE_NETWORK_MULTIPLAYER:
 		return true
 	for a in OS.get_cmdline_args():
 		if a == "--arcana-network-host" or a == "--pvp-host":
 			return true
-	return false
+	return _read_play_mode_string() == "lan_host"
+
+
+func _is_network_client_role() -> bool:
+	for a in OS.get_cmdline_args():
+		if a == "--arcana-client":
+			return true
+	return _read_play_mode_string() == "lan_client"
+
+
+func _is_network_pvp() -> bool:
+	return _is_network_host_session() or _is_network_client_role()
+
+
+func _arcana_host_address() -> String:
+	for a in OS.get_cmdline_args():
+		if a.begins_with("--arcana-host="):
+			var h := a.get_slice("=", 1).strip_edges()
+			if not h.is_empty():
+				return h
+	if FileAccess.file_exists(LAN_JOIN_FILE):
+		var jf := FileAccess.open(LAN_JOIN_FILE, FileAccess.READ)
+		if jf != null:
+			var line := jf.get_line().strip_edges()
+			if not line.is_empty():
+				return line
+	return "127.0.0.1"
 
 
 func _player_has_noble_id(snap: Dictionary, noble_id: String) -> bool:
@@ -416,15 +451,16 @@ func _ready() -> void:
 	opp_abyss_button.mouse_entered.connect(_on_opp_abyss_button_mouse_entered)
 	opp_abyss_button.mouse_exited.connect(_on_opp_abyss_button_mouse_exited)
 	opp_abyss_button.pressed.connect(_on_opp_abyss_button_pressed)
-	if _is_network_pvp():
+	if _is_network_host_session():
 		_host = true
 		_my_player = 0
+		_lan_opponent_cards.clear()
 		multiplayer.peer_connected.connect(_on_peer_connected)
 		multiplayer.connected_to_server.connect(_on_connected_ok)
 		var peer: ENetMultiplayerPeer = null
 		for p in range(PORT_MIN, PORT_MAX + 1):
 			var attempt := ENetMultiplayerPeer.new()
-			if attempt.create_server(p) == OK:
+			if attempt.create_server(p, 1) == OK:
 				_bound_port = p
 				peer = attempt
 				break
@@ -433,6 +469,13 @@ func _ready() -> void:
 			return
 		multiplayer.multiplayer_peer = peer
 		status_label.text = "Hosting PvP on port %d — waiting for opponent…" % _bound_port
+		return
+	if _is_network_client_role():
+		_host = false
+		_my_player = 1
+		multiplayer.connected_to_server.connect(_on_connected_ok)
+		multiplayer.connection_failed.connect(_on_lan_connection_failed)
+		_connect_client_to_lan_host()
 		return
 	_host = true
 	_my_player = 0
@@ -453,31 +496,63 @@ func _arcana_port_from_cmd() -> int:
 	return PORT_MIN
 
 
-func _connect_client_to_host() -> void:
-	var port := _arcana_port_from_cmd()
+func _arcana_port_for_network_client() -> int:
+	for a in OS.get_cmdline_args():
+		if a.begins_with("--arcana-port="):
+			var v := int(a.get_slice("=", 1))
+			if v > 0 and v < 65536:
+				return v
+	if FileAccess.file_exists(LAN_JOIN_FILE):
+		var jf := FileAccess.open(LAN_JOIN_FILE, FileAccess.READ)
+		if jf != null:
+			var _h := jf.get_line()
+			if not jf.eof_reached():
+				var pv := int(jf.get_line().strip_edges())
+				if pv > 0 and pv < 65536:
+					return pv
+	return PORT_MIN
+
+
+func _connect_client_to_lan_host() -> void:
+	var host := _arcana_host_address()
+	var port := _arcana_port_for_network_client()
 	var peer := ENetMultiplayerPeer.new()
-	if peer.create_client("127.0.0.1", port) != OK:
-		status_label.text = "Could not create client to 127.0.0.1:%d." % port
+	if peer.create_client(host, port) != OK:
+		status_label.text = "Could not create client to %s:%d." % [host, port]
 		return
 	multiplayer.multiplayer_peer = peer
-	multiplayer.connected_to_server.connect(_on_connected_ok)
-	status_label.text = "Connecting to 127.0.0.1:%d…" % port
+	status_label.text = "Connecting to %s:%d…" % [host, port]
+
+
+func _on_lan_connection_failed() -> void:
+	status_label.text = "Connection failed."
 
 
 func _on_connected_ok() -> void:
+	if _is_network_client_role():
+		var cards := _load_deck_cards()
+		if cards.is_empty():
+			status_label.text = "No deck at %s — use deck editor first." % _deck_path
+			return
+		submit_lan_deck.rpc(cards)
+		status_label.text = "Sent deck — waiting for host…"
+		return
 	if _is_network_pvp() and not multiplayer.is_server():
 		status_label.text = "Connected to host."
 
 
 func _on_peer_connected(id: int) -> void:
-	if not _host or not _is_network_pvp():
+	if not _host or not _is_network_host_session():
 		return
-	if id != 0:
-		status_label.text = "Peer %d joined. Shuffling…" % id
-		_start_match()
+	if id == 0:
+		return
+	status_label.text = "Peer %d connected — waiting for opponent deck…" % id
 
 
 func _start_match() -> void:
+	if _is_network_host_session():
+		_start_network_host_match()
+		return
 	var cards := _load_deck_cards()
 	if cards.is_empty():
 		status_label.text = "No deck at %s — use deck editor first." % _deck_path
@@ -498,6 +573,27 @@ func _start_match() -> void:
 		if IncludedDecks.is_token(opp_path):
 			opp_slug = IncludedDecks.slug_from_token(opp_path)
 		_cpu_opponent.configure_for_opponent_slug(opp_slug)
+	_broadcast_sync()
+
+
+func _start_network_host_match() -> void:
+	var cards := _load_deck_cards()
+	if cards.is_empty():
+		status_label.text = "No deck at %s — use deck editor first." % _deck_path
+		return
+	if _lan_opponent_cards.is_empty():
+		status_label.text = "Waiting for opponent deck…"
+		return
+	_finalize_network_pvp_match(cards, _lan_opponent_cards)
+
+
+func _finalize_network_pvp_match(p0_cards: Array, p1_cards: Array) -> void:
+	_hide_game_end_modal()
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var p0_first := rng.randi_range(0, 1) == 0
+	_match = ArcanaMatchState.new(p0_cards.duplicate(true), p1_cards.duplicate(true), p0_first, rng, false)
+	_cpu_opponent.configure_for_opponent_slug("")
 	_broadcast_sync()
 
 
@@ -1454,6 +1550,10 @@ func _load_cards_from_path(path: String) -> Array:
 			return []
 		data = parsed as Dictionary
 	var cards: Array = data.get("cards", [])
+	return _normalize_card_dicts(cards)
+
+
+func _normalize_card_dicts(cards: Array) -> Array:
 	var out: Array = []
 	for c in cards:
 		if typeof(c) != TYPE_DICTIONARY:
@@ -1566,6 +1666,21 @@ func _deferred_cpu_mulligan() -> void:
 @rpc("authority", "reliable")
 func sync_state(snap: Dictionary) -> void:
 	_apply_snap(snap)
+
+
+@rpc("any_peer", "reliable")
+func submit_lan_deck(cards: Array) -> void:
+	if not multiplayer.is_server():
+		return
+	var sid := multiplayer.get_remote_sender_id()
+	if sid == 0:
+		return
+	_lan_opponent_cards = _normalize_card_dicts(cards)
+	if _lan_opponent_cards.is_empty():
+		status_label.text = "Opponent sent an invalid deck."
+		return
+	status_label.text = "Opponent deck received. Shuffling…"
+	_start_network_host_match()
 
 
 func _should_abort_sacrifice_for_snap(snap: Dictionary) -> bool:
@@ -4100,18 +4215,28 @@ func _on_aeoiu_crypt_chosen(crypt_idx: int) -> void:
 
 
 func _begin_renew_hand_ui(hand_idx: int, n: int, sac_mids: Array) -> void:
-	if (_last_snap.get("your_ritual_crypt_cards", []) as Array).is_empty():
-		status_label.text = "No rituals in your crypt."
-		return
-	_renew_incantation_pick = true
 	_pending_inc_hand_idx = hand_idx
 	_pending_inc_n = n
 	_effect_sac = sac_mids.duplicate()
+	var rg: Array = _filtered_crypt_cards(_your_crypt_cards_from_snap(_last_snap), ["ritual"])
+	var sac_set: Dictionary = {}
+	for m in sac_mids:
+		sac_set[int(m)] = true
+	for x in _last_snap.get("your_field", []) as Array:
+		var r: Dictionary = x as Dictionary
+		if sac_set.has(int(r.get("mid", -1))):
+			rg.append(r)
+	if rg.is_empty():
+		status_label.text = "No rituals in your crypt."
+		return
+	if rg.size() == 1:
+		_submit_inc_play_full(sac_mids, [], {"renew_ritual_crypt_idx": 0})
+		return
+	_renew_incantation_pick = true
 	if _aeoiu_header_label:
 		_aeoiu_header_label.text = "Renew — choose a ritual from your crypt"
 	for c in _aeoiu_crypt_row.get_children():
 		c.queue_free()
-	var rg: Array = _filtered_crypt_cards(_your_crypt_cards_from_snap(_last_snap), ["ritual"])
 	var idx := 0
 	for card in rg:
 		var cd: Dictionary = card as Dictionary
