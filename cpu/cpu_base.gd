@@ -1066,7 +1066,6 @@ func _execute_action(host: Node, snap: Dictionary, action: Dictionary) -> bool:
 				var elig := _revive_eligible_indices(your_crypt)
 				var pick := choose_revive_target(your_crypt, elig)
 				if pick >= 0:
-					# convert global crypt idx to incantation-filtered idx
 					var inc_filtered := -1
 					var running := 0
 					for ci in your_crypt.size():

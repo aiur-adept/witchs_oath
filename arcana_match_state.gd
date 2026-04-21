@@ -2541,6 +2541,9 @@ func play_incantation(p: int, hand_idx: int, sacrifice_mids: Array, wrath_mids: 
 			mids_yyt_val[int(m)] = true
 		if _validate_renew_ctx_presacrifice(p, ctx_use, mids, mids_yyt_val) != "ok":
 			return "illegal"
+	elif verb == "revive":
+		if _validate_revive_chain(p, n, ctx_use) != "ok":
+			return "illegal"
 	elif _validate_play_ctx(p, verb, n, wrath_mids, ctx_use) != "ok":
 		return "illegal"
 	var payment_text: String

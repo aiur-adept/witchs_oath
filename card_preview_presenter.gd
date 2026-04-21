@@ -477,7 +477,7 @@ static func card_rules_text(card: Dictionary) -> String:
 		"renew":
 			return "Renew %d: play 1 Ritual from your crypt (in addition to your normal ritual play for the turn)." % n
 		"wrath":
-			return "Wrath: destroy 1 opponent ritual."
+			return "Wrath: destroy 1 opponent ritual. From hand, sacrifice one of your rituals as cost; when cast via Revive, this sacrifice is not required."
 		"deluge":
 			return "Deluge %d: destroy all wild (non-nested) birds with power %d or less, then all nested birds become wild again." % [n, n - 1]
 		"tears":
@@ -569,7 +569,7 @@ static func _temple_preview_text(temple_id: String) -> String:
 		"delpha_oracles":
 			return "Activate (once per turn): send a Ritual of power X to the abyss, then discard the top 2X cards of your own deck, then play a Ritual from your crypt."
 		"gotha_illness":
-			return "Skip your draw step. Activate (once per turn): discard a non-temple card, then draw cards equal to its power/cost."
+			return "Skip your draw step. Activate (once per turn): discard a non-temple card, then draw cards equal to its cost (or power if Ritual)."
 		"ytria_cycles":
 			return "Activate (once per turn): discard your hand, then draw that many cards."
 		"eyrie_feathers":
