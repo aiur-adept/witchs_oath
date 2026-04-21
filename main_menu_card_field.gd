@@ -2,7 +2,8 @@ extends Control
 
 const GalleryCatalog = preload("res://gallery_catalog.gd")
 
-const _SPEED := 38.0
+const _FIELD_SCALE := CardPreviewPresenter.PREVIEW_SCALE * 0.618
+const _SPEED := 30.0
 const _MARGIN := 96.0
 
 var _catalog: Array[Dictionary] = []
@@ -18,7 +19,7 @@ var _dim: ColorRect
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_vel = Vector2(1.0, 0.62).normalized() * _SPEED
-	_cell_px = CardPreviewPresenter.preview_pixel_size({})
+	_cell_px = CardPreviewPresenter.preview_pixel_size({"card_scale": _FIELD_SCALE})
 	_bg = ColorRect.new()
 	_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -32,7 +33,7 @@ func _ready() -> void:
 	_dim = ColorRect.new()
 	_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_dim.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_dim.color = Color(0, 0, 0, 0.5)
+	_dim.color = Color(0, 0, 0, 0.618)
 	add_child(_dim)
 	_build_catalog()
 	if _catalog.is_empty():
@@ -110,6 +111,8 @@ func _spawn_cell(ij: Vector2i) -> void:
 	var prev: Dictionary = CardPreviewPresenter.build_preview_panel(self, {
 		"parent_slot": host,
 		"mode": "slot",
+		"ui_scale": _FIELD_SCALE,
+		"card_scale": _FIELD_SCALE,
 		"name": "MenuBgCard",
 		"z_index": 0,
 	})
