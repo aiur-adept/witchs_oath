@@ -151,21 +151,30 @@ func can_play_aeoiu_ritual(p: int) -> bool:
 	return not _ritual_crypt_cards(_players[p]).is_empty()
 
 
-func _validate_yytzr_extra_sacrifice(p: int, primary_mids: Dictionary, extra: Array) -> bool:
-	var esum := 0
-	for m in extra:
-		var mid := int(m)
-		if primary_mids.has(mid):
-			return false
-		var found := false
-		for x in _players[p]["field"]:
-			if int(x["mid"]) == mid:
-				esum += int(x["value"])
-				found = true
-				break
-		if not found:
-			return false
-	return esum >= 2
+func match_power_loss_for_sacrificing_field_ritual(p: int, mid: int) -> int:
+	if not _ritual_mid_on_player_field(p, mid):
+		return 999999
+	var before := match_power(p)
+	var pl := _players[p]
+	var trial: Array = []
+	for x in pl["field"] as Array:
+		if int(x.get("mid", -1)) == mid:
+			continue
+		trial.append(x)
+	var act := active_mask_for_field(trial)
+	var rp := 0
+	for i in trial.size():
+		if bool(act[i]):
+			rp += int(trial[i].get("value", 0))
+	var bird_power := (pl["bird_field"] as Array).size()
+	var eyrie_nested_bonus := 0
+	for temple in _temple_field_safe(p):
+		var td := temple as Dictionary
+		if str(td.get("temple_id", "")) != TEMPLE_EYRIE:
+			continue
+		eyrie_nested_bonus += (td.get("nested_bird_mids", []) as Array).size()
+	var after := rp + bird_power + eyrie_nested_bonus
+	return before - after
 
 
 func _validate_renew_ctx(p: int, ctx: Dictionary) -> String:
@@ -173,48 +182,46 @@ func _validate_renew_ctx(p: int, ctx: Dictionary) -> String:
 	var rg: Array = _ritual_crypt_cards(_players[p])
 	if ridx < 0 or ridx >= rg.size():
 		return "illegal_target"
-	var yyt: Array = ctx.get("yytzr_extra_sac_mids", []) as Array
 	var r2 := int(ctx.get("renew_second_ritual_crypt_idx", -1))
-	if yyt.is_empty():
-		if r2 >= 0:
+	var ydi := int(ctx.get("yytzr_extra_discard_hand_idx", -1))
+	if r2 >= 0:
+		if not _noble_on_field(p, "yytzr_occultation"):
 			return "illegal"
-		return "ok"
-	if not _noble_on_field(p, "yytzr_occultation"):
+		if r2 >= rg.size() or r2 == ridx:
+			return "illegal_target"
+		if ydi < 0:
+			return "illegal"
+	elif ydi >= 0:
 		return "illegal"
-	if r2 < 0 or r2 >= rg.size() or r2 == ridx:
-		return "illegal"
-	var g0 := _ritual_crypt_index_to_crypt_index(_players[p], ridx)
-	var g1 := _ritual_crypt_index_to_crypt_index(_players[p], r2)
-	if g0 < 0 or g1 < 0 or g0 == g1:
-		return "illegal_target"
 	return "ok"
 
 
-func _ritual_count_after_main_and_yyt_sacrifice(p: int, mids_main: Dictionary, mids_yyt: Dictionary) -> int:
+func _ritual_crypt_count_after_payment_sacrifice(p: int, mids_main: Dictionary) -> int:
 	var n: int = _ritual_crypt_cards(_players[p]).size()
 	for x in _players[p]["field"]:
 		if _card_kind(x) != "ritual":
 			continue
 		var mid := int(x["mid"])
-		if mids_main.has(mid) or mids_yyt.has(mid):
+		if mids_main.has(mid):
 			n += 1
 	return n
 
 
-func _validate_renew_ctx_presacrifice(p: int, ctx: Dictionary, mids_main: Dictionary, mids_yyt: Dictionary) -> String:
-	var total: int = _ritual_count_after_main_and_yyt_sacrifice(p, mids_main, mids_yyt)
+func _validate_renew_ctx_presacrifice(p: int, ctx: Dictionary, mids_main: Dictionary, _unused: Dictionary) -> String:
+	var total: int = _ritual_crypt_count_after_payment_sacrifice(p, mids_main)
 	var ridx := int(ctx.get("renew_ritual_crypt_idx", -1))
 	if ridx < 0 or ridx >= total:
 		return "illegal_target"
-	var yyt: Array = ctx.get("yytzr_extra_sac_mids", []) as Array
 	var r2 := int(ctx.get("renew_second_ritual_crypt_idx", -1))
-	if yyt.is_empty():
-		if r2 >= 0:
+	var ydi := int(ctx.get("yytzr_extra_discard_hand_idx", -1))
+	if r2 >= 0:
+		if not _noble_on_field(p, "yytzr_occultation"):
 			return "illegal"
-		return "ok"
-	if not _noble_on_field(p, "yytzr_occultation"):
-		return "illegal"
-	if r2 < 0 or r2 >= total or r2 == ridx:
+		if r2 >= total or r2 == ridx:
+			return "illegal_target"
+		if ydi < 0:
+			return "illegal"
+	elif ydi >= 0:
 		return "illegal"
 	return "ok"
 
@@ -1928,13 +1935,16 @@ func _validate_revive_chain(p: int, _value: int, ctx: Dictionary) -> String:
 	var steps: Array = ctx.get("revive_steps", []) as Array
 	if steps.is_empty():
 		steps = [ctx]
-	var yyt: Array = ctx.get("yytzr_extra_sac_mids", []) as Array
-	var want_steps := 1
-	if not yyt.is_empty():
+	var ydi := int(ctx.get("yytzr_extra_discard_hand_idx", -1))
+	var want_steps := steps.size()
+	if want_steps != 1 and want_steps != 2:
+		return "illegal"
+	if want_steps == 2:
 		if not _noble_on_field(p, "yytzr_occultation"):
 			return "illegal"
-		want_steps = 2
-	if steps.size() != want_steps:
+		if ydi < 0:
+			return "illegal"
+	elif ydi >= 0:
 		return "illegal"
 	var sim: Array = _inc_crypt_cards(_players[p]).duplicate()
 	for step in steps:
@@ -2151,26 +2161,24 @@ func apply_noble_revive_from_crypt(p: int, noble_mid: int, ctx: Dictionary) -> S
 		return "illegal"
 	if _validate_play_ctx(p, "revive", 1, [], ctx) != "ok":
 		return "illegal"
+	var pl: Dictionary = _players[p]
 	var steps: Array = ctx.get("revive_steps", []) as Array
 	if steps.is_empty():
 		steps = [ctx]
-	var yyt: Array = ctx.get("yytzr_extra_sac_mids", []) as Array
+	var ydi := int(ctx.get("yytzr_extra_discard_hand_idx", -1))
 	if steps.size() > 2:
 		return "illegal"
 	if steps.size() == 2:
-		if not _validate_yytzr_extra_sacrifice(p, {}, yyt):
+		var hand0: Array = pl["hand"] as Array
+		if ydi < 0 or ydi >= hand0.size():
 			return "illegal"
-		var ed: Dictionary = {}
-		for m in yyt:
-			ed[int(m)] = true
-		_apply_sacrifice(p, ed)
+		_move_hand_card_to_discard(pl, hand0, ydi)
 	var d0: Dictionary = steps[0]
 	if bool(d0.get("revive_skip", false)):
 		_mark_noble_used_this_turn(p, noble_mid)
 		_log("P%d activates Rndrr (Revive 2 skipped)." % p)
 		return "ok"
 	_log("P%d activates Rndrr (Revive from crypt)." % p)
-	var pl: Dictionary = _players[p]
 	for si in steps.size():
 		var d: Dictionary = steps[si]
 		if bool(d.get("revive_skip", false)):
@@ -2235,8 +2243,9 @@ func apply_aeoiu_ritual_from_crypt(p: int, noble_mid: int, crypt_idx: int) -> St
 	var global_crypt_idx := _ritual_crypt_index_to_crypt_index(pl, crypt_idx)
 	if global_crypt_idx < 0:
 		return "illegal"
-	var c: Dictionary = ((pl["crypt"] as Array)[global_crypt_idx] as Dictionary).duplicate(true)
-	(pl["crypt"] as Array).remove_at(global_crypt_idx)
+	var crypt_arr: Array = pl["crypt"] as Array
+	var c: Dictionary = (crypt_arr[global_crypt_idx] as Dictionary).duplicate(true)
+	crypt_arr.remove_at(global_crypt_idx)
 	var mid := _next_mid(pl)
 	pl["field"].append({"mid": mid, "value": int(c["value"])})
 	_mark_noble_used_this_turn(p, noble_mid)
@@ -2520,24 +2529,18 @@ func play_incantation(p: int, hand_idx: int, sacrifice_mids: Array, wrath_mids: 
 			if not _sacrifice_valid(p, n_eff, mids):
 				return "illegal_sacrifice"
 	var ctx_use: Dictionary = ctx.duplicate(true)
-	var yyt_extra: Array = ctx_use.get("yytzr_extra_sac_mids", []) as Array
-	if verb == "revive" and not yyt_extra.is_empty():
+	var ydi := int(ctx_use.get("yytzr_extra_discard_hand_idx", -1))
+	var need_yyt_discard := false
+	if verb == "revive":
+		var st_y: Array = ctx_use.get("revive_steps", []) as Array
+		need_yyt_discard = st_y.size() == 2
+	elif verb == "renew":
+		need_yyt_discard = int(ctx_use.get("renew_second_ritual_crypt_idx", -1)) >= 0
+	if need_yyt_discard:
 		if not _noble_on_field(p, "yytzr_occultation"):
 			return "illegal"
-		var pd_pri: Dictionary = {}
-		if need_sac:
-			for m in sacrifice_mids:
-				pd_pri[int(m)] = true
-		if not _validate_yytzr_extra_sacrifice(p, pd_pri, yyt_extra):
-			return "illegal"
-	if verb == "renew" and not yyt_extra.is_empty():
-		if not _noble_on_field(p, "yytzr_occultation"):
-			return "illegal"
-		var pd_pri_r: Dictionary = {}
-		if need_sac:
-			for m in sacrifice_mids:
-				pd_pri_r[int(m)] = true
-		if not _validate_yytzr_extra_sacrifice(p, pd_pri_r, yyt_extra):
+		var hand_y: Array = _players[p]["hand"] as Array
+		if ydi < 0 or ydi >= hand_y.size() or ydi == hand_idx:
 			return "illegal"
 	if verb == "wrath":
 		var werr := _validate_wrath_instigator_sacrifice(p, need_sac, mids, ctx_use)
@@ -2548,10 +2551,7 @@ func play_incantation(p: int, hand_idx: int, sacrifice_mids: Array, wrath_mids: 
 			if wtx >= 0:
 				mids[wtx] = true
 	if verb == "renew":
-		var mids_yyt_val: Dictionary = {}
-		for m in yyt_extra:
-			mids_yyt_val[int(m)] = true
-		if _validate_renew_ctx_presacrifice(p, ctx_use, mids, mids_yyt_val) != "ok":
+		if _validate_renew_ctx_presacrifice(p, ctx_use, mids, {}) != "ok":
 			return "illegal"
 	elif verb == "revive":
 		if _validate_revive_chain(p, n, ctx_use) != "ok":
@@ -2564,17 +2564,12 @@ func play_incantation(p: int, hand_idx: int, sacrifice_mids: Array, wrath_mids: 
 	else:
 		payment_text = _incantation_payment_text(p, n_eff, need_sac, mids)
 	_apply_sacrifice(p, mids)
-	if verb == "revive" and not yyt_extra.is_empty():
-		var ed: Dictionary = {}
-		for m in yyt_extra:
-			ed[int(m)] = true
-		_apply_sacrifice(p, ed)
-	if verb == "renew" and not yyt_extra.is_empty():
-		var edr: Dictionary = {}
-		for m in yyt_extra:
-			edr[int(m)] = true
-		_apply_sacrifice(p, edr)
 	var pl: Dictionary = _players[p]
+	var hand: Array = pl["hand"] as Array
+	if need_yyt_discard:
+		_move_hand_card_to_discard(pl, hand, ydi)
+		if ydi < hand_idx:
+			hand_idx -= 1
 	pl["hand"].remove_at(hand_idx)
 	var label := incantation_display_name(verb, verb_raw, n)
 	var frame := {

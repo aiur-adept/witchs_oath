@@ -265,6 +265,18 @@ class MatchState:
         eyrie_nested_bonus = sum(len(t.nested) for t in p.temple_field if t.temple_id == "eyrie_feathers")
         return self.ritual_power(pid) + len(p.bird_field) + eyrie_nested_bonus
 
+    def match_power_loss_remove_ritual(self, pid: int, mid: int) -> int:
+        p = self.players[pid]
+        if not any(r.mid == mid for r in p.field):
+            return 10**9
+        before = self.match_power(pid)
+        trial = [r for r in p.field if r.mid != mid]
+        old = p.field
+        p.field = trial
+        after = self.match_power(pid)
+        p.field = old
+        return before - after
+
     # --------------------------------------------------------------- ring reductions
 
     def _sum_ring_reduction(self, pid: int, key: str) -> int:
@@ -544,8 +556,27 @@ class MatchState:
         if c.verb == VERB_WRATH:
             if not self._wrath_instigator_sac_ok(pid, need_payment_sac, pay_set, ctx):
                 return
+        need_yyt = False
+        if c.verb == VERB_RENEW:
+            r2 = ctx.get("renew_second_ritual_crypt_idx")
+            need_yyt = r2 is not None and int(r2) >= 0
+            if need_yyt:
+                if not self.has_noble(pid, "yytzr_occultation"):
+                    return
+                ydi = ctx.get("yytzr_extra_discard_hand_idx")
+                if ydi is None:
+                    return
+                ydi = int(ydi)
+                if ydi < 0 or ydi >= len(p.hand) or ydi == hand_idx:
+                    return
         if sac_mids:
             self._sacrifice(pid, sac_mids)
+        if c.verb == VERB_RENEW and need_yyt:
+            ydi = int(ctx["yytzr_extra_discard_hand_idx"])
+            if 0 <= ydi < len(p.hand):
+                p.crypt.append(p.hand.pop(ydi))
+                if ydi < hand_idx:
+                    hand_idx -= 1
         card = p.hand.pop(hand_idx)
         self._note_non_ritual_play(pid, card)
         resolved = self._resolve_incantation_effect(pid, card, ctx)
@@ -787,12 +818,31 @@ class MatchState:
         if not ritual_indices:
             return
         rf = ctx.get("renew_ritual_crypt_idx")
-        if rf is not None and 0 <= int(rf) < len(ritual_indices):
-            gi = ritual_indices[int(rf)]
+        if rf is None:
+            return
+        rf = int(rf)
+        if rf < 0 or rf >= len(ritual_indices):
+            return
+        g0 = ritual_indices[rf]
+        r2 = ctx.get("renew_second_ritual_crypt_idx")
+        if r2 is None or int(r2) < 0:
+            c = p.crypt.pop(g0)
+            p.field.append(Ritual(mid=self.mid(), value=c.value))
+            return
+        r2 = int(r2)
+        if r2 >= len(ritual_indices) or r2 == rf:
+            return
+        g1 = ritual_indices[r2]
+        if g0 == g1:
+            return
+        if g0 > g1:
+            c0 = p.crypt.pop(g0)
+            c1 = p.crypt.pop(g1)
         else:
-            gi = max(ritual_indices, key=lambda i: p.crypt[i].value)
-        c = p.crypt.pop(gi)
-        p.field.append(Ritual(mid=self.mid(), value=c.value))
+            c1 = p.crypt.pop(g1)
+            c0 = p.crypt.pop(g0)
+        p.field.append(Ritual(mid=self.mid(), value=c0.value))
+        p.field.append(Ritual(mid=self.mid(), value=c1.value))
 
     def _effect_deluge(self, pid: int, n: int) -> None:
         threshold = n - 1

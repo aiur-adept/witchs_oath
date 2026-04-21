@@ -169,8 +169,9 @@ If empty-deck draw is attempted:
 - **Revive 2**: Cast 1 eligible incantation from your crypt.
   - Revive itself cannot be revived.
   - Cards cast this way go to abyss (not crypt).
-  **Renew 3**: Play 1 Ritual from your crypt.
+- **Renew 3**: Play 1 Ritual from your crypt (pay the incantation's cost normally — active lane or rituals totaling its value).
   - This is in addition to your regular Ritual play for turn.
+  - A Renew cast via Revive uses the same crypt ritual choice (declared in the nested context).
 - **Dethrone 4**: Destroy one opposing noble.
 - **Deluge X**: Destroy all wild Birds of power X-1 or less, then all nested birds become wild again. [comes in Deluge 2, 3 and 4]
 - **Tears 3**: Return a Bird from your crypt to the field. 
@@ -203,7 +204,7 @@ Nobles of cost 4- (Lower Nobles) can only be played by having the active ritual 
   - Your Insight effects affect +1 card.
 - **Yytzr, Revenant of Occultation** (static):
   - Your Burn effects discard an additional 3 cards.
-  - When you play Revive/Renew, you may additionally sacrifice rituals totaling at least 2 to add one extra Revive/Renew step.
+  - When you play Revive/Renew, you may discard a card from hand to add one extra Revive/Renew step.
 
 ### 10.3 Cost 4
 

@@ -1171,8 +1171,34 @@ func choose_aeoiu_crypt_ritual(_snap: Dictionary, default_filtered_idx: int) -> 
 	return default_filtered_idx
 
 
-func amend_revive_ctx(_snap: Dictionary, _your_crypt: Array, _global_pick: int, _ctx: Dictionary) -> void:
-	pass
+func amend_revive_ctx(_host: Node, snap: Dictionary, your_crypt: Array, global_pick: int, ctx: Dictionary) -> void:
+	if global_pick < 0 or global_pick >= your_crypt.size():
+		return
+	var c := your_crypt[global_pick] as Dictionary
+	if _card_kind(c) != "incantation":
+		return
+	if str(c.get("verb", "")).to_lower() != VERB_RENEW:
+		return
+	var r_crypt: Array = snap.get("your_ritual_crypt_cards", []) as Array
+	if r_crypt.is_empty():
+		return
+	var best_rf := 0
+	var best_val := -1
+	for ri in r_crypt.size():
+		var rv := int((r_crypt[ri] as Dictionary).get("value", 0))
+		if rv > best_val:
+			best_val = rv
+			best_rf = ri
+	var steps: Array = ctx.get("revive_steps", []) as Array
+	if steps.is_empty():
+		return
+	var s0: Dictionary = (steps[0] as Dictionary).duplicate(true)
+	var nested: Dictionary = s0.get("nested", {}) as Dictionary
+	nested = nested.duplicate(true) if not nested.is_empty() else {}
+	nested["renew_ritual_crypt_idx"] = best_rf
+	s0["nested"] = nested
+	steps[0] = s0
+	ctx["revive_steps"] = steps
 
 
 # =========================================================================
@@ -1226,7 +1252,7 @@ func _execute_action(host: Node, snap: Dictionary, action: Dictionary) -> bool:
 						running += 1
 					if inc_filtered >= 0:
 						ctx["revive_steps"] = [{"revive_crypt_idx": inc_filtered}]
-						amend_revive_ctx(snap, your_crypt, pick, ctx)
+						amend_revive_ctx(host, snap, your_crypt, pick, ctx)
 					else:
 						ctx["revive_steps"] = [{"revive_skip": true}]
 				else:
@@ -1281,6 +1307,7 @@ func _execute_action(host: Node, snap: Dictionary, action: Dictionary) -> bool:
 							running += 1
 						if inc_filtered >= 0:
 							steps_ctx = {"revive_steps": [{"revive_crypt_idx": inc_filtered}]}
+							amend_revive_ctx(host, snap, your_crypt, pick, steps_ctx)
 				if host._match.apply_noble_revive_from_crypt(1, int(action["noble_mid"]), steps_ctx) != "ok":
 					return false
 				host._broadcast_sync(false)

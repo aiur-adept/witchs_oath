@@ -99,7 +99,6 @@ const INC_PICK_BURN_TGT := 4
 const INC_PICK_WOE_TGT := 5
 const INC_PICK_WOE_SELF := 6
 const INC_PICK_REVIVE := 7
-const INC_PICK_YTTR := 8
 const INC_PICK_SMRSK := 9
 const INC_PICK_RMRSK := 10
 const INC_PICK_BIRD_ATTACK := 11
@@ -180,8 +179,12 @@ var _revive_nested_renew_inc_idx: int = -1
 var _yytzr_pending_first_ctx: Dictionary = {}
 var _yytzr_first_step: Dictionary = {}
 var _yytzr_waits_second_crypt: bool = false
-var _yytzr_extra_sac_mids: Array = []
+var _yytzr_stored_discard_hand_idx: int = -1
+var _yytzr_discard_picking: bool = false
 var _yytzr_from_renew: bool = false
+var _yytzr_saved_hand_idx: int = -1
+var _yytzr_saved_n: int = 0
+var _yytzr_saved_effect_sac: Array = []
 var _single_ritual_pick_mid: int = -1
 var _last_scion_prompt_id: int = -1
 
@@ -418,9 +421,13 @@ func _yytzr_should_offer_renew_bonus(ctx: Dictionary) -> bool:
 func _yytzr_clear_bonus_state() -> void:
 	_yytzr_waits_second_crypt = false
 	_yytzr_first_step = {}
-	_yytzr_extra_sac_mids.clear()
+	_yytzr_stored_discard_hand_idx = -1
+	_yytzr_discard_picking = false
 	_yytzr_pending_first_ctx = {}
 	_yytzr_from_renew = false
+	_yytzr_saved_hand_idx = -1
+	_yytzr_saved_n = 0
+	_yytzr_saved_effect_sac = []
 
 
 func _ready() -> void:
@@ -877,6 +884,30 @@ func _hide_discard_prompt() -> void:
 
 
 func _on_discard_prompt_cancel_pressed() -> void:
+	if _yytzr_discard_picking:
+		_yytzr_discard_picking = false
+		var pend := _yytzr_pending_first_ctx.duplicate(true)
+		var hi_c := _yytzr_saved_hand_idx
+		var nn_c := _yytzr_saved_n
+		var esac_c := _yytzr_saved_effect_sac.duplicate()
+		_yytzr_clear_bonus_state()
+		_hide_discard_prompt()
+		_pending_inc_hand_idx = hi_c
+		_pending_inc_n = nn_c
+		_effect_sac = esac_c
+		if _revive_ui_for_noble_mid >= 0:
+			var nm_c := _revive_ui_for_noble_mid
+			_revive_ui_for_noble_mid = -1
+			if _is_network_client():
+				submit_noble_revive.rpc_id(1, nm_c, pend)
+			else:
+				if _match != null:
+					_match.apply_noble_revive_from_crypt(_my_player_for_action(), nm_c, pend)
+			_clear_incantation_flow_ui()
+			_broadcast_sync(true)
+		else:
+			_submit_inc_play_full(esac_c, [], pend)
+		return
 	var was_picking := _sndrr_picking or _wndrr_picking or _gotha_picking
 	_sndrr_picking = false
 	_sndrr_noble_mid = -1
@@ -1473,12 +1504,13 @@ func _on_revive_nested_renew_ritual_chosen(ridx: int) -> void:
 	_clear_revive_overlay()
 	var inc_idx := _revive_nested_renew_inc_idx
 	_revive_nested_renew_inc_idx = -1
-	var steps := [{
-		"revive_skip": false,
-		"revive_crypt_idx": inc_idx,
-		"nested": {"renew_ritual_crypt_idx": ridx}
-	}]
-	_finalize_revive_cast({"revive_steps": steps})
+	_finalize_revive_cast({
+		"revive_steps": [{
+			"revive_skip": false,
+			"revive_crypt_idx": inc_idx,
+			"nested": {"renew_ritual_crypt_idx": ridx}
+		}]
+	})
 
 
 func _begin_tears_hand_ui(hand_idx: int, n: int, sac_mids: Array) -> void:
@@ -1519,7 +1551,48 @@ func _on_tears_crypt_chosen(bird_idx: int) -> void:
 
 
 func _finalize_revive_cast(ctx: Dictionary) -> void:
+	if _yytzr_waits_second_crypt:
+		var steps2: Array = ctx.get("revive_steps", []) as Array
+		if steps2.is_empty() or bool((steps2[0] as Dictionary).get("revive_skip", false)):
+			var subf := _yytzr_pending_first_ctx.duplicate(true)
+			_yytzr_clear_bonus_state()
+			if _revive_ui_for_noble_mid >= 0:
+				var nm0 := _revive_ui_for_noble_mid
+				_revive_ui_for_noble_mid = -1
+				if _is_network_client():
+					submit_noble_revive.rpc_id(1, nm0, subf)
+				else:
+					if _match != null:
+						_match.apply_noble_revive_from_crypt(_my_player_for_action(), nm0, subf)
+				_clear_incantation_flow_ui()
+				_broadcast_sync(true)
+			else:
+				_submit_inc_play_full(_effect_sac, [], subf)
+			return
+		var s2: Dictionary = (steps2[0] as Dictionary).duplicate(true)
+		var merged := {
+			"revive_steps": [_yytzr_first_step.duplicate(true), s2],
+			"yytzr_extra_discard_hand_idx": _yytzr_stored_discard_hand_idx
+		}
+		_yytzr_clear_bonus_state()
+		if _revive_ui_for_noble_mid >= 0:
+			var nm1 := _revive_ui_for_noble_mid
+			_revive_ui_for_noble_mid = -1
+			if _is_network_client():
+				submit_noble_revive.rpc_id(1, nm1, merged)
+			else:
+				if _match != null:
+					_match.apply_noble_revive_from_crypt(_my_player_for_action(), nm1, merged)
+			_clear_incantation_flow_ui()
+			_broadcast_sync(true)
+		else:
+			_submit_inc_play_full(_effect_sac, [], merged)
+		return
 	if _revive_ui_for_noble_mid >= 0:
+		if _yytzr_should_offer_bonus(ctx):
+			_yytzr_pending_first_ctx = ctx.duplicate(true)
+			_start_yytzr_bonus_sacrifice_ui()
+			return
 		var nm := _revive_ui_for_noble_mid
 		_revive_ui_for_noble_mid = -1
 		if _is_network_client():
@@ -1529,27 +1602,12 @@ func _finalize_revive_cast(ctx: Dictionary) -> void:
 				_match.apply_noble_revive_from_crypt(_my_player_for_action(), nm, ctx)
 		_clear_incantation_flow_ui()
 		_broadcast_sync(true)
-	else:
-		if _yytzr_waits_second_crypt:
-			var steps2: Array = ctx.get("revive_steps", []) as Array
-			if steps2.is_empty() or bool((steps2[0] as Dictionary).get("revive_skip", false)):
-				var subf := _yytzr_pending_first_ctx.duplicate(true)
-				_yytzr_clear_bonus_state()
-				_submit_inc_play_full(_effect_sac, [], subf)
-				return
-			var s2: Dictionary = (steps2[0] as Dictionary).duplicate(true)
-			var merged := {
-				"revive_steps": [_yytzr_first_step.duplicate(true), s2],
-				"yytzr_extra_sac_mids": _yytzr_extra_sac_mids.duplicate()
-			}
-			_yytzr_clear_bonus_state()
-			_submit_inc_play_full(_effect_sac, [], merged)
-			return
-		if _yytzr_should_offer_bonus(ctx):
-			_yytzr_pending_first_ctx = ctx.duplicate(true)
-			_start_yytzr_bonus_sacrifice_ui()
-			return
-		_submit_inc_play_full(_effect_sac, [], ctx)
+		return
+	if _yytzr_should_offer_bonus(ctx):
+		_yytzr_pending_first_ctx = ctx.duplicate(true)
+		_start_yytzr_bonus_sacrifice_ui()
+		return
+	_submit_inc_play_full(_effect_sac, [], ctx)
 
 
 func _finalize_revive_wrath_submit(wrath_mids: Array) -> void:
@@ -2921,34 +2979,24 @@ func _enter_single_ritual_sacrifice_mode(phase: int, hint: String, confirm_text:
 
 
 func _start_yytzr_bonus_sacrifice_ui() -> void:
-	if _yytzr_from_renew:
-		_sacrifice_selecting = true
-		_inc_pick_phase = INC_PICK_YTTR
-		_sacrifice_need = 2
-		_sacrifice_selected_mids.clear()
-		sacrifice_row.visible = true
-		sacrifice_confirm_button.text = "Confirm sacrifice"
-		sacrifice_hint.text = "Yytzr: sacrifice rituals totaling at least 2 for a second crypt ritual (Renew)."
-		_update_inc_modal_ui()
-		_rebuild_field_strips_from_snap(_last_snap)
-		_rebuild_hand(_last_snap.get("your_hand", []))
-		end_turn_button.disabled = true
-		discard_draw_button.disabled = true
+	var hand: Array = _last_snap.get("your_hand", []) as Array
+	if hand.is_empty():
+		status_label.text = "Yytzr bonus requires a card in hand to discard."
 		return
-	var st: Array = _yytzr_pending_first_ctx.get("revive_steps", []) as Array
-	if st.is_empty():
-		return
-	_yytzr_first_step = (st[0] as Dictionary).duplicate(true)
-	_sacrifice_selecting = true
-	_inc_pick_phase = INC_PICK_YTTR
-	_sacrifice_need = 2
-	_sacrifice_selected_mids.clear()
-	sacrifice_row.visible = true
-	sacrifice_confirm_button.text = "Confirm sacrifice"
-	sacrifice_hint.text = "Yytzr: sacrifice rituals totaling at least 2 for a second crypt cast (Revive)."
-	_update_inc_modal_ui()
-	_rebuild_field_strips_from_snap(_last_snap)
-	_rebuild_hand(_last_snap.get("your_hand", []))
+	_yytzr_saved_hand_idx = _pending_inc_hand_idx
+	_yytzr_saved_n = _pending_inc_n
+	_yytzr_saved_effect_sac = _effect_sac.duplicate()
+	if not _yytzr_from_renew:
+		var st: Array = _yytzr_pending_first_ctx.get("revive_steps", []) as Array
+		if st.is_empty():
+			return
+		_yytzr_first_step = (st[0] as Dictionary).duplicate(true)
+	var msg := "Yytzr — discard one card from hand for a second crypt ritual (Renew)."
+	if not _yytzr_from_renew:
+		msg = "Yytzr — discard one card from hand for a second crypt cast (Revive)."
+	_yytzr_discard_picking = true
+	_show_discard_prompt(msg)
+	_rebuild_hand(hand)
 	end_turn_button.disabled = true
 	discard_draw_button.disabled = true
 
@@ -2989,10 +3037,7 @@ func _clear_sacrifice_mode() -> void:
 func _update_inc_modal_ui() -> void:
 	if not _sacrifice_selecting:
 		return
-	if _inc_pick_phase == INC_PICK_YTTR:
-		var sumy := _sacrifice_selected_sum(_last_snap)
-		sacrifice_confirm_button.disabled = sumy < 2
-	elif _inc_pick_phase == INC_PICK_SAC:
+	if _inc_pick_phase == INC_PICK_SAC:
 		if _inc_sacrifice_exactly_one:
 			sacrifice_confirm_button.disabled = _sacrifice_selected_mids.size() != 1
 		else:
@@ -3207,7 +3252,7 @@ func _show_scion_prompt_ui(snap: Dictionary) -> void:
 func _on_sacrifice_field_clicked(mid: int) -> void:
 	if not _sacrifice_selecting:
 		return
-	if _inc_pick_phase != INC_PICK_SAC and _inc_pick_phase != INC_PICK_YTTR:
+	if _inc_pick_phase != INC_PICK_SAC:
 		if _inc_pick_phase == INC_PICK_SMRSK or _inc_pick_phase == INC_PICK_DELPHA or _inc_pick_phase == INC_PICK_WRATH_TAX:
 			_single_ritual_pick_mid = -1 if _single_ritual_pick_mid == mid else mid
 			_update_inc_modal_ui()
@@ -3805,26 +3850,6 @@ func _on_sacrifice_confirm_pressed() -> void:
 		_pending_inc_hand_idx = hi
 		_submit_inc_play_full([], wm, ctxw)
 		return
-	if _inc_pick_phase == INC_PICK_YTTR:
-		var sumy := _sacrifice_selected_sum(_last_snap)
-		if sumy < 2:
-			return
-		var sac_y: Array = []
-		for k in _sacrifice_selected_mids.keys():
-			sac_y.append(int(k))
-		var hi_y := _pending_inc_hand_idx
-		var nn_y := _pending_inc_n
-		var esac_y := _effect_sac.duplicate()
-		_yytzr_extra_sac_mids = sac_y
-		_yytzr_waits_second_crypt = true
-		_clear_sacrifice_mode()
-		if _yytzr_from_renew:
-			if _aeoiu_header_label:
-				_aeoiu_header_label.text = "Renew — choose a second ritual (Yytzr)"
-			_begin_renew_hand_ui(hi_y, nn_y, esac_y)
-			return
-		_begin_revive_hand_ui(hi_y, nn_y, esac_y)
-		return
 	if _inc_pick_phase == INC_PICK_SMRSK:
 		if _single_ritual_pick_mid < 0:
 			return
@@ -4016,19 +4041,6 @@ func _on_sacrifice_cancel_pressed() -> void:
 		_wrath_instigator_tax_lane_paid = false
 		_clear_sacrifice_mode()
 		if not _last_snap.is_empty():
-			_apply_snap(_last_snap)
-		return
-	if _inc_pick_phase == INC_PICK_YTTR:
-		var pend := _yytzr_pending_first_ctx.duplicate(true)
-		var hi_save := _pending_inc_hand_idx
-		var n_save := _pending_inc_n
-		_yytzr_clear_bonus_state()
-		_clear_sacrifice_mode()
-		if not pend.is_empty():
-			_pending_inc_hand_idx = hi_save
-			_pending_inc_n = n_save
-			_submit_inc_play_full(_effect_sac, [], pend)
-		elif not _last_snap.is_empty():
 			_apply_snap(_last_snap)
 		return
 	if _inc_pick_phase == INC_PICK_SMRSK:
@@ -4297,13 +4309,13 @@ func _on_aeoiu_crypt_chosen(crypt_idx: int) -> void:
 		submit_aeoiu_ritual.rpc_id(1, nm, crypt_idx)
 		return
 	if _match != null:
-		var res: String = _match.apply_aeoiu_ritual_from_crypt(_my_player_for_action(), nm, crypt_idx)
-		if res != "ok":
+		var res_a: String = _match.apply_aeoiu_ritual_from_crypt(_my_player_for_action(), nm, crypt_idx)
+		if res_a != "ok":
 			status_label.text = "Could not play that ritual from the crypt."
-		_broadcast_sync(true)
+	_broadcast_sync(true)
 
 
-func _begin_renew_hand_ui(hand_idx: int, n: int, sac_mids: Array) -> void:
+func _begin_renew_hand_ui(hand_idx: int, n: int, sac_mids: Array, force_crypt_overlay: bool = false) -> void:
 	_pending_inc_hand_idx = hand_idx
 	_pending_inc_n = n
 	_effect_sac = sac_mids.duplicate()
@@ -4318,8 +4330,8 @@ func _begin_renew_hand_ui(hand_idx: int, n: int, sac_mids: Array) -> void:
 	if rg.is_empty():
 		status_label.text = "No rituals in your crypt."
 		return
-	if rg.size() == 1:
-		_submit_inc_play_full(sac_mids, [], {"renew_ritual_crypt_idx": 0})
+	if rg.size() == 1 and not force_crypt_overlay:
+		_submit_inc_play_full(_effect_sac, [], {"renew_ritual_crypt_idx": 0})
 		return
 	_renew_incantation_pick = true
 	if _aeoiu_header_label:
@@ -4354,24 +4366,17 @@ func _on_renew_crypt_chosen(crypt_idx: int) -> void:
 	_aeoiu_overlay.visible = false
 	if _aeoiu_header_label:
 		_aeoiu_header_label.text = "Aeoiu — choose a ritual from your crypt"
-	var hi := _pending_inc_hand_idx
-	var sac: Array = _effect_sac.duplicate()
 	if _yytzr_waits_second_crypt and _yytzr_from_renew:
-		end_turn_button.disabled = false
-		discard_draw_button.disabled = false
 		var first := int(_yytzr_pending_first_ctx.get("renew_ritual_crypt_idx", -1))
-		var extras: Array = _yytzr_extra_sac_mids.duplicate()
 		var ctx_full := {
 			"renew_ritual_crypt_idx": first,
 			"renew_second_ritual_crypt_idx": crypt_idx,
-			"yytzr_extra_sac_mids": extras
+			"yytzr_extra_discard_hand_idx": _yytzr_stored_discard_hand_idx
 		}
-		_yytzr_clear_bonus_state()
-		if _is_network_client():
-			submit_play_inc.rpc_id(1, hi, sac, [], ctx_full)
-		else:
-			_try_play_inc(_my_player_for_action(), hi, sac, [], ctx_full)
-		_broadcast_sync(true)
+		_yytzr_pending_first_ctx.clear()
+		_yytzr_from_renew = false
+		_yytzr_waits_second_crypt = false
+		_submit_inc_play_full(_effect_sac, [], ctx_full)
 		return
 	var ctx_partial := {"renew_ritual_crypt_idx": crypt_idx}
 	if _yytzr_should_offer_renew_bonus(ctx_partial):
@@ -4379,13 +4384,7 @@ func _on_renew_crypt_chosen(crypt_idx: int) -> void:
 		_yytzr_from_renew = true
 		_start_yytzr_bonus_sacrifice_ui()
 		return
-	end_turn_button.disabled = false
-	discard_draw_button.disabled = false
-	if _is_network_client():
-		submit_play_inc.rpc_id(1, hi, sac, [], ctx_partial)
-	else:
-		_try_play_inc(_my_player_for_action(), hi, sac, [], ctx_partial)
-	_broadcast_sync(true)
+	_submit_inc_play_full(_effect_sac, [], ctx_partial)
 
 
 func _on_aeoiu_cancel_pressed() -> void:
@@ -4406,7 +4405,7 @@ func _temple_field_input_ok() -> bool:
 		return false
 	if _gotha_picking:
 		return false
-	if _sndrr_picking or _wndrr_picking:
+	if _sndrr_picking or _wndrr_picking or _yytzr_discard_picking:
 		return false
 	if _delpha_overlay != null and _delpha_overlay.visible:
 		return false
@@ -4605,7 +4604,7 @@ func _rebuild_hand(hand: Variant) -> void:
 		var play_type_blocked := (ritual_blocked or noble_blocked or temple_blocked or bird_blocked) and not _mode_discard_draw and not _selecting_end_discard
 		var waiting_input_window := mine or woe_you or void_pick
 		var gotha_pick := mine and _gotha_picking
-		var noble_cost_pick := mine and (_sndrr_picking or _wndrr_picking)
+		var noble_cost_pick := mine and (_sndrr_picking or _wndrr_picking or _yytzr_discard_picking)
 		var is_disabled := ((not waiting_input_window and not _selecting_end_discard and not _mode_discard_draw) or _sacrifice_selecting or _insight_open or play_type_blocked) and not gotha_pick and not noble_cost_pick
 		if void_pick:
 			is_disabled = not _void_stack_has_discard_candidate(hand_arr, stack_key, _void_chosen_void_idx)
@@ -5122,6 +5121,26 @@ func _on_hand_pressed(hand_idx: int) -> void:
 		_wndrr_noble_mid = -1
 		_hide_discard_prompt()
 		_broadcast_sync(true)
+		return
+	if _yytzr_discard_picking:
+		_yytzr_stored_discard_hand_idx = hand_idx
+		_yytzr_discard_picking = false
+		_yytzr_waits_second_crypt = true
+		_hide_discard_prompt()
+		var hi_y := _yytzr_saved_hand_idx
+		var nn_y := _yytzr_saved_n
+		var esac_y := _yytzr_saved_effect_sac.duplicate()
+		_pending_inc_hand_idx = hi_y
+		_pending_inc_n = nn_y
+		_effect_sac = esac_y
+		end_turn_button.disabled = true
+		discard_draw_button.disabled = true
+		if _yytzr_from_renew:
+			if _aeoiu_header_label:
+				_aeoiu_header_label.text = "Renew — choose a second ritual (Yytzr)"
+			_begin_renew_hand_ui(hi_y, nn_y, esac_y, true)
+		else:
+			_begin_revive_hand_ui(hi_y, nn_y, esac_y, _revive_ui_for_noble_mid)
 		return
 	if _insight_open:
 		return

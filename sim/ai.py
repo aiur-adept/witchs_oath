@@ -885,7 +885,19 @@ class GreedyAI:
         return default_idx
 
     def amend_revive_ctx(self, state: MatchState, pid: int, crypt_idx: int, ctx: dict) -> dict:
-        return ctx
+        me = state.players[pid]
+        if not (0 <= crypt_idx < len(me.crypt)):
+            return ctx
+        c = me.crypt[crypt_idx]
+        if c.kind is not Kind.INCANTATION or c.verb != VERB_RENEW:
+            return ctx
+        ritual_idx = [i for i, cc in enumerate(me.crypt) if cc.kind is Kind.RITUAL]
+        if not ritual_idx:
+            return ctx
+        best_j = max(range(len(ritual_idx)), key=lambda j: me.crypt[ritual_idx[j]].value)
+        out = dict(ctx)
+        out["revive_sub_ctx"] = {"renew_ritual_crypt_idx": best_j}
+        return out
 
     def _end_turn(self, state: MatchState) -> None:
         if state.pending is not None:

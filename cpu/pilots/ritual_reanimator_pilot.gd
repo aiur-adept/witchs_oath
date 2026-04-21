@@ -62,7 +62,8 @@ func choose_burn_target(snap: Dictionary, val: int) -> int:
 	return opp
 
 
-func amend_revive_ctx(snap: Dictionary, your_crypt: Array, global_pick: int, ctx: Dictionary) -> void:
+func amend_revive_ctx(host: Node, snap: Dictionary, your_crypt: Array, global_pick: int, ctx: Dictionary) -> void:
+	super.amend_revive_ctx(host, snap, your_crypt, global_pick, ctx)
 	if global_pick < 0 or global_pick >= your_crypt.size():
 		return
 	var c := your_crypt[global_pick] as Dictionary

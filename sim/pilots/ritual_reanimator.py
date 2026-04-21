@@ -59,6 +59,7 @@ class RitualReanimatorPilot(GreedyAI):
         return opp
 
     def amend_revive_ctx(self, state: MatchState, pid: int, crypt_idx: int, ctx: dict) -> dict:
+        ctx = super().amend_revive_ctx(state, pid, crypt_idx, ctx)
         me = state.players[pid]
         if crypt_idx < 0 or crypt_idx >= len(me.crypt):
             return ctx

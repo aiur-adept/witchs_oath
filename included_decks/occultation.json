@@ -15,58 +15,72 @@
 			"type": "Bird"
 		},
 		{
-			"type": "Incantation",
-			"verb": "deluge",
-			"value": 3
+			"bird_id": "sparrow",
+			"cost": 2,
+			"name": "Sparrow",
+			"power": 1,
+			"type": "Bird"
+		},
+		{
+			"bird_id": "sparrow",
+			"cost": 2,
+			"name": "Sparrow",
+			"power": 1,
+			"type": "Bird"
 		},
 		{
 			"type": "Incantation",
-			"value": 3.0,
+			"value": 3,
+			"verb": "deluge"
+		},
+		{
+			"type": "Incantation",
+			"value": 3,
+			"verb": "deluge"
+		},
+		{
+			"type": "Incantation",
+			"value": 3,
+			"verb": "deluge"
+		},
+		{
+			"type": "Incantation",
+			"value": 3,
 			"verb": "burn"
 		},
 		{
 			"type": "Incantation",
-			"verb": "deluge",
-			"value": 3
-		},
-		{
-			"type": "Incantation",
-			"verb": "deluge",
-			"value": 3
-		},
-		{
-			"type": "Incantation",
-			"value": 2.0,
+			"value": 2,
 			"verb": "revive"
 		},
 		{
 			"type": "Incantation",
-			"value": 3.0,
+			"value": 3,
 			"verb": "renew"
 		},
 		{
 			"type": "Incantation",
-			"value": 3.0,
+			"value": 3,
 			"verb": "renew"
 		},
 		{
 			"type": "Incantation",
-			"value": 3.0,
+			"value": 3,
 			"verb": "renew"
 		},
 		{
 			"type": "Incantation",
-			"value": 3.0,
+			"value": 3,
 			"verb": "renew"
 		},
 		{
 			"type": "Incantation",
-			"value": 4.0,
+			"value": 4,
 			"verb": "burn"
 		},
 		{
 			"type": "Incantation",
-			"value": 4.0,
+			"value": 4,
 			"verb": "burn"
 		},
 		{
@@ -92,148 +106,92 @@
 		},
 		{
 			"type": "Incantation",
-			"value": 4.0,
+			"value": 4,
 			"verb": "dethrone"
 		},
 		{
 			"type": "Incantation",
-			"value": 4.0,
+			"value": 4,
 			"verb": "dethrone"
 		},
 		{
 			"type": "Ritual",
-			"value": 1.0
+			"value": 1
 		},
 		{
 			"type": "Ritual",
-			"value": 1.0
+			"value": 1
 		},
 		{
 			"type": "Ritual",
-			"value": 1.0
+			"value": 1
 		},
 		{
 			"type": "Ritual",
-			"value": 1.0
+			"value": 1
 		},
 		{
 			"type": "Ritual",
-			"value": 1.0
+			"value": 1
 		},
 		{
 			"type": "Ritual",
-			"value": 2.0
+			"value": 2
 		},
 		{
 			"type": "Ritual",
-			"value": 2.0
+			"value": 2
 		},
 		{
 			"type": "Ritual",
-			"value": 2.0
+			"value": 2
 		},
 		{
 			"type": "Ritual",
-			"value": 2.0
+			"value": 2
 		},
 		{
 			"type": "Ritual",
-			"value": 2.0
+			"value": 4
 		},
 		{
 			"type": "Ritual",
-			"value": 4.0
+			"value": 4
 		},
 		{
 			"type": "Ritual",
-			"value": 4.0
+			"value": 4
 		},
 		{
 			"type": "Ritual",
-			"value": 3.0
+			"value": 4
 		},
 		{
 			"type": "Ritual",
-			"value": 3.0
+			"value": 4
 		},
 		{
 			"type": "Ritual",
-			"value": 3.0
+			"value": 4
 		},
 		{
 			"type": "Ritual",
-			"value": 4.0
+			"value": 4
 		},
 		{
 			"type": "Ritual",
-			"value": 4.0
+			"value": 3
 		},
 		{
 			"type": "Ritual",
-			"value": 4.0
+			"value": 3
 		},
 		{
 			"type": "Ritual",
-			"value": 4.0
-		},
-		{
-			"bird_id": "sparrow",
-			"cost": 2,
-			"name": "Sparrow",
-			"power": 1,
-			"type": "Bird"
-		},
-		{
-			"bird_id": "sparrow",
-			"cost": 2,
-			"name": "Sparrow",
-			"power": 1,
-			"type": "Bird"
+			"value": 3
 		}
 	],
 	"counts": {
-		"dethrones": 2.0,
-		"incantations": {
-			"burn_1": 2.0,
-			"burn_2": 2.0,
-			"burn_3": 1,
-			"burn_4": 2.0,
-			"renew_3": 4.0,
-			"dethrone_4": 0.0,
-			"insight_1": 0.0,
-			"insight_2": 0.0,
-			"insight_3": 0.0,
-			"insight_4": 0.0,
-			"revive_2": 1,
-			"seek_1": 0.0,
-			"seek_2": 0.0,
-			"seek_3": 0.0,
-			"seek_4": 0.0,
-			"woe_3": 0.0,
-			"woe_4": 0.0,
-			"wrath_0": 0.0,
-			"deluge_3": 3
-		},
-		"nobles": {
-			"aeoiu_rituals": 1.0,
-			"bndrr_incantation": 0.0,
-			"indrr_incantation": 0.0,
-			"krss_power": 0.0,
-			"rndrr_incantation": 1.0,
-			"sndrr_incantation": 0.0,
-			"trss_power": 0.0,
-			"wndrr_incantation": 0.0,
-			"xytzr_emanation": 0.0,
-			"yrss_power": 0.0,
-			"yytzr_occultation": 1.0,
-			"zytzr_annihilation": 0.0
-		},
-		"rituals": {
-			"1": 5.0,
-			"2": 5.0,
-			"3": 3.0,
-			"4": 6.0
-		},
 		"birds": {
 			"eagle": 0,
 			"finch": 0,
@@ -244,14 +202,77 @@
 			"shrike": 0,
 			"sparrow": 4,
 			"wren": 0
+		},
+		"incantations": {
+			"burn_1": 0,
+			"burn_2": 0,
+			"burn_3": 1,
+			"burn_4": 2,
+			"deluge_2": 0,
+			"deluge_3": 3,
+			"deluge_4": 0,
+			"dethrone_4": 2,
+			"flight_3": 0,
+			"insight_1": 0,
+			"insight_2": 0,
+			"insight_3": 0,
+			"insight_4": 0,
+			"renew_3": 4,
+			"revive_2": 1,
+			"seek_1": 0,
+			"seek_2": 0,
+			"tears_3": 0,
+			"void_0": 0,
+			"woe_3": 0,
+			"woe_4": 0,
+			"wrath_0": 0
+		},
+		"nobles": {
+			"aeoiu_rituals": 1,
+			"bndrr_incantation": 0,
+			"indrr_incantation": 0,
+			"krss_power": 0,
+			"rmrsk_emanation": 0,
+			"rndrr_incantation": 1,
+			"smrsk_occultation": 0,
+			"sndrr_incantation": 0,
+			"tmrsk_annihilation": 0,
+			"trss_power": 0,
+			"wndrr_incantation": 0,
+			"xytzr_emanation": 0,
+			"yrss_power": 0,
+			"yytzr_occultation": 1,
+			"zytzr_annihilation": 0
+		},
+		"rings": {
+			"celadon_annihilation": 0,
+			"cymbil_occultation": 1,
+			"serraf_nobles": 0,
+			"sinofia_feathers": 0,
+			"sybiline_emanation": 0
+		},
+		"rituals": {
+			"1": 5,
+			"2": 4,
+			"3": 3,
+			"4": 7
+		},
+		"temples": {
+			"delpha_oracles": 0,
+			"eyrie_feathers": 0,
+			"gotha_illness": 0,
+			"phaedra_illusion": 0,
+			"ytria_cycles": 0
 		}
 	},
 	"deck_name": "Occultation",
 	"rules_snapshot": {
-		"max_ritual_copies": 9.0,
-		"non_ritual_target": 21.0,
-		"ritual_target": 19.0,
-		"total_cards": 40.0
+		"max_bird_copies": 4,
+		"max_ritual_copies": 9,
+		"non_ritual_target": 21,
+		"ritual_target": 19,
+		"total_cards_max": 50,
+		"total_cards_min": 40
 	},
-	"schema_version": 1.0
+	"schema_version": 1
 }

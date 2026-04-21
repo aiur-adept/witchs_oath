@@ -475,7 +475,7 @@ static func card_rules_text(card: Dictionary) -> String:
 		"revive":
 			return "Revive %d: you may cast 1 incantation from your crypt (chosen; no ritual cost)." % n
 		"renew":
-			return "Renew %d: play 1 Ritual from your crypt (in addition to your normal ritual play for the turn)." % n
+			return "Renew %d: play 1 Ritual from your crypt (extra ritual play for the turn)." % n
 		"wrath":
 			return "Wrath: destroy 1 opponent ritual. From hand, sacrifice one of your rituals as cost; when cast via Revive, this sacrifice is not required."
 		"deluge":
@@ -613,7 +613,7 @@ static func _noble_preview_text(noble_id: String) -> String:
 		"xytzr_emanation":
 			return "Whenever you Seek, draw an additional card. Whenever you Insight, look at one additional card."
 		"yytzr_occultation":
-			return "Your Burn effects discard an additional 3 cards. When you play Revive or Renew, you may additionally sacrifice rituals totaling at least 2 to add one extra Revive/Renew step."
+			return "Your Burn effects discard an additional 3 cards. When you play Revive or Renew, you may discard a card from hand to add one extra Revive/Renew step."
 		"zytzr_annihilation":
 			return "Whenever you Wrath, destroy one additional opponent ritual. Whenever you Woe, the victim discards one additional card."
 		"aeoiu_rituals":

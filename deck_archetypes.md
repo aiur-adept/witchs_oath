@@ -18,7 +18,7 @@ A pure spellslinger that commits almost nothing to the field beyond rituals. The
 ### Key synergies
 - Revive 2 effectively doubles the Woe/Burn/Seek/Insight payload once the crypt fills up (Renew 3 pulls rituals from crypt instead).
 - The single Wrath is the only disruption against opposing ritual boards; save it for a lane the opponent actually needs (usually their 3-lane for Woe or their 4-lane for Wrath mirror).
-- A 1R + 2R open runs most of the deck; the 2-lane gates Revive 2; the 3-lane gates Woe 3 and Renew 3; the 4-lane gates Wrath.
+- A 1R + 2R open runs most of the deck; the 2-lane gates Woe 3 and Revive 2; the 3-lane gates Renew 3 and Wrath.
 
 ### Weaknesses
 - No nobles, temples, or rings means no ceiling beyond raw ritual power. Reaching 20 match power depends entirely on resolving rituals.
@@ -49,21 +49,22 @@ A tutor/toolbox deck designed to exercise every noble in Set 1. Play a Power-nob
 
 ## 3. Ritual Reanimator
 
-**Ritual curve**: 6/4/4/5
-**Non-rituals**: 4x Burn 1, 4x Burn 2, 4x Burn 3, 1x Burn 4, 3x Insight 2, 3x Revive 2, 1x Aeoiu (Scion of Rituals), 1x Phaedra (Temple of Illusion)
+**Ritual curve**: 5/4/3/7
+**Non-rituals**: 1x Cymbil (Ring of Occultation), 1x Ytria (Temple of Cycles), 1x Aeoiu (Scion of Rituals), 1x Yytzr (Revenant of Occultation), 1x Smrsk (Scion of Occultation), 4x Renew 3, 4x Seek 2, 3x Deluge 3, 1x Insight 2, 4x Sparrow
 
 ### Game plan
-A mill/reanimation hybrid. The curve is barbell-shaped (lots of 1s and 4s) to both guarantee early Burn pressure and sacrifice-fuel for Phaedra (cost 7). Aeoiu's activated ability lets the deck replay one ritual per turn from crypt, pairing with Burn spells that mill into the crypt and Phaedra's Insight+draw to fix the top of the deck.
+Ritual recursion and velocity: **Renew 3** plays an extra ritual from crypt each time, and Aeoiu’s activation adds another ritual from crypt on top of your normal ritual play. The curve is heavy on 1s and 4s so early lanes come online quickly while **Ytria** (cost 9) can reset a full hand late. **Cymbil** makes Renew 3 effectively a 2-lane cast (and would also discount Burn or Revive if this list ran them). Cheap **Seek**, **Insight**, **Deluge**, and **Sparrow**s fill the hand and board while **Yytzr** / **Smrsk** add Occultation nobles—note the list does not run Burn or Wrath, so their rules text that keys off those verbs mostly does not fire here.
 
 ### Key synergies
-- **Aeoiu + crypt** — self-milling via Burn fills the crypt, and Aeoiu pulls any value ritual back each turn, effectively nullifying sacrifice costs for Phaedra, Wrath, etc. This is the primary value engine.
-- **Phaedra + Insight stack** — Phaedra's Insight-then-draw plus dedicated Insight 2 cards manipulate the top of the deck to control what the next turn draws.
-- **Burn 3 / Burn 4** double as opponent-mill win condition and as self-mill fuel for Aeoiu.
+- **Aeoiu + Renew** — Renew and Aeoiu both pull rituals out of the crypt, keeping lanes active after trades or mills.
+- **Ytria + a wide hand** — after Seek/Insight/Deluge and birds, Ytria’s discard-for-draw can reload aggressively.
+- **Cymbil + Renew 3** — one less lane required than the printed cost.
+- **Deluge 3** — board hedge against small wild birds while Renew/Aeoiu rebuild ritual power.
 
 ### Weaknesses
-- No nobles aside from Aeoiu and no ritual-lane grants — if Aeoiu is Dethroned, the reanimation plan collapses.
-- Phaedra is the only temple and costs 7; if discarded or milled it's gone (temples cannot be revived).
-- No Wrath, Woe, or Dethrone — zero opposing-board removal.
+- Very light interaction: no Burn, Woe, Wrath, or Dethrone in the spell suite; noble statics that care about Burn/Wrath are mostly blank.
+- Ytria is a 9-cost sacrifice line; fumbling the ladder strands the top end.
+- Three nobles and a singleton temple are exposed to opposing Dethrone and hand disruption.
 
 ---
 
