@@ -22,10 +22,6 @@
 		},
 		{
 			"type": "Ritual",
-			"value": 1
-		},
-		{
-			"type": "Ritual",
 			"value": 2
 		},
 		{
@@ -54,10 +50,6 @@
 		},
 		{
 			"type": "Ritual",
-			"value": 3
-		},
-		{
-			"type": "Ritual",
 			"value": 4
 		},
 		{
@@ -77,49 +69,24 @@
 			"value": 4
 		},
 		{
-			"type": "Incantation",
-			"value": 3,
-			"verb": "burn"
+			"type": "Ritual",
+			"value": 4
 		},
 		{
-			"type": "Incantation",
-			"value": 3,
-			"verb": "burn"
+			"type": "Ritual",
+			"value": 4
 		},
 		{
-			"type": "Incantation",
-			"value": 3,
-			"verb": "burn"
+			"cost": 2,
+			"name": "Cymbil, Ring of Occultation",
+			"ring_id": "cymbil_occultation",
+			"type": "Ring"
 		},
 		{
-			"type": "Incantation",
-			"value": 3,
-			"verb": "burn"
-		},
-		{
-			"type": "Incantation",
-			"value": 2,
-			"verb": "burn"
-		},
-		{
-			"type": "Incantation",
-			"value": 2,
-			"verb": "burn"
-		},
-		{
-			"type": "Incantation",
-			"value": 2,
-			"verb": "burn"
-		},
-		{
-			"type": "Incantation",
-			"value": 2,
-			"verb": "burn"
-		},
-		{
-			"type": "Incantation",
-			"value": 4,
-			"verb": "burn"
+			"cost": 9,
+			"name": "Ytria, Temple of Cycles",
+			"temple_id": "ytria_cycles",
+			"type": "Temple"
 		},
 		{
 			"name": "Aeoiu, Scion of Rituals",
@@ -127,45 +94,54 @@
 			"type": "Noble"
 		},
 		{
-			"cost": 7,
-			"name": "Phaedra, Temple of Illusion",
-			"temple_id": "phaedra_illusion",
-			"type": "Temple"
+			"name": "Yytzr, Revenant of Occultation",
+			"noble_id": "yytzr_occultation",
+			"type": "Noble"
+		},
+		{
+			"name": "Smrsk, Scion of Occultation",
+			"noble_id": "smrsk_occultation",
+			"type": "Noble"
 		},
 		{
 			"type": "Incantation",
-			"value": 1,
-			"verb": "burn"
+			"value": 3,
+			"verb": "renew"
 		},
 		{
 			"type": "Incantation",
-			"value": 1,
-			"verb": "burn"
+			"value": 3,
+			"verb": "renew"
 		},
 		{
 			"type": "Incantation",
-			"value": 1,
-			"verb": "burn"
+			"value": 3,
+			"verb": "renew"
 		},
 		{
 			"type": "Incantation",
-			"value": 1,
-			"verb": "burn"
-		},
-		{
-			"type": "Incantation",
-			"value": 2,
-			"verb": "revive"
-		},
-		{
-			"type": "Incantation",
-			"value": 2,
-			"verb": "revive"
+			"value": 3,
+			"verb": "renew"
 		},
 		{
 			"type": "Incantation",
 			"value": 2,
-			"verb": "revive"
+			"verb": "seek"
+		},
+		{
+			"type": "Incantation",
+			"value": 2,
+			"verb": "seek"
+		},
+		{
+			"type": "Incantation",
+			"value": 2,
+			"verb": "seek"
+		},
+		{
+			"type": "Incantation",
+			"value": 2,
+			"verb": "seek"
 		},
 		{
 			"type": "Incantation",
@@ -181,6 +157,39 @@
 			"type": "Incantation",
 			"value": 2,
 			"verb": "insight"
+		},
+		{
+			"type": "Incantation",
+			"value": 2,
+			"verb": "insight"
+		},
+		{
+			"bird_id": "sparrow",
+			"cost": 2,
+			"name": "Sparrow",
+			"power": 1,
+			"type": "Bird"
+		},
+		{
+			"bird_id": "sparrow",
+			"cost": 2,
+			"name": "Sparrow",
+			"power": 1,
+			"type": "Bird"
+		},
+		{
+			"bird_id": "sparrow",
+			"cost": 2,
+			"name": "Sparrow",
+			"power": 1,
+			"type": "Bird"
+		},
+		{
+			"bird_id": "sparrow",
+			"cost": 2,
+			"name": "Sparrow",
+			"power": 1,
+			"type": "Bird"
 		}
 	],
 	"counts": {
@@ -192,25 +201,26 @@
 			"kestrel": 0,
 			"raven": 0,
 			"shrike": 0,
-			"sparrow": 0,
+			"sparrow": 4,
 			"wren": 0
 		},
 		"incantations": {
-			"burn_1": 4,
-			"burn_2": 4,
-			"burn_3": 4,
-			"burn_4": 1,
+			"burn_1": 0,
+			"burn_2": 0,
+			"burn_3": 0,
+			"burn_4": 0,
 			"deluge_2": 0,
 			"deluge_3": 0,
 			"deluge_4": 0,
 			"dethrone_4": 0,
 			"insight_1": 0,
-			"insight_2": 3,
+			"insight_2": 4,
 			"insight_3": 0,
 			"insight_4": 0,
-			"revive_2": 3,
+			"renew_3": 4,
+			"revive_2": 0,
 			"seek_1": 0,
-			"seek_2": 0,
+			"seek_2": 4,
 			"tears_3": 0,
 			"void_0": 0,
 			"woe_3": 0,
@@ -224,28 +234,35 @@
 			"krss_power": 0,
 			"rmrsk_emanation": 0,
 			"rndrr_incantation": 0,
-			"smrsk_occultation": 0,
+			"smrsk_occultation": 1,
 			"sndrr_incantation": 0,
 			"tmrsk_annihilation": 0,
 			"trss_power": 0,
 			"wndrr_incantation": 0,
 			"xytzr_emanation": 0,
 			"yrss_power": 0,
-			"yytzr_occultation": 0,
+			"yytzr_occultation": 1,
 			"zytzr_annihilation": 0
 		},
+		"rings": {
+			"celadon_annihilation": 0,
+			"cymbil_occultation": 1,
+			"serraf_nobles": 0,
+			"sinofia_feathers": 0,
+			"sybiline_emanation": 0
+		},
 		"rituals": {
-			"1": 6,
+			"1": 5,
 			"2": 4,
-			"3": 4,
-			"4": 5
+			"3": 3,
+			"4": 7
 		},
 		"temples": {
 			"delpha_oracles": 0,
 			"eyrie_feathers": 0,
 			"gotha_illness": 0,
-			"phaedra_illusion": 1,
-			"ytria_cycles": 0
+			"phaedra_illusion": 0,
+			"ytria_cycles": 1
 		}
 	},
 	"deck_name": "ritual_reanimator",
