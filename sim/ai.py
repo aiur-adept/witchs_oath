@@ -503,6 +503,53 @@ class GreedyAI:
             + self.W_SF_DISCARD_FLOOD * flood
         )
 
+    def _ritual_match_power_gain_if_played(self, state: MatchState, pid: int, value: int) -> int:
+        p = state.players[pid]
+        before = state.match_power(pid)
+        p.field.append(Ritual(mid=-1001, value=value))
+        after = state.match_power(pid)
+        p.field = [r for r in p.field if r.mid != -1001]
+        return max(0, after - before)
+
+    def _card_insight_value(self, state: MatchState, pid: int, card) -> float:
+        if card.kind is Kind.RITUAL:
+            gain = self._ritual_match_power_gain_if_played(state, pid, card.value)
+            if gain > 0:
+                return float(gain)
+        active = state.active_lanes(pid)
+        if card.kind is Kind.INCANTATION:
+            eff = state.effective_incantation_cost(pid, card.verb, card.value)
+            can_play_now = 1 if (eff <= 0 or eff in active) else 0
+            return float(card.value * can_play_now)
+        if card.kind is Kind.NOBLE:
+            eff = state.effective_noble_cost(pid, card.cost)
+            can_play_now = 1 if (eff == 0 or eff in active or eff >= 6) else 0
+            return float(card.cost * can_play_now)
+        if card.kind is Kind.BIRD:
+            eff = state.effective_bird_cost(pid, card.cost)
+            can_play_now = 1 if (eff <= 0 or eff in active) else 0
+            return float(card.cost * can_play_now)
+        if card.kind is Kind.TEMPLE:
+            can_play_now = 1 if _minimal_sac_for_lane(state.players[pid].field, card.cost) is not None else 0
+            return float(card.cost * can_play_now)
+        if card.kind is Kind.RING:
+            can_play_now = 1 if RING_COST in active else 0
+            return float(RING_COST * can_play_now)
+        return 0.0
+
+    def choose_insight_order(self, state: MatchState, pid: int, target_pid: int, revealed_cards: list, must_top_best: bool = True) -> tuple[list[int], list[int]]:
+        scored = [(self._card_insight_value(state, pid, c), i) for i, c in enumerate(revealed_cards)]
+        if not scored:
+            return ([], [])
+        scored.sort(key=lambda t: (-t[0], t[1]))
+        top = [idx for score, idx in scored if score > 0]
+        bottom = [idx for score, idx in scored if score <= 0]
+        if must_top_best and top:
+            best_idx = top[0]
+            rest = [x for x in top[1:]]
+            top = [best_idx] + rest
+        return (top, bottom)
+
     def _score_incantation(self, state: MatchState, pid: int, card) -> Optional[tuple[float, list[int]]]:
         p = state.players[pid]
         active = state.active_lanes(pid)
@@ -581,7 +628,11 @@ class GreedyAI:
         p = state.players[pid]
         if t.temple_id == "phaedra_illusion":
             score = self.W_TEMPLE_PHAEDRA_ACT
-            return (score, "activate_temple", (t.mid, {"insight_target": state.opponent(pid), "insight_bottom": 1}))
+            target = state.opponent(pid)
+            take = min(1, len(state.players[target].deck))
+            revealed = state.players[target].deck[-take:][::-1]
+            top_idx, bottom_idx = self.choose_insight_order(state, pid, target, revealed, True)
+            return (score, "activate_temple", (t.mid, {"insight_target": target, "insight_top": top_idx, "insight_bottom": bottom_idx}))
         if t.temple_id == "delpha_oracles":
             crypt_rituals = [(i, c) for i, c in enumerate(p.crypt) if c.kind is Kind.RITUAL]
             if not p.field or not crypt_rituals:
@@ -635,9 +686,11 @@ class GreedyAI:
         if verb == VERB_SEEK:
             return (self.W_EFFECT_SEEK_BASE + val * self.W_EFFECT_SEEK_VALUE, {})
         if verb == VERB_INSIGHT:
-            bot = self.choose_insight_bottom(state, pid, opp, val)
+            take = min(val + (1 if state.has_noble(pid, "xytzr_emanation") else 0), len(opp_p.deck))
+            revealed = opp_p.deck[-take:][::-1]
+            top_idx, bottom_idx = self.choose_insight_order(state, pid, opp, revealed, True)
             return (self.W_EFFECT_INSIGHT_BASE + val * self.W_EFFECT_INSIGHT_VALUE,
-                    {"insight_target": opp, "insight_bottom": bot})
+                    {"insight_target": opp, "insight_top": top_idx, "insight_bottom": bottom_idx})
         if verb == VERB_BURN:
             target = self.choose_burn_target(state, pid, val)
             return (self.W_EFFECT_BURN_BASE + val * self.W_EFFECT_BURN_VALUE, {"burn_target": target})

@@ -644,6 +644,26 @@ class MatchState:
             return
         top = tgt.deck[-take:]
         tgt.deck[-take:] = []
+        if "insight_top" in ctx or "insight_bottom" in ctx:
+            top_idx = [int(i) for i in ctx.get("insight_top", [])]
+            bottom_idx = [int(i) for i in ctx.get("insight_bottom", [])]
+            seen: set[int] = set()
+            valid = len(top_idx) + len(bottom_idx) == take
+            if valid:
+                for i in top_idx + bottom_idx:
+                    if i < 0 or i >= take or i in seen:
+                        valid = False
+                        break
+                    seen.add(i)
+            if valid:
+                # top[] is in deck order (oldest -> newest), so index from reveal order (newest first).
+                reveal = top[::-1]
+                for i in range(len(top_idx) - 1, -1, -1):
+                    tgt.deck.append(reveal[top_idx[i]])
+                for i in bottom_idx:
+                    tgt.deck.insert(0, reveal[i])
+                self._post_effect_scion_trigger(pid, VERB_INSIGHT)
+                return
         send_bottom = int(ctx.get("insight_bottom", 0))
         send_bottom = max(0, min(send_bottom, take))
         bottom_cards = top[:send_bottom]

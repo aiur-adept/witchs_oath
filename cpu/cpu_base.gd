@@ -730,7 +730,16 @@ func _score_temple_activation(_host: Node, snap: Dictionary, temple: Dictionary)
 	var tmid := int(temple.get("mid", -1))
 	var tid := str(temple.get("temple_id", ""))
 	if tid == "phaedra_illusion":
-		return {"score": W_TEMPLE_PHAEDRA_ACT, "kind": "activate_temple_phaedra", "temple_mid": tmid}
+		var eff: int = int(_host._match.insight_effective_n(1, 1))
+		var revealed: Array = _host._match.insight_peek_top_cards(0, eff) as Array
+		var order := choose_insight_order(_host, snap, 0, revealed, true)
+		return {
+			"score": W_TEMPLE_PHAEDRA_ACT,
+			"kind": "activate_temple_phaedra",
+			"temple_mid": tmid,
+			"insight_top": order.get("insight_top", []),
+			"insight_bottom": order.get("insight_bottom", []),
+		}
 	if tid == "delpha_oracles":
 		var your_field: Array = snap.get("your_field", []) as Array
 		var crypt: Array = snap.get("your_crypt_cards", []) as Array
@@ -824,24 +833,17 @@ func _score_effect(host: Node, snap: Dictionary, verb: String, val: int) -> Vari
 	if v == VERB_SEEK:
 		return {"score": W_EFFECT_SEEK_BASE + float(val) * W_EFFECT_SEEK_VALUE, "ctx": {}}
 	if v == VERB_INSIGHT:
-		var bot := choose_insight_bottom(val)
 		var take: int = host._match.insight_effective_n(1, val)
-		var opp_deck_n := int(snap.get("opp_deck", 0))
-		take = mini(take, opp_deck_n)
-		var top: Array = []
-		var bottom: Array = []
-		if bot <= 0:
-			for i in take:
-				top.append(i)
-		elif bot >= take:
-			for i in take:
-				bottom.append(i)
-		else:
-			for i in range(take - bot):
-				top.append(i)
-			for i in range(take - bot, take):
-				bottom.append(i)
-		return {"score": W_EFFECT_INSIGHT_BASE + float(val) * W_EFFECT_INSIGHT_VALUE, "ctx": {"insight_target": 0, "insight_top": top, "insight_bottom": bottom}}
+		var revealed: Array = host._match.insight_peek_top_cards(0, take) as Array
+		var order := choose_insight_order(host, snap, 0, revealed, true)
+		return {
+			"score": W_EFFECT_INSIGHT_BASE + float(val) * W_EFFECT_INSIGHT_VALUE,
+			"ctx": {
+				"insight_target": 0,
+				"insight_top": order.get("insight_top", []),
+				"insight_bottom": order.get("insight_bottom", []),
+			},
+		}
 	if v == VERB_BURN:
 		var target := choose_burn_target(snap, val)
 		return {"score": W_EFFECT_BURN_BASE + float(val) * W_EFFECT_BURN_VALUE, "ctx": {"mill_target": target}}
@@ -927,6 +929,98 @@ func choose_burn_target(_snap: Dictionary, _val: int) -> int:
 
 func choose_insight_bottom(val: int) -> int:
 	return val
+
+
+func choose_insight_order(host: Node, snap: Dictionary, _target: int, revealed_cards: Array, must_top_best: bool = true) -> Dictionary:
+	var scored: Array = []
+	for i in revealed_cards.size():
+		var c := revealed_cards[i] as Dictionary
+		scored.append({"i": i, "s": _insight_card_score(host, snap, c)})
+	scored.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var sa := float(a.get("s", 0.0))
+		var sb := float(b.get("s", 0.0))
+		if sa == sb:
+			return int(a.get("i", 0)) < int(b.get("i", 0))
+		return sa > sb
+	)
+	var top: Array = []
+	var bottom: Array = []
+	for row in scored:
+		var idx := int((row as Dictionary).get("i", 0))
+		var s := float((row as Dictionary).get("s", 0.0))
+		if s > 0.0:
+			top.append(idx)
+		else:
+			bottom.append(idx)
+	if must_top_best and top.size() > 1:
+		var best_idx := int(top[0])
+		var rest: Array = []
+		for j in range(1, top.size()):
+			rest.append(int(top[j]))
+		top = [best_idx]
+		top.append_array(rest)
+	return {"insight_top": top, "insight_bottom": bottom}
+
+
+func _insight_card_score(host: Node, snap: Dictionary, card: Dictionary) -> float:
+	var k := _card_kind(card)
+	if k == "ritual":
+		var gain := _ritual_match_power_gain_if_played(snap, int(card.get("value", 0)))
+		if gain > 0:
+			return float(gain)
+	var active_lanes: Array = _active_lanes(snap.get("your_field", []) as Array, snap.get("your_nobles", []) as Array)
+	if k == "incantation":
+		var verb := str(card.get("verb", "")).to_lower()
+		var value := int(card.get("value", 0))
+		var eff: int = int(host._match.effective_incantation_cost(1, verb, value))
+		var can_play := 1 if (eff <= 0 or _lane_in_set(active_lanes, eff)) else 0
+		return float(value * can_play)
+	if k == "noble":
+		var cost := _GameSnapshotUtils.noble_cost_for_id(str(card.get("noble_id", "")))
+		var neff: int = int(host._match.effective_noble_cost(1, cost))
+		var can_noble := 1 if (neff == 0 or _lane_in_set(active_lanes, neff) or neff >= 6) else 0
+		return float(cost * can_noble)
+	if k == "bird":
+		var bcost := int(card.get("cost", 0))
+		var beff: int = int(host._match.effective_bird_cost(1, bcost))
+		var can_bird := 1 if (beff <= 0 or _lane_in_set(active_lanes, beff)) else 0
+		return float(bcost * can_bird)
+	if k == "temple":
+		var tcost := _GameSnapshotUtils.temple_cost_for_id(str(card.get("temple_id", "")))
+		var sac := _greedy_sac_min(snap.get("your_field", []) as Array, tcost)
+		var can_temple := 1 if (tcost <= 0 or not sac.is_empty()) else 0
+		return float(tcost * can_temple)
+	if k == "ring":
+		var can_ring := 1 if _lane_in_set(active_lanes, RING_COST) else 0
+		return float(RING_COST * can_ring)
+	return 0.0
+
+
+func _ritual_match_power_gain_if_played(snap: Dictionary, value: int) -> int:
+	var your_field: Array = snap.get("your_field", []) as Array
+	var your_nobles: Array = snap.get("your_nobles", []) as Array
+	var your_birds: Array = snap.get("your_birds", []) as Array
+	var before_lanes := _active_lanes(your_field, your_nobles)
+	var before_ritual_power := _ritual_power_with_lanes(your_field, your_birds, before_lanes)
+	var before_match_power := before_ritual_power + your_birds.size()
+	var synthetic_field: Array = your_field.duplicate()
+	synthetic_field.append({"mid": -9991, "value": value})
+	var after_lanes := _active_lanes(synthetic_field, your_nobles)
+	var after_ritual_power := _ritual_power_with_lanes(synthetic_field, your_birds, after_lanes)
+	var after_match_power := after_ritual_power + your_birds.size()
+	return maxi(0, after_match_power - before_match_power)
+
+
+func _ritual_power_with_lanes(field: Array, birds: Array, lanes: Array) -> int:
+	var total := 0
+	for r in field:
+		var rv := int((r as Dictionary).get("value", 0))
+		if _lane_in_set(lanes, rv):
+			total += rv
+	for b in birds:
+		if int((b as Dictionary).get("nest_temple_mid", -1)) >= 0:
+			total += 1
+	return total
 
 
 # -------- bird fight --------
@@ -1151,7 +1245,9 @@ func _execute_action(host: Node, snap: Dictionary, action: Dictionary) -> bool:
 						return false
 				host._broadcast_sync(false)
 		"activate_temple_phaedra":
-			if host._match.apply_temple_phaedra_insight(1, int(action["temple_mid"]), 0, [], [1]) != "ok":
+			var p_top: Array = action.get("insight_top", []) as Array
+			var p_bottom: Array = action.get("insight_bottom", []) as Array
+			if host._match.apply_temple_phaedra_insight(1, int(action["temple_mid"]), 0, p_top, p_bottom) != "ok":
 				return false
 			host._broadcast_sync(false)
 		"activate_temple_delpha":
