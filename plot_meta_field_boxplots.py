@@ -70,7 +70,7 @@ def main() -> None:
     ax.set_xticks(range(1, n + 1))
     ax.set_xticklabels(names, rotation=40, ha="right")
     ax.set_ylabel("Expected match points (3 / 1 / 0)")
-    ax.set_xlabel("Deck (P1; one sample per P0 opponent in the meta)")
+    ax.set_xlabel("Deck")
     ax.set_title("Matchup spread vs the field — " + args.csv.name)
     ax.grid(axis="y", linestyle=":", alpha=0.5)
     fig.tight_layout()

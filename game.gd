@@ -374,6 +374,7 @@ func _yytzr_clear_bonus_state() -> void:
 
 
 func _ready() -> void:
+	_deck_path = _resolve_selected_deck_path()
 	_ritual_field = _GameRitualFieldView.new(self)
 	set_multiplayer_authority(1)
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1522,7 +1523,6 @@ func _hide_card_hover_preview() -> void:
 
 
 func _load_deck_cards() -> Array:
-	_deck_path = _resolve_selected_deck_path()
 	return _load_cards_from_path(_deck_path)
 
 

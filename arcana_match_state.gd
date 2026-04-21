@@ -1574,6 +1574,7 @@ func submit_scion_trigger_response(p: int, action: String, ctx: Dictionary = {})
 			var berr := execute_incantation_effect(p, "burn", power, [], {"mill_target": p})
 			if berr != "ok":
 				return berr
+			_check_power_win(p)
 			return "ok"
 		"tmrsk_woe":
 			var wt := int(ctx.get("woe_target", -1))
@@ -1597,6 +1598,7 @@ func submit_scion_trigger_response(p: int, action: String, ctx: Dictionary = {})
 			var werr := execute_incantation_effect(p, "woe", 3, [], ctx)
 			if werr != "ok":
 				return werr
+			_check_power_win(p)
 			return "ok"
 		_:
 			return "illegal"
@@ -2007,6 +2009,7 @@ func _run_revive_steps_after_payment(p: int, value: int, ctx: Dictionary, paymen
 			pl["inc_abyss"].append(crypt_card)
 			_queue_post_effect_scion_trigger(p, "renew")
 			_log("P%d Revive casts Renew %d from crypt (%s)." % [p, cn, payment_text])
+			_check_power_win(p)
 			continue
 		var err := execute_incantation_effect(p, cv, cn, wr_r, nested)
 		if err != "ok":
@@ -2014,6 +2017,7 @@ func _run_revive_steps_after_payment(p: int, value: int, ctx: Dictionary, paymen
 			return err
 		pl["inc_abyss"].append(crypt_card)
 		_log("P%d Revive casts %s %d from crypt (%s)." % [p, cv, cn, payment_text])
+		_check_power_win(p)
 	pl["crypt"].append(revive_wrapper)
 	_check_power_win(p)
 	return "ok"
@@ -2121,6 +2125,7 @@ func apply_noble_spell_like(p: int, noble_mid: int, verb: String, value: int, wr
 		return err
 	_queue_post_effect_scion_trigger(p, v)
 	_mark_noble_used_this_turn(p, noble_mid)
+	_check_power_win(p)
 	return "ok"
 
 
@@ -2188,6 +2193,7 @@ func apply_noble_revive_from_crypt(p: int, noble_mid: int, ctx: Dictionary) -> S
 			pl["inc_abyss"].append(crypt_card)
 			_log("P%d Revive casts Renew %d from crypt (Rndrr)." % [p, cn])
 			_queue_post_effect_scion_trigger(p, "renew")
+			_check_power_win(p)
 			continue
 		var err := execute_incantation_effect(p, cv, cn, wr_r, nested)
 		if err != "ok":
@@ -2196,6 +2202,7 @@ func apply_noble_revive_from_crypt(p: int, noble_mid: int, ctx: Dictionary) -> S
 		pl["inc_abyss"].append(crypt_card)
 		_log("P%d Revive casts %s %d from crypt (Rndrr)." % [p, cv, cn])
 		_queue_post_effect_scion_trigger(p, cv)
+		_check_power_win(p)
 	_mark_noble_used_this_turn(p, noble_mid)
 	_queue_post_effect_scion_trigger(p, "revive")
 	return "ok"
@@ -2355,6 +2362,7 @@ func apply_temple_phaedra_insight(p: int, temple_mid: int, insight_target: int, 
 	_queue_post_effect_scion_trigger(p, "insight")
 	_draw_n(p, 1)
 	_mark_temple_used_this_turn(p, temple_mid)
+	_check_power_win(p)
 	return "ok"
 
 
@@ -2806,8 +2814,10 @@ func resolve_spell_like_effect(p: int, verb: String, value: int, ctx: Dictionary
 	var wr: Array = []
 	if v == "wrath":
 		wr = _wrath_resolve_mids(1 - p, value, [], p)
-	execute_incantation_effect(p, v, value, wr, ctx)
+	if execute_incantation_effect(p, v, value, wr, ctx) != "ok":
+		return
 	_queue_post_effect_scion_trigger(p, v)
+	_check_power_win(p)
 
 
 func _draw_n(p: int, n: int) -> void:
