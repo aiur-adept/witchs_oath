@@ -258,7 +258,7 @@ Rings are cards that attach to a Noble or Bird you control. Their static effects
 
 - **Sybiline, Ring of Emanation**: Your Seek and Insight cost 1 less to play.
 - **Cymbil, Ring of Occultation**: Your Burn, Revive and Renew cost 1 less to play.
-- **Celadon, Ring of Annihilation**: Your Woe and Wrath cost 1 less to play.
+- **Celadon, Ring of Annihilation**: Your Woe costs 1 less to play.
 - **Serraf, Ring of Nobles**: Your Nobles cost 1 less to play.
 - **Sinofia, Ring of Feathers**: Your Birds and your Tears cost 1 less to play.
 

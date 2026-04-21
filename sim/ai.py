@@ -257,13 +257,15 @@ class GreedyAI:
                 playable = False
                 if eff == 0:
                     playable = True
-                elif eff > 4:
+                elif eff in active:
+                    playable = True
+                elif eff < 6:
+                    playable = False
+                else:
                     s = _ritual_combinations_for_value(p.field, eff)
                     if s is not None:
                         sac = s
                         playable = True
-                elif eff in active:
-                    playable = True
                 if playable:
                     score = self.score_noble_play(state, c, eff, sac)
                     if score is not None:

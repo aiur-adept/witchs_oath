@@ -48,7 +48,7 @@ const NOBLE_DEFS := {
 const RING_DEFS := {
 	"sybiline_emanation":   {"reductions": {"seek": 1, "insight": 1}},
 	"cymbil_occultation":   {"reductions": {"burn": 1, "revive": 1, "renew": 1}},
-	"celadon_annihilation": {"reductions": {"woe": 1, "wrath": 1}},
+	"celadon_annihilation": {"reductions": {"woe": 1}},
 	"serraf_nobles":        {"reductions": {"noble": 1}},
 	"sinofia_feathers":     {"reductions": {"bird": 1, "tears": 1}},
 }
@@ -376,7 +376,7 @@ func _enumerate_best(host: Node, snap: Dictionary) -> Variant:
 			var base_cost: int = _GameSnapshotUtils.noble_cost_for_id(str(c.get("noble_id", "")))
 			var eff: int = host._match.effective_noble_cost(1, base_cost)
 			var sac: Array = []
-			if eff > 0 and (eff > 4 or not _lane_in_set(active_lanes, eff)):
+			if eff > 0 and eff >= 6 and not _lane_in_set(active_lanes, eff):
 				sac = _greedy_sac_min(your_field, eff)
 				if sac.is_empty() and eff > 0:
 					continue

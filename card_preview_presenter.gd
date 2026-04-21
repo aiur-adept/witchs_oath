@@ -553,7 +553,7 @@ static func _ring_preview_text(ring_id: String) -> String:
 		"cymbil_occultation":
 			return "Attach to a Noble or wild Bird. While on the field, your Burn, Revive, and Renew cost 1 less to play (minimum 0)."
 		"celadon_annihilation":
-			return "Attach to a Noble or wild Bird. While on the field, your Woe and Wrath cost 1 less to play (minimum 0)."
+			return "Attach to a Noble or wild Bird. While on the field, your Woe costs 1 less to play (minimum 0)."
 		"serraf_nobles":
 			return "Attach to a Noble or wild Bird. While on the field, your Nobles cost 1 less to play (minimum 0)."
 		"sinofia_feathers":

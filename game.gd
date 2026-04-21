@@ -143,6 +143,9 @@ var _insight_btn_confirm: Button
 var _insight_btn_yours: Button
 var _insight_btn_opps: Button
 var _insight_revive_crypt_idx: int = -1
+var _insight_client_peek: Array = []
+var _insight_client_req_nonce: int = 0
+var _insight_client_last_applied_nonce: int = 0
 
 var _burn_woe_overlay: Control
 var _burn_woe_title: Label
@@ -2117,6 +2120,8 @@ func _end_game_ui(snap: Dictionary) -> void:
 	var title_cap := title
 	var msg_cap := msg
 	get_tree().create_timer(0.9).timeout.connect(func() -> void:
+		if int(_last_snap.get("phase", -1)) != int(ArcanaMatchState.Phase.GAME_OVER):
+			return
 		_show_game_end_modal(title_cap, msg_cap)
 	)
 
@@ -3311,8 +3316,11 @@ func _begin_insight_ui(hand_idx: int, n: int, sac_mids: Array, noble_mid: int = 
 	_insight_n = n
 	_insight_sac = sac_mids.duplicate()
 	_pending_inc_hand_idx = hand_idx
-	if _match == null:
+	if _match == null and not _is_network_client():
 		return
+	_insight_client_peek.clear()
+	_insight_client_req_nonce = 0
+	_insight_client_last_applied_nonce = 0
 	_insight_open = true
 	_insight_target = int(_last_snap.get("you", 0))
 	_insight_reset_orders_for_current_deck()
@@ -3335,16 +3343,33 @@ func _clear_insight_ui() -> void:
 	_insight_sac.clear()
 	_insight_top_order.clear()
 	_insight_bottom_order.clear()
+	_insight_client_peek.clear()
+	_insight_client_req_nonce = 0
+	_insight_client_last_applied_nonce = 0
 	for c in _insight_cards_row.get_children():
 		c.queue_free()
 	for c in _insight_cards_row_bottom.get_children():
 		c.queue_free()
 
 
-func _insight_reset_orders_for_current_deck() -> void:
-	if _match == null:
+func _insight_current_peek() -> Array:
+	if _match != null:
+		return _match.insight_peek_top_cards(_insight_target, _insight_n)
+	return _insight_client_peek.duplicate(true)
+
+
+func _request_insight_peek_for_ui() -> void:
+	if not _is_network_client():
 		return
-	var peek: Array = _match.insight_peek_top_cards(_insight_target, _insight_n)
+	_insight_client_req_nonce += 1
+	var nonce := _insight_client_req_nonce
+	request_insight_peek.rpc_id(1, _insight_target, _insight_n, nonce)
+
+
+func _insight_reset_orders_for_current_deck() -> void:
+	var peek: Array = _insight_current_peek()
+	if peek.is_empty() and _is_network_client():
+		_request_insight_peek_for_ui()
 	_insight_top_order.clear()
 	_insight_bottom_order.clear()
 	for i in peek.size():
@@ -3352,13 +3377,13 @@ func _insight_reset_orders_for_current_deck() -> void:
 
 
 func _insight_refresh_insight_panel() -> void:
-	if _match == null:
+	if _match == null and not _is_network_client():
 		return
 	for c in _insight_cards_row.get_children():
 		c.queue_free()
 	for c in _insight_cards_row_bottom.get_children():
 		c.queue_free()
-	var peek: Array = _match.insight_peek_top_cards(_insight_target, _insight_n)
+	var peek: Array = _insight_current_peek()
 	var take: int = peek.size()
 	if _insight_top_order.size() + _insight_bottom_order.size() != take:
 		_insight_reset_orders_for_current_deck()
@@ -3475,6 +3500,8 @@ func _on_insight_target_yours() -> void:
 	if not _insight_open:
 		return
 	_insight_target = int(_last_snap.get("you", 0))
+	if _is_network_client():
+		_request_insight_peek_for_ui()
 	_insight_reset_orders_for_current_deck()
 	_insight_refresh_insight_panel()
 
@@ -3483,14 +3510,20 @@ func _on_insight_target_opps() -> void:
 	if not _insight_open:
 		return
 	_insight_target = 1 - int(_last_snap.get("you", 0))
+	if _is_network_client():
+		_request_insight_peek_for_ui()
 	_insight_reset_orders_for_current_deck()
 	_insight_refresh_insight_panel()
 
 
 func _on_insight_confirm_pressed() -> void:
-	if not _insight_open or _match == null:
+	if not _insight_open:
 		return
-	var peek: Array = _match.insight_peek_top_cards(_insight_target, _insight_n)
+	var peek: Array = _insight_current_peek()
+	if _is_network_client() and peek.is_empty() and _insight_n > 0:
+		_request_insight_peek_for_ui()
+		status_label.text = "Loading insight cards..."
+		return
 	var take: int = peek.size()
 	var top_a: Array = []
 	var bot_a: Array = []
@@ -3935,9 +3968,13 @@ func _on_sacrifice_cancel_pressed() -> void:
 		return
 	if _inc_pick_phase == INC_PICK_YTTR:
 		var pend := _yytzr_pending_first_ctx.duplicate(true)
+		var hi_save := _pending_inc_hand_idx
+		var n_save := _pending_inc_n
 		_yytzr_clear_bonus_state()
 		_clear_sacrifice_mode()
 		if not pend.is_empty():
+			_pending_inc_hand_idx = hi_save
+			_pending_inc_n = n_save
 			_submit_inc_play_full(_effect_sac, [], pend)
 		elif not _last_snap.is_empty():
 			_apply_snap(_last_snap)
@@ -5061,12 +5098,15 @@ func _on_hand_pressed(hand_idx: int) -> void:
 			eff_cost_n = _match.effective_noble_cost(_my_player_for_action(), base_cost_n)
 		var field_n: Array = snap.get("your_field", [])
 		var your_nobles_n: Array = snap.get("your_nobles", [])
-		var has_lane_n := eff_cost_n <= 4 and ArcanaMatchState.has_lane_for_field_and_nobles(field_n, your_nobles_n, eff_cost_n)
+		var has_lane_n := ArcanaMatchState.has_lane_for_field_and_nobles(field_n, your_nobles_n, eff_cost_n)
 		if eff_cost_n == 0 or has_lane_n:
 			if _is_network_client():
 				submit_play_noble.rpc_id(1, hand_idx, [])
 			else:
 				_try_play_noble(_my_player_for_action(), hand_idx, [], true)
+			return
+		if eff_cost_n < 6:
+			status_label.text = "Need an active ritual lane matching this noble's cost to summon it."
 			return
 		if _field_ritual_total_value(field_n) < eff_cost_n:
 			status_label.text = "Not enough ritual value on your field to summon this noble."
@@ -5590,6 +5630,37 @@ func submit_bird_fight(attacker_mids: Array, defender_mid: int, assign: Dictiona
 		return
 	var pl := _peer_to_player(_sender_peer())
 	_try_resolve_bird_fight(pl, attacker_mids, defender_mid, assign)
+
+
+@rpc("any_peer", "reliable")
+func request_insight_peek(target: int, n: int, nonce: int) -> void:
+	if not multiplayer.is_server():
+		return
+	if _match == null:
+		return
+	var pl := _peer_to_player(_sender_peer())
+	if target != pl and target != (1 - pl):
+		return
+	var eff := _match.insight_effective_n(pl, n)
+	var peek: Array = _match.insight_peek_top_cards(target, eff)
+	var snd := _sender_peer()
+	if snd != 0:
+		deliver_insight_peek.rpc_id(snd, peek, nonce)
+
+
+@rpc("authority", "reliable")
+func deliver_insight_peek(peek: Array, nonce: int) -> void:
+	if nonce < _insight_client_last_applied_nonce:
+		return
+	_insight_client_last_applied_nonce = nonce
+	_insight_client_peek = peek.duplicate(true)
+	if not _insight_open:
+		return
+	_insight_top_order.clear()
+	_insight_bottom_order.clear()
+	for i in _insight_client_peek.size():
+		_insight_top_order.append(i)
+	_insight_refresh_insight_panel()
 
 
 @rpc("any_peer", "reliable")

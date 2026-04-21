@@ -25,7 +25,7 @@ const RING_COST := 2
 const RING_DEFS := {
 	"sybiline_emanation":     {"name": "Sybiline, Ring of Emanation",     "reductions": {"seek": 1, "insight": 1}},
 	"cymbil_occultation":     {"name": "Cymbil, Ring of Occultation",     "reductions": {"burn": 1, "revive": 1, "renew": 1}},
-	"celadon_annihilation":   {"name": "Celadon, Ring of Annihilation",   "reductions": {"woe": 1, "wrath": 1}},
+	"celadon_annihilation":   {"name": "Celadon, Ring of Annihilation",   "reductions": {"woe": 1}},
 	"serraf_nobles":          {"name": "Serraf, Ring of Nobles",          "reductions": {"noble": 1}},
 	"sinofia_feathers":       {"name": "Sinofia, Ring of Feathers",       "reductions": {"bird": 1, "tears": 1}},
 }
@@ -793,9 +793,11 @@ func can_play_noble(p: int, hand_idx: int) -> bool:
 	var cost := effective_noble_cost(p, _noble_play_cost(nid))
 	if cost <= 0:
 		return true
-	if cost > 4:
-		return _can_sacrifice(p, cost)
-	return has_active_ritual_lane(p, cost)
+	if has_active_ritual_lane(p, cost):
+		return true
+	if cost < 6:
+		return false
+	return _can_sacrifice(p, cost)
 
 
 func play_noble(p: int, hand_idx: int, sacrifice_mids: Array = []) -> String:
@@ -810,7 +812,7 @@ func play_noble(p: int, hand_idx: int, sacrifice_mids: Array = []) -> String:
 	if not _noble_hooks.has(nid):
 		return "illegal_noble"
 	var cost := effective_noble_cost(p, _noble_play_cost(nid))
-	var need_sac := cost > 0 and (cost > 4 or not has_active_ritual_lane(p, cost))
+	var need_sac := cost > 0 and not has_active_ritual_lane(p, cost) and cost >= 6
 	var mids: Dictionary = {}
 	if need_sac:
 		for m in sacrifice_mids:

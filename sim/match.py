@@ -225,7 +225,7 @@ class MatchState:
             if lane:
                 granted.add(lane)
         active: set[int] = set()
-        for v in (1, 2, 3, 4):
+        for v in range(1, 9):
             if v == 1:
                 if 1 in ritual_vals or 1 in granted:
                     active.add(1)
@@ -235,9 +235,9 @@ class MatchState:
                     active.add(v)
         wild_bird_power = sum(b.power for b in p.bird_field if b.nest_mid < 0)
         if wild_bird_power > 0 and wild_bird_power <= 4:
-            base = {v for v in (1, 2, 3, 4) if (v in ritual_vals) or (v in granted)}
+            base = {v for v in range(1, 9) if (v in ritual_vals) or (v in granted)}
             chain = set()
-            for v in (1, 2, 3, 4):
+            for v in range(1, 9):
                 if v == 1:
                     if 1 in base or wild_bird_power == 1:
                         chain.add(1)
@@ -370,11 +370,16 @@ class MatchState:
         if c.kind is not Kind.NOBLE:
             return
         eff = self.effective_noble_cost(pid, c.cost)
-        need_sac = eff > 0 and (eff > 4 or eff not in self.active_lanes(pid))
-        if need_sac:
-            if not sac_mids or self._sac_total(pid, sac_mids) < eff:
+        al = self.active_lanes(pid)
+        if eff > 0:
+            if eff in al:
+                pass
+            elif eff < 6:
                 return
-            self._sacrifice(pid, sac_mids)
+            else:
+                if not sac_mids or self._sac_total(pid, sac_mids) < eff:
+                    return
+                self._sacrifice(pid, sac_mids)
         p.hand.pop(hand_idx)
         self._note_non_ritual_play(pid, c)
         p.noble_field.append(Noble(mid=self.mid(), noble_id=c.noble_id, cost=c.cost))

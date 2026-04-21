@@ -98,7 +98,7 @@ RING_COST = 2
 RING_DEFS: dict[str, dict] = {
     "sybiline_emanation":   {"name": "Sybiline, Ring of Emanation",    "reductions": {VERB_SEEK: 1, VERB_INSIGHT: 1}},
     "cymbil_occultation":   {"name": "Cymbil, Ring of Occultation",    "reductions": {VERB_BURN: 1, VERB_REVIVE: 1, VERB_RENEW: 1}},
-    "celadon_annihilation": {"name": "Celadon, Ring of Annihilation",  "reductions": {VERB_WOE: 1, VERB_WRATH: 1}},
+    "celadon_annihilation": {"name": "Celadon, Ring of Annihilation",  "reductions": {VERB_WOE: 1}},
     "serraf_nobles":        {"name": "Serraf, Ring of Nobles",         "reductions": {"noble": 1}},
     "sinofia_feathers":     {"name": "Sinofia, Ring of Feathers",      "reductions": {"bird": 1, VERB_TEARS: 1}},
 }
