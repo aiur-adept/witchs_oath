@@ -268,6 +268,7 @@ Temple activations are once per turn per temple.
 
 **Eyrie, Temple of Feathers**:
   - When this Temple enters, search your deck for two Bird cards and put them onto your field, then shuffle your deck.
+  - Static: You get +1 match power for each Bird nested in this Temple.
 
 ### 12.2 Cost 7 temples
 

@@ -467,7 +467,14 @@ func ritual_power(p: int) -> int:
 
 
 func match_power(p: int) -> int:
-	return ritual_power(p) + (_players[p]["bird_field"] as Array).size()
+	var bird_power := (_players[p]["bird_field"] as Array).size()
+	var eyrie_nested_bonus := 0
+	for temple in _temple_field_safe(p):
+		var td := temple as Dictionary
+		if str(td.get("temple_id", "")) != TEMPLE_EYRIE:
+			continue
+		eyrie_nested_bonus += (td.get("nested_bird_mids", []) as Array).size()
+	return ritual_power(p) + bird_power + eyrie_nested_bonus
 
 
 static func active_mask_for_field(field: Array) -> Array:
