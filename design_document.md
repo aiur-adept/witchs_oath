@@ -174,6 +174,7 @@ If empty-deck draw is attempted:
 - **Dethrone 4**: Destroy one opposing noble.
 - **Deluge X**: Destroy all wild Birds of power X-1 or less, then all nested birds become wild again. [comes in Deluge 2, 3 and 4]
 - **Tears 3**: Return a Bird from your crypt to the field. 
+- **Flight 3**: Draw a card for each Bird you control.
 - **Void**: Can be played during the opponent's turn by discarding one other card from your hand to nullify a non-ritual card the opponent just played (it goes to their crypt with no effect; costs already paid such as sacrifices are not refunded). Void has no other cost — no lane or ritual sacrifice is required. Void may nullify another Void. The reactive decision window is 10 seconds, counted client-side; timing out auto-skips. The countdown is paused once the reactor begins picking a discard (so committing to Void gives unrestricted time to choose what to pitch). In networked PvP this leaks one bit of information ("I hold Void"), accepted as the cost of avoiding a universal delay on all card plays.
 
 ## 10) Noble Abilities (Set 1)

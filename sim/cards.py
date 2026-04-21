@@ -29,6 +29,7 @@ VERB_REVIVE = "revive"
 VERB_RENEW = "renew"
 VERB_DELUGE = "deluge"
 VERB_TEARS = "tears"
+VERB_FLIGHT = "flight"
 VERB_DETHRONE = "dethrone"
 VERB_VOID = "void"  # reactive counterspell; not modeled in the MC simulator
 

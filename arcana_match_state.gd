@@ -1855,6 +1855,10 @@ func execute_incantation_effect(p: int, verb: String, value: int, wrath_resolved
 			pl_t["bird_field"].append(bird)
 			_log("P%d Tears revives %s from crypt." % [p, bird["name"]])
 			return "ok"
+		"flight":
+			var draw_n := (_players[p]["bird_field"] as Array).size()
+			_draw_n(p, draw_n)
+			return "ok"
 		_:
 			return "ok"
 
@@ -1907,6 +1911,8 @@ func _validate_play_ctx(p: int, verb: String, value: int, wrath_mids: Array, ctx
 			var bcards: Array = _bird_crypt_cards(_players[p])
 			if tidx < 0 or tidx >= bcards.size():
 				return "illegal_target"
+			return "ok"
+		"flight":
 			return "ok"
 		"seek":
 			return "ok"

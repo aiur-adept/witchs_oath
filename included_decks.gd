@@ -191,6 +191,8 @@ static func _log_data_issues_once() -> void:
 					ok_value = value >= 2 and value <= 4
 				elif verb == "tears":
 					ok_value = value == 3
+				elif verb == "flight":
+					ok_value = value == 3
 				elif verb == "void":
 					ok_value = value == 0
 				elif verb == "dethrone":

@@ -482,6 +482,8 @@ static func card_rules_text(card: Dictionary) -> String:
 			return "Deluge %d: destroy all wild (non-nested) birds with power %d or less, then all nested birds become wild again." % [n, n - 1]
 		"tears":
 			return "Tears %d: return a Bird from your crypt to your field." % n
+		"flight":
+			return "Flight %d: draw a card for each Bird you control." % n
 		"void":
 			return "Void: during the opponent's turn, discard one card from your hand to nullify a non-ritual card they just played (it goes to their crypt with no effect). Void can nullify another Void. 10-second response window."
 		_:

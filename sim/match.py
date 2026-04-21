@@ -24,6 +24,7 @@ from .cards import (
     VERB_BURN,
     VERB_DELUGE,
     VERB_DETHRONE,
+    VERB_FLIGHT,
     VERB_INSIGHT,
     VERB_REVIVE,
     VERB_RENEW,
@@ -633,6 +634,8 @@ class MatchState:
             self._effect_deluge(pid, val)
         elif verb == VERB_TEARS:
             self._effect_tears(pid, ctx)
+        elif verb == VERB_FLIGHT:
+            self._effect_flight(pid)
         return {}
 
     def _effect_seek(self, pid: int, n: int) -> None:
@@ -826,6 +829,9 @@ class MatchState:
             return
         p.crypt.pop(idx)
         p.bird_field.append(Bird(mid=self.mid(), bird_id=c.bird_id, cost=c.cost, power=c.power))
+
+    def _effect_flight(self, pid: int) -> None:
+        self._draw_n(pid, len(self.players[pid].bird_field), can_lose=True)
 
     # --------------------------------------------------------------- scion triggers
 

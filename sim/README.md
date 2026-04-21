@@ -88,7 +88,7 @@ All of Set 1 per `design_document.md` is implemented:
 - Rituals 1–4 with the standard active-lane chain (value N active iff all k<N have
   an active ritual or lane-granting noble).
 - Incantations: `seek`, `insight`, `burn`, `woe`, `wrath`, `revive 1`, `deluge
-  2–4`, `tears 3`.
+  2–4`, `tears 3`, `flight 3`.
 - `dethrone 4`.
 - All 15 nobles (Krss/Trss/Yrss/Xytzr/Yytzr/Zytzr/Aeoiu + 5 Incantation nobles +
   3 Scions).

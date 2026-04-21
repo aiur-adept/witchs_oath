@@ -17,6 +17,7 @@ from .cards import (
     VERB_BURN,
     VERB_DELUGE,
     VERB_DETHRONE,
+    VERB_FLIGHT,
     VERB_INSIGHT,
     VERB_REVIVE,
     VERB_RENEW,
@@ -135,6 +136,7 @@ class GreedyAI:
     W_REVIVE_PRIO_BURN: float = 3.0
     W_REVIVE_PRIO_INSIGHT: float = 2.0
     W_REVIVE_PRIO_RENEW: float = 0.0
+    W_REVIVE_PRIO_FLIGHT: float = 3.0
 
     W_SF_RITUAL_MP_PUSH: float = 0.0
     W_SF_INC_BEHIND: float = 0.0
@@ -156,6 +158,8 @@ class GreedyAI:
     W_EFFECT_DELUGE_BASE: float = 5.0
     W_EFFECT_DELUGE_PER_NET: float = 4.0
     W_EFFECT_TEARS_BASE: float = 10.0
+    W_EFFECT_FLIGHT_BASE: float = 2.0
+    W_EFFECT_FLIGHT_PER_DRAW: float = 3.0
 
     def __init__(self, pid: int) -> None:
         self.pid = pid
@@ -742,6 +746,8 @@ class GreedyAI:
             if not crypt_birds:
                 return None
             return (self.W_EFFECT_TEARS_BASE, {})
+        if verb == VERB_FLIGHT:
+            return (self.W_EFFECT_FLIGHT_BASE + len(me.bird_field) * self.W_EFFECT_FLIGHT_PER_DRAW, {})
         return None
 
     def wrath_score_adjust(self, state: MatchState, pid: int, base: float) -> float:
@@ -803,6 +809,8 @@ class GreedyAI:
             return self.W_REVIVE_PRIO_INSIGHT
         if v == VERB_RENEW:
             return self.W_REVIVE_PRIO_RENEW
+        if v == VERB_FLIGHT:
+            return self.W_REVIVE_PRIO_FLIGHT
         return 0.0
 
     def choose_revive_target(self, state: MatchState, pid: int, crypt_indices: list[int]) -> Optional[int]:

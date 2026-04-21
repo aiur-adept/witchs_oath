@@ -18,6 +18,7 @@ const VERB_REVIVE := "revive"
 const VERB_RENEW := "renew"
 const VERB_DELUGE := "deluge"
 const VERB_TEARS := "tears"
+const VERB_FLIGHT := "flight"
 const VERB_VOID := "void"
 const VERB_DETHRONE := "dethrone"
 
@@ -129,6 +130,7 @@ var W_REVIVE_PRIO_WOE: float = 4.0
 var W_REVIVE_PRIO_BURN: float = 3.0
 var W_REVIVE_PRIO_INSIGHT: float = 2.0
 var W_REVIVE_PRIO_RENEW: float = 0.0
+var W_REVIVE_PRIO_FLIGHT: float = 3.0
 
 var W_SF_RITUAL_MP_PUSH: float = 0.0
 var W_SF_INC_BEHIND: float = 0.0
@@ -150,6 +152,8 @@ var W_EFFECT_RENEW_BASE: float = 12.0
 var W_EFFECT_DELUGE_BASE: float = 5.0
 var W_EFFECT_DELUGE_PER_NET: float = 4.0
 var W_EFFECT_TEARS_BASE: float = 10.0
+var W_EFFECT_FLIGHT_BASE: float = 2.0
+var W_EFFECT_FLIGHT_PER_DRAW: float = 3.0
 
 # =========================================================================
 # Top-level orchestration
@@ -920,6 +924,9 @@ func _score_effect(host: Node, snap: Dictionary, verb: String, val: int) -> Vari
 		if bird_filtered.is_empty():
 			return null
 		return {"score": W_EFFECT_TEARS_BASE, "ctx": {"tears_crypt_idx": 0}}
+	if v == VERB_FLIGHT:
+		var draw_n := your_birds.size()
+		return {"score": W_EFFECT_FLIGHT_BASE + float(draw_n) * W_EFFECT_FLIGHT_PER_DRAW, "ctx": {}}
 	return null
 
 
@@ -1142,6 +1149,8 @@ func _revive_verb_prio_bonus(verb: String) -> float:
 		return W_REVIVE_PRIO_INSIGHT
 	if v == VERB_RENEW:
 		return W_REVIVE_PRIO_RENEW
+	if v == VERB_FLIGHT:
+		return W_REVIVE_PRIO_FLIGHT
 	return 0.0
 
 
