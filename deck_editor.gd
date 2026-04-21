@@ -1,10 +1,8 @@
 extends Control
 
 const IncludedDecks = preload("res://included_decks.gd")
+const GalleryCatalog = preload("res://gallery_catalog.gd")
 
-const RITUAL_VALUES: Array[int] = [1, 2, 3, 4]
-const INCANTATION_VERBS: Array[String] = ["seek", "insight", "burn", "woe", "revive", "renew", "wrath", "deluge", "tears", "flight", "dethrone", "void"]
-const INCANTATION_VALUES: Array[int] = [1, 2, 3, 4]
 const TARGET_RITUAL_COUNT := 19
 const TARGET_NON_RITUAL_COUNT := 21
 const DECK_SIZE := 40
@@ -17,50 +15,7 @@ const DECK_EXT := ".json"
 const DECK_EXPORT_PREFIX := "decks_export_"
 const EXPORT_DIALOG_CONFIG_PATH := "user://deck_export_dir.txt"
 const INCLUDED_DECKS_RES_DIR := "res://included_decks"
-const NOBLE_DEFS := [
-	{"id": "krss_power", "name": "Krss, Noble of Power"},
-	{"id": "rmrsk_emanation", "name": "Rmrsk, Scion of Emanation"},
-	{"id": "smrsk_occultation", "name": "Smrsk, Scion of Occultation"},
-	{"id": "tmrsk_annihilation", "name": "Tmrsk, Scion of Annihilation"},
-	{"id": "trss_power", "name": "Trss, Noble of Power"},
-	{"id": "yrss_power", "name": "Yrss, Noble of Power"},
-	{"id": "xytzr_emanation", "name": "Xytzr, Avatar of Emanation"},
-	{"id": "yytzr_occultation", "name": "Yytzr, Revenant of Occultation"},
-	{"id": "zytzr_annihilation", "name": "Zytzr, Cthonarch of Annihilation"},
-	{"id": "aeoiu_rituals", "name": "Aeoiu, Scion of Rituals"},
-	{"id": "sndrr_incantation", "name": "Sndrr, Noble of Incantation"},
-	{"id": "indrr_incantation", "name": "Indrr, Noble of Incantation"},
-	{"id": "bndrr_incantation", "name": "Bndrr, Noble of Incantation"},
-	{"id": "wndrr_incantation", "name": "Wndrr, Noble of Incantation"},
-	{"id": "rndrr_incantation", "name": "Rndrr, Noble of Incantation"}
-]
-const TEMPLE_DEFS := [
-	{"id": "phaedra_illusion", "name": "Phaedra, Temple of Illusion", "cost": 7},
-	{"id": "delpha_oracles", "name": "Delpha, Temple of Oracles", "cost": 7},
-	{"id": "gotha_illness", "name": "Gotha, Temple of Illness", "cost": 7},
-	{"id": "eyrie_feathers", "name": "Eyrie, Temple of Feathers", "cost": 6},
-	{"id": "ytria_cycles", "name": "Ytria, Temple of Cycles", "cost": 9}
-]
 const MAX_TEMPLE_COPIES := 3
-const BIRD_DEFS := [
-	{"id": "wren", "name": "Wren", "cost": 2, "power": 1},
-	{"id": "sparrow", "name": "Sparrow", "cost": 2, "power": 1},
-	{"id": "finch", "name": "Finch", "cost": 2, "power": 1},
-	{"id": "kestrel", "name": "Kestrel", "cost": 3, "power": 2},
-	{"id": "shrike", "name": "Shrike", "cost": 3, "power": 2},
-	{"id": "gull", "name": "Gull", "cost": 3, "power": 2},
-	{"id": "hawk", "name": "Hawk", "cost": 4, "power": 3},
-	{"id": "eagle", "name": "Eagle", "cost": 4, "power": 3},
-	{"id": "raven", "name": "Raven", "cost": 4, "power": 3}
-]
-const RING_DEFS := [
-	{"id": "sybiline_emanation", "name": "Sybiline, Ring of Emanation"},
-	{"id": "cymbil_occultation", "name": "Cymbil, Ring of Occultation"},
-	{"id": "celadon_annihilation", "name": "Celadon, Ring of Annihilation"},
-	{"id": "serraf_nobles", "name": "Serraf, Ring of Nobles"},
-	{"id": "sinofia_feathers", "name": "Sinofia, Ring of Feathers"}
-]
-const RING_COST := 2
 const MAX_RING_COPIES := 1
 
 @onready var deck_list: ItemList = %DeckList
@@ -127,32 +82,7 @@ func _ready() -> void:
 
 
 func _build_gallery_entries() -> Array[Dictionary]:
-	var out: Array[Dictionary] = []
-	for value in RITUAL_VALUES:
-		out.append({"kind": "ritual", "value": value})
-	for verb in INCANTATION_VERBS:
-		for value in _incantation_values_for_verb(verb):
-			out.append({"kind": "incantation", "verb": verb, "value": value})
-	for noble in NOBLE_DEFS:
-		out.append({"kind": "noble", "noble_id": str(noble.get("id", "")), "name": str(noble.get("name", ""))})
-	for tm in TEMPLE_DEFS:
-		out.append({"kind": "temple", "temple_id": str(tm.get("id", "")), "name": str(tm.get("name", "")), "cost": int(tm.get("cost", 7))})
-	for bird in BIRD_DEFS:
-		out.append({
-			"kind": "bird",
-			"bird_id": str(bird.get("id", "")),
-			"name": str(bird.get("name", "")),
-			"cost": int(bird.get("cost", 0)),
-			"power": int(bird.get("power", 0))
-		})
-	for ring in RING_DEFS:
-		out.append({
-			"kind": "ring",
-			"ring_id": str(ring.get("id", "")),
-			"name": str(ring.get("name", "")),
-			"cost": RING_COST
-		})
-	return out
+	return GalleryCatalog.build_gallery_entries()
 
 
 func _filter_gallery_for_draft() -> Array[Dictionary]:
@@ -250,62 +180,18 @@ func _current_deck_path() -> String:
 
 
 func _incantation_values_for_verb(verb: String) -> Array[int]:
-	if verb == "revive":
-		return [2]
-	if verb == "renew":
-		return [3]
-	if verb == "wrath":
-		return [0]
-	if verb == "deluge":
-		return [2, 3, 4]
-	if verb == "tears":
-		return [3]
-	if verb == "flight":
-		return [3]
-	if verb == "dethrone":
-		return [4]
-	if verb == "woe":
-		return [3, 4]
-	if verb == "seek":
-		return [1, 2]
-	if verb == "void":
-		return [0]
-	return INCANTATION_VALUES
-
-
-func _entry_key_ritual(value: int) -> String:
-	return "r_%d" % value
-
-
-func _entry_key_incantation(verb: String, value: int) -> String:
-	return "i_%s_%d" % [verb, value]
-
-
-func _entry_key_noble(noble_id: String) -> String:
-	return "n_%s" % noble_id
-
-
-func _entry_key_temple(temple_id: String) -> String:
-	return "tm_%s" % temple_id
-
-
-func _entry_key_bird(bird_id: String) -> String:
-	return "b_%s" % bird_id
-
-
-func _entry_key_ring(ring_id: String) -> String:
-	return "rg_%s" % ring_id
+	return GalleryCatalog.incantation_values_for_verb(verb)
 
 
 func _canonical_ring_name(ring_id: String, fallback_name: String = "") -> String:
-	for ring in RING_DEFS:
+	for ring in GalleryCatalog.RING_DEFS:
 		if str(ring.get("id", "")) == ring_id:
 			return str(ring.get("name", fallback_name))
 	return fallback_name
 
 
 func _canonical_noble_name(noble_id: String, fallback_name: String = "") -> String:
-	for noble in NOBLE_DEFS:
+	for noble in GalleryCatalog.NOBLE_DEFS:
 		if str(noble.get("id", "")) == noble_id:
 			return str(noble.get("name", fallback_name))
 	return fallback_name
@@ -332,28 +218,15 @@ func _entry_display_name(entry: Dictionary) -> String:
 
 
 func _entry_to_preview_card(entry: Dictionary) -> Dictionary:
-	var out := entry.duplicate(true)
-	out["type"] = str(entry.get("kind", ""))
-	return out
+	return GalleryCatalog.entry_to_preview_card(entry)
 
 
 func _entry_key(entry: Dictionary) -> String:
-	var kind := str(entry.get("kind", ""))
-	if kind == "ritual":
-		return _entry_key_ritual(int(entry.get("value", 0)))
-	if kind == "noble":
-		return _entry_key_noble(str(entry.get("noble_id", "")))
-	if kind == "temple":
-		return _entry_key_temple(str(entry.get("temple_id", "")))
-	if kind == "bird":
-		return _entry_key_bird(str(entry.get("bird_id", "")))
-	if kind == "ring":
-		return _entry_key_ring(str(entry.get("ring_id", "")))
-	return _entry_key_incantation(str(entry.get("verb", "")), int(entry.get("value", 0)))
+	return GalleryCatalog.entry_key(entry)
 
 
 func catalog_entry_key(entry: Dictionary) -> String:
-	return _entry_key(entry)
+	return GalleryCatalog.entry_key(entry)
 
 
 func _build_gallery_card(entry: Dictionary, readonly: bool) -> Control:
@@ -480,18 +353,18 @@ func _ingest_deck_dictionary(parsed_dict: Dictionary) -> void:
 		var kind := str(card.get("type", "")).to_lower()
 		if kind == "ritual":
 			var rv := int(card.get("value", 0))
-			if RITUAL_VALUES.has(rv):
-				_add_or_increment_entry(_entry_key_ritual(rv), {"kind": "ritual", "value": rv})
+			if GalleryCatalog.RITUAL_VALUES.has(rv):
+				_add_or_increment_entry(GalleryCatalog.entry_key_ritual(rv), {"kind": "ritual", "value": rv})
 		elif kind == "incantation":
 			var verb := str(card.get("verb", "")).to_lower()
 			var iv := int(card.get("value", 0))
-			if INCANTATION_VERBS.has(verb) and _incantation_values_for_verb(verb).has(iv):
-				_add_or_increment_entry(_entry_key_incantation(verb, iv), {"kind": "incantation", "verb": verb, "value": iv})
+			if GalleryCatalog.INCANTATION_VERBS.has(verb) and _incantation_values_for_verb(verb).has(iv):
+				_add_or_increment_entry(GalleryCatalog.entry_key_incantation(verb, iv), {"kind": "incantation", "verb": verb, "value": iv})
 		elif kind == "noble":
 			var nid := str(card.get("noble_id", ""))
 			var nname := str(card.get("name", ""))
 			if not nid.is_empty():
-				_add_or_increment_entry(_entry_key_noble(nid), {
+				_add_or_increment_entry(GalleryCatalog.entry_key_noble(nid), {
 					"kind": "noble",
 					"noble_id": nid,
 					"name": _canonical_noble_name(nid, nname)
@@ -500,7 +373,7 @@ func _ingest_deck_dictionary(parsed_dict: Dictionary) -> void:
 			var tid := str(card.get("temple_id", ""))
 			var tname := str(card.get("name", ""))
 			if not tid.is_empty():
-				_add_or_increment_entry(_entry_key_temple(tid), {
+				_add_or_increment_entry(GalleryCatalog.entry_key_temple(tid), {
 					"kind": "temple",
 					"temple_id": tid,
 					"name": _canonical_temple_name(tid, tname),
@@ -510,7 +383,7 @@ func _ingest_deck_dictionary(parsed_dict: Dictionary) -> void:
 			var bid := str(card.get("bird_id", ""))
 			var bname := str(card.get("name", "Bird"))
 			if not bid.is_empty():
-				_add_or_increment_entry(_entry_key_bird(bid), {
+				_add_or_increment_entry(GalleryCatalog.entry_key_bird(bid), {
 					"kind": "bird",
 					"bird_id": bid,
 					"name": bname,
@@ -521,16 +394,16 @@ func _ingest_deck_dictionary(parsed_dict: Dictionary) -> void:
 			var rid := str(card.get("ring_id", ""))
 			var rname := str(card.get("name", ""))
 			if not rid.is_empty():
-				_add_or_increment_entry(_entry_key_ring(rid), {
+				_add_or_increment_entry(GalleryCatalog.entry_key_ring(rid), {
 					"kind": "ring",
 					"ring_id": rid,
 					"name": _canonical_ring_name(rid, rname),
-					"cost": RING_COST
+					"cost": GalleryCatalog.RING_COST
 				})
 
 
 func _canonical_temple_name(temple_id: String, fallback_name: String = "") -> String:
-	for tm in TEMPLE_DEFS:
+	for tm in GalleryCatalog.TEMPLE_DEFS:
 		if str(tm.get("id", "")) == temple_id:
 			return str(tm.get("name", fallback_name))
 	return fallback_name
@@ -958,18 +831,18 @@ func _build_deck_payload() -> Dictionary:
 	var temple_counts: Dictionary = {}
 	var bird_counts: Dictionary = {}
 	var ring_counts: Dictionary = {}
-	for value in RITUAL_VALUES:
+	for value in GalleryCatalog.RITUAL_VALUES:
 		ritual_counts[str(value)] = 0
-	for verb in INCANTATION_VERBS:
+	for verb in GalleryCatalog.INCANTATION_VERBS:
 		for value in _incantation_values_for_verb(verb):
 			incantation_counts["%s_%d" % [verb, value]] = 0
-	for n in NOBLE_DEFS:
+	for n in GalleryCatalog.NOBLE_DEFS:
 		noble_counts[str(n.get("id", ""))] = 0
-	for tm in TEMPLE_DEFS:
+	for tm in GalleryCatalog.TEMPLE_DEFS:
 		temple_counts[str(tm.get("id", ""))] = 0
-	for bd in BIRD_DEFS:
+	for bd in GalleryCatalog.BIRD_DEFS:
 		bird_counts[str(bd.get("id", ""))] = 0
-	for rg in RING_DEFS:
+	for rg in GalleryCatalog.RING_DEFS:
 		ring_counts[str(rg.get("id", ""))] = 0
 
 	for entry in _entries.values():
@@ -1011,7 +884,7 @@ func _build_deck_payload() -> Dictionary:
 				var rname := str(entry.get("name", "Ring"))
 				ring_counts[rid] = count
 				for _ri in count:
-					cards.append({"type": "Ring", "ring_id": rid, "name": rname, "cost": RING_COST})
+					cards.append({"type": "Ring", "ring_id": rid, "name": rname, "cost": GalleryCatalog.RING_COST})
 				continue
 			var verb := str(entry.get("verb", ""))
 			var iv := int(entry.get("value", 0))
