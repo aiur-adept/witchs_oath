@@ -177,7 +177,7 @@ A pure temple-toolbox deck: find a big ritual board, then slam every temple. Che
 **Non-rituals**: 4x Sparrow (cost 2 / power 1), 4x Raven (cost 4 / power 3), 1x Hawk (4/3), 1x Gull (3/2), 4x Seek 2, 3x Insight 2, 1x Sndrr, 1x Phaedra, 1x Eyrie (Temple of Feathers), 1x Sinofia (Ring of Feathers)
 
 ### Game plan
-A bird-tribal strategy leveraging both bird match-power (+1 per bird on your bird field) and bird combat. Sparrows are cheap board presence; Ravens are the power-3 beaters that dominate fights. Eyrie searches for a free bird on entry. Phaedra provides a nesting site (cost 7, so 7 birds can nest, each adding +1 ritual power). Sinofia reduces all birds and Tears by 1, making Sparrow a 1-lane bird and Raven a 3-lane bird.
+A bird-tribal strategy leveraging both bird match-power (+1 per bird on your bird field) and bird combat. Sparrows are cheap board presence; Ravens are the power-3 beaters that dominate fights. Eyrie searches for a free bird on entry. Phaedra provides a nesting site. Sinofia reduces all birds and Tears by 1, making Sparrow a 1-lane bird and Raven a 3-lane bird. Flight is bird-scaled card advantage.
 
 ### Key synergies
 - **Eyrie + Bird search** — drop Eyrie, immediately search a bird for free. With 10 birds in the deck this almost never fizzles.

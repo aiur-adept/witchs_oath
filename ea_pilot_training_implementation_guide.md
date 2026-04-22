@@ -30,7 +30,6 @@ These names are identical between [`sim/ai.py`](sim/ai.py) and [`cpu/cpu_base.gd
 
 | Name | Default | Role (summary) |
 |------|---------|------------------|
-| *(ritual from hand)* | — | Fixed heuristic in code (`RITUAL_PLAY_SCORE_*` in `sim/ai.py`, `RITUAL_PLAY_SCORE_*` in `cpu/cpu_base.gd`): prefer largest match-power gain, then largest printed value. Not in the EA genome. |
 | `W_NOBLE_BASE` | 60.0 | Base score for nobles |
 | `W_NOBLE_COST_BONUS` | 1.0 | × noble cost |
 | `W_NOBLE_GRANT_NEW_LANE` | 40.0 | Bonus when noble grants a new lane |
@@ -47,6 +46,7 @@ These names are identical between [`sim/ai.py`](sim/ai.py) and [`cpu/cpu_base.gd
 | `SAC_W_FIELD_POWER` | 0.0 | × sum of ritual values on our field (adds to sac penalty; train negative to resist sacing a heavy board) |
 | `SAC_W_HIGH_RITUAL` | 0.0 | × max ritual value on our field |
 | `INC_BASE_BONUS` | 5.0 | Bonus when casting incantations on-lane |
+| `W_INCANTATION_SACRIFICE_RITUAL_PER_VALUE` | 4.0 | Extra score penalty per sacrificed field ritual pip when paying for an incantation (after `_sac_penalty`) |
 | `W_NOBLE_ACTIVATION` | 30.0 | Noble activation ability |
 | `W_NOBLE_ACTIVATION_DISCARD_PENALTY` | 8.0 | Penalty when activation costs discard |
 | `W_AEOIU_ACTIVATION_BASE` | 45.0 | Aeoiu activation base |

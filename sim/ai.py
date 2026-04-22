@@ -89,6 +89,7 @@ class GreedyAI:
     SAC_W_FIELD_POWER: float = 0.0   # × sum of ritual values on our field (sac aversion scales with board mass)
     SAC_W_HIGH_RITUAL: float = 0.0   # × max ritual value on our field
     INC_BASE_BONUS: float = 5.0
+    W_INCANTATION_SACRIFICE_RITUAL_PER_VALUE: float = 4.0
 
     W_NOBLE_ACTIVATION: float = 30.0
     W_NOBLE_ACTIVATION_DISCARD_PENALTY: float = 8.0
@@ -573,7 +574,11 @@ class GreedyAI:
         return score, sac
 
     def adjust_incantation_score(self, state: MatchState, pid: int, card, sac: list[int], score: float) -> Optional[float]:
-        return score
+        if not sac:
+            return score
+        mids = set(sac)
+        sac_val = sum(r.value for r in state.players[pid].field if r.mid in mids)
+        return score - sac_val * self.W_INCANTATION_SACRIFICE_RITUAL_PER_VALUE
 
     def _score_ring(self, state: MatchState, pid: int, card, hand_idx: int) -> Optional[tuple[float, str, tuple]]:
         p = state.players[pid]
@@ -731,6 +736,8 @@ class GreedyAI:
                 return None
             return (self.W_EFFECT_TEARS_BASE, {})
         if verb == VERB_FLIGHT:
+            if not me.bird_field:
+                return None
             return (self.W_EFFECT_FLIGHT_BASE + len(me.bird_field) * self.W_EFFECT_FLIGHT_PER_DRAW, {})
         return None
 

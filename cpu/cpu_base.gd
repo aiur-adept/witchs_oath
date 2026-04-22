@@ -83,6 +83,7 @@ var SAC_PENALTY_PER_RITUAL: float = 2.0
 var SAC_W_FIELD_POWER: float = 0.0
 var SAC_W_HIGH_RITUAL: float = 0.0
 var INC_BASE_BONUS: float = 5.0
+var W_INCANTATION_SACRIFICE_RITUAL_PER_VALUE: float = 4.0
 
 var W_NOBLE_ACTIVATION: float = 30.0
 var W_NOBLE_ACTIVATION_DISCARD_PENALTY: float = 8.0
@@ -721,8 +722,18 @@ func _score_incantation(host: Node, snap: Dictionary, card: Dictionary, hand_idx
 	return {"score": fadj, "kind": "incantation", "hand_idx": hand_idx, "sac": sac, "ctx": ctx, "verb": verb, "value": val}
 
 
-func adjust_incantation_score(_snap: Dictionary, _card: Dictionary, _sac: Array, score: float) -> Variant:
-	return score
+func adjust_incantation_score(snap: Dictionary, _card: Dictionary, sac: Array, score: float) -> Variant:
+	if sac.is_empty():
+		return score
+	var sac_val := 0.0
+	for r in snap.get("your_field", []) as Array:
+		var rd := r as Dictionary
+		var mid := int(rd.get("mid", -1))
+		for sm in sac:
+			if int(sm) == mid:
+				sac_val += float(rd.get("value", 0))
+				break
+	return score - sac_val * W_INCANTATION_SACRIFICE_RITUAL_PER_VALUE
 
 
 # -------- temple activation --------
@@ -917,6 +928,8 @@ func _score_effect(host: Node, snap: Dictionary, verb: String, val: int) -> Vari
 			return null
 		return {"score": W_EFFECT_TEARS_BASE, "ctx": {"tears_crypt_idx": 0}}
 	if v == VERB_FLIGHT:
+		if your_birds.is_empty():
+			return null
 		var draw_n := your_birds.size()
 		return {"score": W_EFFECT_FLIGHT_BASE + float(draw_n) * W_EFFECT_FLIGHT_PER_DRAW, "ctx": {}}
 	return null
