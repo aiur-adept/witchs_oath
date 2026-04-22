@@ -35,6 +35,8 @@ const INC_WRATH_A := Color(0.24, 0.07, 0.36)
 const INC_WRATH_B := Color(0.03, 0.78, 0.04)
 const INC_TEARS_A := Color(0.96, 0.86, 0.22)
 const INC_TEARS_B := Color(0.99, 0.99, 0.96)
+const INC_FLIGHT_A := Color(1.0, 0.99, 0.96)
+const INC_FLIGHT_B := Color(0.92, 0.72, 0.18)
 
 const NOBLE_BLACK_A := Color(0.05, 0.05, 0.07)
 
@@ -99,6 +101,8 @@ static func _incantation_endpoints(verb: String) -> PackedColorArray:
 			return PackedColorArray([INC_WRATH_A, INC_WRATH_B])
 		"tears":
 			return PackedColorArray([INC_TEARS_A, INC_TEARS_B])
+		"flight":
+			return PackedColorArray([INC_FLIGHT_A, INC_FLIGHT_B])
 		_:
 			pass
 	var key := "incantation:" + v if not v.is_empty() else "incantation:_"

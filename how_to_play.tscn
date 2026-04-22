@@ -133,7 +133,7 @@ layout_mode = 2
 bbcode_enabled = false
 fit_content = true
 scroll_active = false
-text = "Quick reminder on Rituals
+text = "Active rituals let you cast cards.
 Ritual values are 1, 2, 3, and 4.
 - A 1-Ritual is always active.
 - A Ritual of value N (N > 1) is active only if you also control at least one active Ritual of every value from 1 to N-1.

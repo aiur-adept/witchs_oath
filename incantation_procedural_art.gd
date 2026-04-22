@@ -13,6 +13,7 @@ static func register_generators() -> void:
 	CardProceduralArt.register_generator("incantation:wrath", _gen_wrath)
 	CardProceduralArt.register_generator("incantation:deluge", _gen_deluge)
 	CardProceduralArt.register_generator("incantation:tears", _gen_tears)
+	CardProceduralArt.register_generator("incantation:flight", _gen_flight)
 	CardProceduralArt.register_generator("incantation:void", _gen_void)
 
 
@@ -134,6 +135,14 @@ static func _gen_tears(card: Dictionary, _ctx: Dictionary) -> String:
 	var pool := _rep_unit("∿", n, "")
 	var fall := _rep_unit("▽", n, " ")
 	return "   ∴   \n  ╱ ♦ ╲  \n ╱%s╲ \n╭───────╮\n│░%s░│\n╰───┬───╯\n %s" % [path, pool, fall]
+
+
+static func _gen_flight(card: Dictionary, _ctx: Dictionary) -> String:
+	var n := _n(card, 1, 4, 3)
+	var top := _rep_unit("∿", n + 1, "")
+	var mid := _rep_unit("∿", n + 3, "")
+	var bot := _rep_unit("∿", n + 1, "")
+	return "    ◇    \n   ╱ ∿ ╲   \n  ╱%s╲  \n │░%s░│ \n  ╲%s╱  \n   ╲┬╱   \n    │    " % [top, mid, bot]
 
 
 static func _gen_void(_card: Dictionary, _ctx: Dictionary) -> String:
