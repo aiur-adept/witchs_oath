@@ -51,7 +51,7 @@ const RING_DEFS := {
 	"cymbil_occultation":   {"reductions": {"burn": 1, "revive": 1, "renew": 1}},
 	"celadon_annihilation": {"reductions": {"woe": 1}},
 	"serraf_nobles":        {"reductions": {"noble": 1}},
-	"sinofia_feathers":     {"reductions": {"bird": 1, "tears": 1}},
+	"sinofia_feathers":     {"reductions": {"bird": 1, "tears": 1, "flight": 1}},
 }
 
 const RING_COST := 2

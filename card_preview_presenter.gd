@@ -559,7 +559,7 @@ static func _ring_preview_text(ring_id: String) -> String:
 		"serraf_nobles":
 			return "Attach to a Noble or wild Bird. While on the field, your Nobles cost 1 less to play (minimum 0)."
 		"sinofia_feathers":
-			return "Attach to a Noble or wild Bird. While on the field, your Birds and your Tears cost 1 less to play (minimum 0)."
+			return "Attach to a Noble or wild Bird. While on the field, your Birds, Tears, and Flight cost 1 less to play (minimum 0)."
 		_:
 			return "Ring — attach to a Noble or wild Bird."
 

@@ -27,7 +27,7 @@ const RING_DEFS := {
 	"cymbil_occultation":     {"name": "Cymbil, Ring of Occultation",     "reductions": {"burn": 1, "revive": 1, "renew": 1}},
 	"celadon_annihilation":   {"name": "Celadon, Ring of Annihilation",   "reductions": {"woe": 1}},
 	"serraf_nobles":          {"name": "Serraf, Ring of Nobles",          "reductions": {"noble": 1}},
-	"sinofia_feathers":       {"name": "Sinofia, Ring of Feathers",       "reductions": {"bird": 1, "tears": 1}},
+	"sinofia_feathers":       {"name": "Sinofia, Ring of Feathers",       "reductions": {"bird": 1, "tears": 1, "flight": 1}},
 }
 
 enum Phase { MAIN, GAME_OVER }

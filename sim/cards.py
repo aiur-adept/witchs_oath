@@ -101,7 +101,7 @@ RING_DEFS: dict[str, dict] = {
     "cymbil_occultation":   {"name": "Cymbil, Ring of Occultation",    "reductions": {VERB_BURN: 1, VERB_REVIVE: 1, VERB_RENEW: 1}},
     "celadon_annihilation": {"name": "Celadon, Ring of Annihilation",  "reductions": {VERB_WOE: 1}},
     "serraf_nobles":        {"name": "Serraf, Ring of Nobles",         "reductions": {"noble": 1}},
-    "sinofia_feathers":     {"name": "Sinofia, Ring of Feathers",      "reductions": {"bird": 1, VERB_TEARS: 1}},
+    "sinofia_feathers":     {"name": "Sinofia, Ring of Feathers",      "reductions": {"bird": 1, VERB_TEARS: 1, VERB_FLIGHT: 1}},
 }
 
 

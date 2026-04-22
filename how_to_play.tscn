@@ -358,7 +358,7 @@ Example Rings:
 - Cymbil, Ring of Occultation — Burn, Revive, and Renew cost 1 less.
 - Celadon, Ring of Annihilation — Woe costs 1 less.
 - Serraf, Ring of Nobles — Nobles cost 1 less.
-- Sinofia, Ring of Feathers — Birds and Tears cost 1 less."
+- Sinofia, Ring of Feathers — Birds, Tears, and Flight cost 1 less."
 
 [node name="ExampleRingCardRow" type="HBoxContainer" parent="Margin/VBox/Scroll/ContentRoot/RingsCard/Inner"]
 unique_name_in_owner = true
