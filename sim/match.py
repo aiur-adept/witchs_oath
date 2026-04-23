@@ -555,27 +555,14 @@ class MatchState:
         if c.verb == VERB_WRATH:
             if not self._wrath_instigator_sac_ok(pid, need_payment_sac, pay_set, ctx):
                 return
-        need_yyt = False
         if c.verb == VERB_RENEW:
             r2 = ctx.get("renew_second_ritual_crypt_idx")
-            need_yyt = r2 is not None and int(r2) >= 0
-            if need_yyt:
-                if not self.has_noble(pid, "yytzr_occultation"):
-                    return
-                ydi = ctx.get("yytzr_extra_discard_hand_idx")
-                if ydi is None:
-                    return
-                ydi = int(ydi)
-                if ydi < 0 or ydi >= len(p.hand) or ydi == hand_idx:
-                    return
+            if r2 is not None and int(r2) >= 0:
+                return
+            if ctx.get("yytzr_extra_discard_hand_idx") is not None:
+                return
         if sac_mids:
             self._sacrifice(pid, sac_mids)
-        if c.verb == VERB_RENEW and need_yyt:
-            ydi = int(ctx["yytzr_extra_discard_hand_idx"])
-            if 0 <= ydi < len(p.hand):
-                p.crypt.append(p.hand.pop(ydi))
-                if ydi < hand_idx:
-                    hand_idx -= 1
         card = p.hand.pop(hand_idx)
         self._note_non_ritual_play(pid, card)
         resolved = self._resolve_incantation_effect(pid, card, ctx)
@@ -784,6 +771,14 @@ class MatchState:
         sub_ctx.setdefault("burn_target", self.opponent(pid))
         sub_ctx.setdefault("woe_target", self.opponent(pid))
         self._resolve_incantation_effect(pid, sub, sub_ctx)
+        yytzr_renew_idx = ctx.get("yytzr_renew_ritual_crypt_idx")
+        if yytzr_renew_idx is not None and self.has_noble(pid, "yytzr_occultation"):
+            ritual_indices = [i for i, c in enumerate(p.crypt) if c.kind is Kind.RITUAL]
+            yidx = int(yytzr_renew_idx)
+            if 0 <= yidx < len(ritual_indices):
+                rc = p.crypt.pop(ritual_indices[yidx])
+                p.field.append(Ritual(mid=self.mid(), value=rc.value))
+                self._post_effect_scion_trigger(pid, VERB_RENEW)
         if self.pending is None:
             p.inc_abyss.append(sub)
             self._post_effect_scion_trigger(pid, VERB_REVIVE)
@@ -823,25 +818,10 @@ class MatchState:
         if rf < 0 or rf >= len(ritual_indices):
             return
         g0 = ritual_indices[rf]
-        r2 = ctx.get("renew_second_ritual_crypt_idx")
-        if r2 is None or int(r2) < 0:
-            c = p.crypt.pop(g0)
-            p.field.append(Ritual(mid=self.mid(), value=c.value))
+        if ctx.get("renew_second_ritual_crypt_idx") is not None:
             return
-        r2 = int(r2)
-        if r2 >= len(ritual_indices) or r2 == rf:
-            return
-        g1 = ritual_indices[r2]
-        if g0 == g1:
-            return
-        if g0 > g1:
-            c0 = p.crypt.pop(g0)
-            c1 = p.crypt.pop(g1)
-        else:
-            c1 = p.crypt.pop(g1)
-            c0 = p.crypt.pop(g0)
-        p.field.append(Ritual(mid=self.mid(), value=c0.value))
-        p.field.append(Ritual(mid=self.mid(), value=c1.value))
+        c = p.crypt.pop(g0)
+        p.field.append(Ritual(mid=self.mid(), value=c.value))
 
     def _effect_deluge(self, pid: int, n: int) -> None:
         threshold = n - 1

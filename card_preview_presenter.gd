@@ -613,7 +613,7 @@ static func _noble_preview_text(noble_id: String) -> String:
 		"xytzr_emanation":
 			return "Whenever you Seek, draw an additional card. Whenever you Insight, look at one additional card."
 		"yytzr_occultation":
-			return "Your Burn effects discard an additional 3 cards. When you play Revive or Renew, you may discard a card from hand to add one extra Revive/Renew step."
+			return "Your Burn effects discard an additional 3 cards. When you play Revive, you may also play one Ritual from your crypt."
 		"zytzr_annihilation":
 			return "Whenever you Wrath, destroy one additional opponent ritual. Whenever you Woe, the victim discards one additional card."
 		"aeoiu_rituals":
