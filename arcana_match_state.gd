@@ -196,9 +196,7 @@ func _validate_renew_ctx(p: int, ctx: Dictionary) -> String:
 	var rg: Array = _ritual_crypt_cards(_players[p])
 	if ridx < 0 or ridx >= rg.size():
 		return "illegal_target"
-	var r2 := int(ctx.get("renew_second_ritual_crypt_idx", -1))
-	var ydi := int(ctx.get("yytzr_extra_discard_hand_idx", -1))
-	if r2 >= 0 or ydi >= 0:
+	if ctx.has("renew_second_ritual_crypt_idx") or ctx.has("yytzr_extra_discard_hand_idx"):
 		return "illegal"
 	return "ok"
 
@@ -219,9 +217,7 @@ func _validate_renew_ctx_presacrifice(p: int, ctx: Dictionary, mids_main: Dictio
 	var ridx := int(ctx.get("renew_ritual_crypt_idx", -1))
 	if ridx < 0 or ridx >= total:
 		return "illegal_target"
-	var r2 := int(ctx.get("renew_second_ritual_crypt_idx", -1))
-	var ydi := int(ctx.get("yytzr_extra_discard_hand_idx", -1))
-	if r2 >= 0 or ydi >= 0:
+	if ctx.has("renew_second_ritual_crypt_idx") or ctx.has("yytzr_extra_discard_hand_idx"):
 		return "illegal"
 	return "ok"
 
@@ -2297,8 +2293,7 @@ func _apply_renew_ritual_from_crypt(p: int, n: int, ctx: Dictionary, payment_tex
 	var rg: Array = _ritual_crypt_cards(pl)
 	if crypt_idx < 0 or crypt_idx >= rg.size():
 		return
-	var r2 := int(ctx.get("renew_second_ritual_crypt_idx", -1))
-	if r2 >= 0:
+	if ctx.has("renew_second_ritual_crypt_idx"):
 		return
 	var global_crypt_idx := _ritual_crypt_index_to_crypt_index(pl, crypt_idx)
 	if global_crypt_idx < 0:
@@ -2522,14 +2517,6 @@ func play_incantation(p: int, hand_idx: int, sacrifice_mids: Array, wrath_mids: 
 			if not _sacrifice_valid(p, n_eff, mids):
 				return "illegal_sacrifice"
 	var ctx_use: Dictionary = ctx.duplicate(true)
-	var ydi := int(ctx_use.get("yytzr_extra_discard_hand_idx", -1))
-	var need_yyt_discard := verb == "renew" and int(ctx_use.get("renew_second_ritual_crypt_idx", -1)) >= 0
-	if need_yyt_discard:
-		if not _noble_on_field(p, "yytzr_occultation"):
-			return "illegal"
-		var hand_y: Array = _players[p]["hand"] as Array
-		if ydi < 0 or ydi >= hand_y.size() or ydi == hand_idx:
-			return "illegal"
 	if verb == "wrath":
 		var werr := _validate_wrath_instigator_sacrifice(p, need_sac, mids, ctx_use)
 		if werr != "ok":
@@ -2553,11 +2540,6 @@ func play_incantation(p: int, hand_idx: int, sacrifice_mids: Array, wrath_mids: 
 		payment_text = _incantation_payment_text(p, n_eff, need_sac, mids)
 	_apply_sacrifice(p, mids)
 	var pl: Dictionary = _players[p]
-	var hand: Array = pl["hand"] as Array
-	if need_yyt_discard:
-		_move_hand_card_to_discard(pl, hand, ydi)
-		if ydi < hand_idx:
-			hand_idx -= 1
 	pl["hand"].remove_at(hand_idx)
 	var label := incantation_display_name(verb, verb_raw, n)
 	var frame := {

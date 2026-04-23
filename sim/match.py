@@ -556,10 +556,9 @@ class MatchState:
             if not self._wrath_instigator_sac_ok(pid, need_payment_sac, pay_set, ctx):
                 return
         if c.verb == VERB_RENEW:
-            r2 = ctx.get("renew_second_ritual_crypt_idx")
-            if r2 is not None and int(r2) >= 0:
+            if "renew_second_ritual_crypt_idx" in ctx:
                 return
-            if ctx.get("yytzr_extra_discard_hand_idx") is not None:
+            if "yytzr_extra_discard_hand_idx" in ctx:
                 return
         if sac_mids:
             self._sacrifice(pid, sac_mids)
@@ -818,7 +817,7 @@ class MatchState:
         if rf < 0 or rf >= len(ritual_indices):
             return
         g0 = ritual_indices[rf]
-        if ctx.get("renew_second_ritual_crypt_idx") is not None:
+        if "renew_second_ritual_crypt_idx" in ctx:
             return
         c = p.crypt.pop(g0)
         p.field.append(Ritual(mid=self.mid(), value=c.value))

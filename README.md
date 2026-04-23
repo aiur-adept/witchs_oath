@@ -130,7 +130,7 @@ Only one Bird may be played from hand per turn.
 
 ### 6.5 Rings
 
-To play a Ring, you must have the Ring's cost lane active (no sacrifice payment for Bird play).
+To play a Ring, you must have the Ring's cost lane active (no sacrifice payment for Ring play).
 
 ## 7) Action Limits and Timing Locks
 
