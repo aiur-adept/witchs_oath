@@ -119,6 +119,26 @@ func incantation_display_name(verb_lc: String, verb_raw: String, printed_value: 
 	return "%s %d" % [verb_raw, printed_value]
 
 
+func _incantation_preview_card(verb_lc: String, value: int, verb_raw: String = "") -> Dictionary:
+	var vr := verb_raw
+	if vr.is_empty():
+		vr = verb_lc.capitalize()
+	return {
+		"verb": vr,
+		"value": value
+	}
+
+
+func _incantation_log_meta(verb_lc: String, value: int, verb_raw: String = "") -> Dictionary:
+	var disp_raw := verb_raw if not verb_raw.is_empty() else verb_lc.capitalize()
+	return {
+		"incantation_link": {
+			"text": incantation_display_name(verb_lc, disp_raw, value),
+			"card": _incantation_preview_card(verb_lc, value, disp_raw)
+		}
+	}
+
+
 func effective_noble_cost(p: int, base_cost: int) -> int:
 	return maxi(0, base_cost - _sum_ring_reduction(p, "noble"))
 
@@ -1974,10 +1994,10 @@ func _run_revive_steps_after_payment(p: int, value: int, ctx: Dictionary, paymen
 			break
 	if not any_cast:
 		pl["crypt"].append(revive_wrapper)
-		_log("P%d plays Revive %d (%s) — skipped." % [p, value, payment_text])
+		_log("P%d plays Revive %d (%s) — skipped." % [p, value, payment_text], _incantation_log_meta("revive", value, "Revive"))
 		_check_power_win(p)
 		return "ok"
-	_log("P%d plays Revive %d (%s)." % [p, value, payment_text])
+	_log("P%d plays Revive %d (%s)." % [p, value, payment_text], _incantation_log_meta("revive", value, "Revive"))
 	for step in steps:
 		if typeof(step) != TYPE_DICTIONARY:
 			return "illegal"
@@ -2008,16 +2028,16 @@ func _run_revive_steps_after_payment(p: int, value: int, ctx: Dictionary, paymen
 				_woe_pending_spell_to_abyss = true
 				_woe_pending_revive_wrapper = revive_wrapper
 				_woe_pending_noble_mid = -1
-				_log("P%d Revive %d: Woe pending on P%d." % [p, value, wt])
+				_log("P%d Revive %d: Woe pending on P%d." % [p, value, wt], _incantation_log_meta("woe", cn, "Woe"))
 				return "ok"
 		if cv == "renew":
-			var rerr := _renew_subcast_play_ritual_from_nested(p, nested, payment_text)
+			var rerr := _renew_subcast_play_ritual_from_nested(p, nested, payment_text, cn)
 			if rerr != "ok":
 				crypt.insert(crypt_idx, crypt_card)
 				return rerr
 			pl["inc_abyss"].append(crypt_card)
 			_queue_post_effect_scion_trigger(p, "renew")
-			_log("P%d Revive casts Renew %d from crypt (%s)." % [p, cn, payment_text])
+			_log("P%d Revive casts Renew %d from crypt (%s)." % [p, cn, payment_text], _incantation_log_meta("renew", cn, "Renew"))
 			_check_power_win(p)
 			continue
 		var err := execute_incantation_effect(p, cv, cn, wr_r, nested)
@@ -2025,7 +2045,7 @@ func _run_revive_steps_after_payment(p: int, value: int, ctx: Dictionary, paymen
 			crypt.insert(crypt_idx, crypt_card)
 			return err
 		pl["inc_abyss"].append(crypt_card)
-		_log("P%d Revive casts %s %d from crypt (%s)." % [p, cv, cn, payment_text])
+		_log("P%d Revive casts %s %d from crypt (%s)." % [p, cv, cn, payment_text], _incantation_log_meta(cv, cn, cv.capitalize()))
 		_check_power_win(p)
 	pl["crypt"].append(revive_wrapper)
 	_check_power_win(p)
@@ -2121,15 +2141,15 @@ func apply_noble_spell_like(p: int, noble_mid: int, verb: String, value: int, wr
 			_woe_pending_spell_to_abyss = false
 			_woe_pending_revive_wrapper = null
 			_woe_pending_noble_mid = noble_mid
-			_log("P%d activates Wndrr; Woe pending on P%d." % [p, wt])
+			_log("P%d activates Wndrr; Woe pending on P%d." % [p, wt], _incantation_log_meta("woe", value, "Woe"))
 			return "ok"
 	match nid:
 		"bndrr_incantation":
-			_log("P%d activates Bndrr (Burn 2)." % p)
+			_log("P%d activates Bndrr (Burn 2)." % p, _incantation_log_meta("burn", value, "Burn"))
 		"wndrr_incantation":
-			_log("P%d activates Wndrr (Woe 3)." % p)
+			_log("P%d activates Wndrr (Woe 3)." % p, _incantation_log_meta("woe", value, "Woe"))
 		"sndrr_incantation":
-			_log("P%d activates Sndrr (Seek 1)." % p)
+			_log("P%d activates Sndrr (Seek 1)." % p, _incantation_log_meta("seek", value, "Seek"))
 		_:
 			pass
 	var err := execute_incantation_effect(p, v, value, wr_r, ctx)
@@ -2164,9 +2184,9 @@ func apply_noble_revive_from_crypt(p: int, noble_mid: int, ctx: Dictionary) -> S
 	var d0: Dictionary = steps[0]
 	if bool(d0.get("revive_skip", false)):
 		_mark_noble_used_this_turn(p, noble_mid)
-		_log("P%d activates Rndrr (Revive 2 skipped)." % p)
+		_log("P%d activates Rndrr (Revive 2 skipped)." % p, _incantation_log_meta("revive", 2, "Revive"))
 		return "ok"
-	_log("P%d activates Rndrr (Revive from crypt)." % p)
+	_log("P%d activates Rndrr (Revive from crypt)." % p, _incantation_log_meta("revive", 2, "Revive"))
 	for si in steps.size():
 		var d: Dictionary = steps[si]
 		if bool(d.get("revive_skip", false)):
@@ -2196,12 +2216,12 @@ func apply_noble_revive_from_crypt(p: int, noble_mid: int, ctx: Dictionary) -> S
 				_woe_pending_noble_mid = noble_mid
 				return "ok"
 		if cv == "renew":
-			var rerr := _renew_subcast_play_ritual_from_nested(p, nested, "Rndrr")
+			var rerr := _renew_subcast_play_ritual_from_nested(p, nested, "Rndrr", cn)
 			if rerr != "ok":
 				crypt.insert(crypt_idx, crypt_card)
 				return rerr
 			pl["inc_abyss"].append(crypt_card)
-			_log("P%d Revive casts Renew %d from crypt (Rndrr)." % [p, cn])
+			_log("P%d Revive casts Renew %d from crypt (Rndrr)." % [p, cn], _incantation_log_meta("renew", cn, "Renew"))
 			_queue_post_effect_scion_trigger(p, "renew")
 			_check_power_win(p)
 			continue
@@ -2210,7 +2230,7 @@ func apply_noble_revive_from_crypt(p: int, noble_mid: int, ctx: Dictionary) -> S
 			crypt.insert(crypt_idx, crypt_card)
 			return err
 		pl["inc_abyss"].append(crypt_card)
-		_log("P%d Revive casts %s %d from crypt (Rndrr)." % [p, cv, cn])
+		_log("P%d Revive casts %s %d from crypt (Rndrr)." % [p, cv, cn], _incantation_log_meta(cv, cn, cv.capitalize()))
 		_queue_post_effect_scion_trigger(p, cv)
 		_check_power_win(p)
 	_mark_noble_used_this_turn(p, noble_mid)
@@ -2242,7 +2262,7 @@ func apply_aeoiu_ritual_from_crypt(p: int, noble_mid: int, crypt_idx: int) -> St
 	return "ok"
 
 
-func _renew_subcast_play_ritual_from_nested(p: int, nested: Dictionary, payment_text: String) -> String:
+func _renew_subcast_play_ritual_from_nested(p: int, nested: Dictionary, payment_text: String, renew_value: int) -> String:
 	var ridx := int(nested.get("renew_ritual_crypt_idx", -1))
 	var pl: Dictionary = _players[p]
 	var rg: Array = _ritual_crypt_cards(pl)
@@ -2256,7 +2276,7 @@ func _renew_subcast_play_ritual_from_nested(p: int, nested: Dictionary, payment_
 	crypt.remove_at(global_crypt_idx)
 	var mid := _next_mid(pl)
 	pl["field"].append({"mid": mid, "value": int(c["value"])})
-	_log("P%d Revive subcast: Renew plays %d-Ritual from crypt (%s)." % [p, int(c["value"]), payment_text])
+	_log("P%d Revive subcast: Renew plays %d-Ritual from crypt (%s)." % [p, int(c["value"]), payment_text], _incantation_log_meta("renew", renew_value, "Renew"))
 	return "ok"
 
 
@@ -2275,7 +2295,7 @@ func _apply_renew_ritual_from_crypt(p: int, n: int, ctx: Dictionary, payment_tex
 		(pl["crypt"] as Array).remove_at(global_crypt_idx)
 		var mid := _next_mid(pl)
 		pl["field"].append({"mid": mid, "value": int(c["value"])})
-		_log("P%d plays Renew %d (%s)." % [p, n, payment_text])
+		_log("P%d plays Renew %d (%s)." % [p, n, payment_text], _incantation_log_meta("renew", n, "Renew"))
 		_log("P%d plays %d-Ritual from crypt (Renew)." % [p, int(c["value"])])
 		_queue_post_effect_scion_trigger(p, "renew")
 		pl["crypt"].append(renew_card)
@@ -2302,7 +2322,7 @@ func _apply_renew_ritual_from_crypt(p: int, n: int, ctx: Dictionary, payment_tex
 	pl["field"].append({"mid": mid0, "value": v0})
 	var mid1 := _next_mid(pl)
 	pl["field"].append({"mid": mid1, "value": v1})
-	_log("P%d plays Renew %d (%s) — two rituals from crypt (Yytzr)." % [p, n, payment_text])
+	_log("P%d plays Renew %d (%s) — two rituals from crypt (Yytzr)." % [p, n, payment_text], _incantation_log_meta("renew", n, "Renew"))
 	_log("P%d plays %d-Ritual and %d-Ritual from crypt (Renew)." % [p, v0, v1])
 	_queue_post_effect_scion_trigger(p, "renew")
 	pl["crypt"].append(renew_card)
@@ -2587,6 +2607,7 @@ func _finalize_play_incantation(p: int, card: Dictionary, payload: Dictionary) -
 	var ctx_use: Dictionary = payload.get("ctx", {}) as Dictionary
 	var payment_text := str(payload.get("payment_text", ""))
 	var play_disp := incantation_display_name(verb, verb_raw, n)
+	var play_meta := _incantation_log_meta(verb, n, verb_raw)
 	if verb == "revive":
 		var rr := _run_revive_steps_after_payment(p, n, ctx_use, payment_text, card)
 		if rr == "ok":
@@ -2610,9 +2631,9 @@ func _finalize_play_incantation(p: int, card: Dictionary, payload: Dictionary) -
 			_woe_pending_spell_to_abyss = false
 			_woe_pending_revive_wrapper = null
 			_woe_pending_noble_mid = -1
-			_log("P%d plays %s (%s); Woe pending on P%d." % [p, play_disp, payment_text, wt])
+			_log("P%d plays %s (%s); Woe pending on P%d." % [p, play_disp, payment_text, wt], play_meta)
 			return
-	_log("P%d plays %s (%s)." % [p, play_disp, payment_text])
+	_log("P%d plays %s (%s)." % [p, play_disp, payment_text], play_meta)
 	execute_incantation_effect(p, verb, n, wrath_resolved, ctx_use)
 	_queue_post_effect_scion_trigger(p, verb)
 	pl["crypt"].append(card)
@@ -2719,7 +2740,7 @@ func activate_noble_with_insight(p: int, noble_mid: int, insight_target: int, in
 		var ctx := {"insight_target": insight_target, "insight_top": insight_top, "insight_bottom": insight_bottom}
 		if _validate_play_ctx(p, "insight", 1, [], ctx) != "ok":
 			return "illegal"
-		_log("P%d activates Indrr (Insight %d)." % [p, insight_effective_n(p, 1)])
+		_log("P%d activates Indrr (Insight %d)." % [p, insight_effective_n(p, 1)], _incantation_log_meta("insight", 1, "Insight"))
 		execute_incantation_effect(p, "insight", 1, [], ctx)
 		_queue_post_effect_scion_trigger(p, "insight")
 		_mark_noble_used_this_turn(p, noble_mid)
@@ -3323,13 +3344,16 @@ func _card_at_hand(p: int, idx: int) -> Variant:
 	return hand[idx]
 
 
-func _log(s: String) -> void:
-	log_lines.append({
+func _log(s: String, meta: Dictionary = {}) -> void:
+	var entry := {
 		"text": s,
 		"turn": turn_number,
 		"player": current,
 		"starter": _starting_player,
-	})
+	}
+	if not meta.is_empty():
+		entry["meta"] = meta.duplicate(true)
+	log_lines.append(entry)
 	if log_lines.size() > 40:
 		log_lines.remove_at(0)
 

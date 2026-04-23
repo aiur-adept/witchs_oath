@@ -2048,18 +2048,65 @@ func _log_strip_player_prefix(text: String) -> String:
 	return text
 
 
-func _make_log_event_box(text: String, is_recent: bool) -> Control:
+func _log_escape_bbcode(text: String) -> String:
+	return text.replace("[", "[lb]").replace("]", "[rb]")
+
+
+func _log_make_bbcode_with_link(text: String, link_text: String, meta_id: String) -> String:
+	var idx := text.find(link_text)
+	if idx < 0:
+		return "%s [url=%s]%s[/url]" % [_log_escape_bbcode(text), _log_escape_bbcode(meta_id), _log_escape_bbcode(link_text)]
+	var pre := text.substr(0, idx)
+	var post := text.substr(idx + link_text.length())
+	return "%s[url=%s]%s[/url]%s" % [
+		_log_escape_bbcode(pre),
+		_log_escape_bbcode(meta_id),
+		_log_escape_bbcode(link_text),
+		_log_escape_bbcode(post)
+	]
+
+
+func _make_log_event_box(text: String, is_recent: bool, meta: Dictionary = {}) -> Control:
 	var panel := PanelContainer.new()
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var sb: StyleBoxFlat = _log_style_event_recent if is_recent else _log_style_event_past
 	panel.add_theme_stylebox_override("panel", sb)
-	var label := Label.new()
-	label.text = text
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	label.add_theme_color_override("font_color", Color(1, 1, 1))
-	label.add_theme_font_size_override("font_size", 12)
-	panel.add_child(label)
+	var inc_link: Dictionary = meta.get("incantation_link", {}) as Dictionary
+	var link_text := str(inc_link.get("text", ""))
+	var hover_card: Dictionary = (inc_link.get("card", {}) as Dictionary).duplicate(true)
+	if link_text.is_empty() or hover_card.is_empty():
+		var label := Label.new()
+		label.text = text
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		label.add_theme_color_override("font_color", Color(1, 1, 1))
+		label.add_theme_font_size_override("font_size", 12)
+		panel.add_child(label)
+		return panel
+	var rich := RichTextLabel.new()
+	rich.bbcode_enabled = true
+	rich.fit_content = true
+	rich.scroll_active = false
+	rich.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	rich.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rich.add_theme_color_override("default_color", Color(1, 1, 1))
+	rich.add_theme_font_size_override("normal_font_size", 12)
+	rich.mouse_filter = Control.MOUSE_FILTER_STOP
+	rich.text = _log_make_bbcode_with_link(text, link_text, "incantation")
+	rich.meta_hover_started.connect(func(meta_id: Variant) -> void:
+		if str(meta_id) != "incantation":
+			return
+		_show_card_hover_preview(hover_card)
+	)
+	rich.meta_hover_ended.connect(func(meta_id: Variant) -> void:
+		if str(meta_id) != "incantation":
+			return
+		_hide_card_hover_preview()
+	)
+	rich.mouse_exited.connect(func() -> void:
+		_hide_card_hover_preview()
+	)
+	panel.add_child(rich)
 	return panel
 
 
@@ -2142,8 +2189,9 @@ func _rebuild_log_cards(snap: Dictionary) -> void:
 			player_events = player_card["events"]
 			cur_player = player_idx
 		var text := _log_strip_player_prefix(str(entry.get("text", "")))
+		var event_meta: Dictionary = entry.get("meta", {}) as Dictionary
 		var is_recent := i == last_idx
-		player_events.add_child(_make_log_event_box(text, is_recent))
+		player_events.add_child(_make_log_event_box(text, is_recent, event_meta))
 	call_deferred("_log_scroll_to_bottom")
 
 

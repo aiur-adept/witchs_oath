@@ -889,16 +889,9 @@ func _score_effect(host: Node, snap: Dictionary, verb: String, val: int) -> Vari
 			return null
 		return {"score": W_EFFECT_REVIVE_BASE, "ctx": {}}
 	if v == VERB_RENEW:
-		var r_crypt: Array = snap.get("your_ritual_crypt_cards", []) as Array
-		if r_crypt.is_empty():
+		var best_rf := _choose_renew_ritual_crypt_idx_by_match_power_delta(snap)
+		if best_rf < 0:
 			return null
-		var best_rf := 0
-		var best_val := -1
-		for ri in r_crypt.size():
-			var rv := int((r_crypt[ri] as Dictionary).get("value", 0))
-			if rv > best_val:
-				best_val = rv
-				best_rf = ri
 		return {"score": W_EFFECT_RENEW_BASE, "ctx": {"renew_ritual_crypt_idx": best_rf}}
 	if v == VERB_DELUGE:
 		var threshold := val - 1
@@ -918,6 +911,10 @@ func _score_effect(host: Node, snap: Dictionary, verb: String, val: int) -> Vari
 				me_hit += 1
 			if int(bd2.get("nest_temple_mid", -1)) >= 0:
 				me_unnest += 1
+		if opp_hit + me_hit <= 0:
+			return null
+		if opp_hit <= me_hit:
+			return null
 		var net := (opp_hit - me_hit) + (opp_unnest - me_unnest)
 		if net <= 0:
 			return null
@@ -1025,6 +1022,23 @@ func _ritual_match_power_gain_if_played(snap: Dictionary, value: int) -> int:
 	var after_ritual_power := _ritual_power_with_lanes(synthetic_field, your_birds, after_lanes)
 	var after_match_power := after_ritual_power + your_birds.size()
 	return maxi(0, after_match_power - before_match_power)
+
+
+func _choose_renew_ritual_crypt_idx_by_match_power_delta(snap: Dictionary) -> int:
+	var r_crypt: Array = snap.get("your_ritual_crypt_cards", []) as Array
+	if r_crypt.is_empty():
+		return -1
+	var best_rf := -1
+	var best_delta := -1
+	var best_val := -1
+	for ri in r_crypt.size():
+		var rv := int((r_crypt[ri] as Dictionary).get("value", 0))
+		var delta := _ritual_match_power_gain_if_played(snap, rv)
+		if delta > best_delta or (delta == best_delta and rv > best_val):
+			best_delta = delta
+			best_val = rv
+			best_rf = ri
+	return best_rf
 
 
 func _ritual_power_with_lanes(field: Array, birds: Array, lanes: Array) -> int:
@@ -1184,16 +1198,9 @@ func amend_revive_ctx(_host: Node, snap: Dictionary, your_crypt: Array, global_p
 		return
 	if str(c.get("verb", "")).to_lower() != VERB_RENEW:
 		return
-	var r_crypt: Array = snap.get("your_ritual_crypt_cards", []) as Array
-	if r_crypt.is_empty():
+	var best_rf := _choose_renew_ritual_crypt_idx_by_match_power_delta(snap)
+	if best_rf < 0:
 		return
-	var best_rf := 0
-	var best_val := -1
-	for ri in r_crypt.size():
-		var rv := int((r_crypt[ri] as Dictionary).get("value", 0))
-		if rv > best_val:
-			best_val = rv
-			best_rf = ri
 	var steps: Array = ctx.get("revive_steps", []) as Array
 	if steps.is_empty():
 		return

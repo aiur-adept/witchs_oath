@@ -306,6 +306,10 @@ class GreedyAI:
             threshold = card.value - 1
             opp_hit = sum(1 for b in opp.bird_field if b.power <= threshold and b.nest_mid < 0)
             me_hit = sum(1 for b in me.bird_field if b.power <= threshold and b.nest_mid < 0)
+            if (opp_hit + me_hit) <= 0:
+                return 0.0
+            if opp_hit <= me_hit:
+                return 0.0
             return float(opp_hit - me_hit)
         return 0.0
 
@@ -579,6 +583,22 @@ class GreedyAI:
         p.field = [r for r in p.field if r.mid != -1001]
         return max(0, after - before)
 
+    def _choose_renew_ritual_crypt_idx_by_match_power_delta(self, state: MatchState, pid: int) -> Optional[int]:
+        me = state.players[pid]
+        ritual_idx = [i for i, c in enumerate(me.crypt) if c.kind is Kind.RITUAL]
+        if not ritual_idx:
+            return None
+        best_j: Optional[int] = None
+        best_key: Optional[tuple[int, int, int]] = None
+        for j, ci in enumerate(ritual_idx):
+            value = me.crypt[ci].value
+            delta = self._ritual_match_power_gain_if_played(state, pid, value)
+            key = (delta, value, -j)
+            if best_key is None or key > best_key:
+                best_key = key
+                best_j = j
+        return best_j
+
     def _card_insight_value(self, state: MatchState, pid: int, card) -> float:
         if card.kind is Kind.RITUAL:
             gain = self._ritual_match_power_gain_if_played(state, pid, card.value)
@@ -791,21 +811,18 @@ class GreedyAI:
                 return None
             return (self.W_EFFECT_REVIVE_BASE, {})
         if verb == VERB_RENEW:
-            ritual_idx = [i for i, c in enumerate(me.crypt) if c.kind is Kind.RITUAL]
-            if not ritual_idx:
+            best_i = self._choose_renew_ritual_crypt_idx_by_match_power_delta(state, pid)
+            if best_i is None:
                 return None
-            best_i = 0
-            best_v = -1
-            for j, ci in enumerate(ritual_idx):
-                v = me.crypt[ci].value
-                if v > best_v:
-                    best_v = v
-                    best_i = j
             return (self.W_EFFECT_REVIVE_BASE, {"renew_ritual_crypt_idx": best_i})
         if verb == VERB_DELUGE:
             threshold = val - 1
             opp_hit = sum(1 for b in opp_p.bird_field if b.power <= threshold and b.nest_mid < 0)
             me_hit = sum(1 for b in me.bird_field if b.power <= threshold and b.nest_mid < 0)
+            if (opp_hit + me_hit) <= 0:
+                return None
+            if opp_hit <= me_hit:
+                return None
             opp_unnest = sum(1 for b in opp_p.bird_field if b.nest_mid >= 0)
             me_unnest = sum(1 for b in me.bird_field if b.nest_mid >= 0)
             net = (opp_hit - me_hit) + (opp_unnest - me_unnest)
@@ -964,10 +981,9 @@ class GreedyAI:
         c = me.crypt[crypt_idx]
         if c.kind is not Kind.INCANTATION or c.verb != VERB_RENEW:
             return ctx
-        ritual_idx = [i for i, cc in enumerate(me.crypt) if cc.kind is Kind.RITUAL]
-        if not ritual_idx:
+        best_j = self._choose_renew_ritual_crypt_idx_by_match_power_delta(state, pid)
+        if best_j is None:
             return ctx
-        best_j = max(range(len(ritual_idx)), key=lambda j: me.crypt[ritual_idx[j]].value)
         out = dict(ctx)
         out["revive_sub_ctx"] = {"renew_ritual_crypt_idx": best_j}
         return out
