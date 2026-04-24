@@ -2,82 +2,82 @@
 	"cards": [
 		{
 			"type": "Ritual",
-			"value": 4.0
+			"value": 4
 		},
 		{
 			"type": "Ritual",
-			"value": 4.0
+			"value": 4
 		},
 		{
 			"type": "Ritual",
-			"value": 4.0
+			"value": 4
 		},
 		{
 			"type": "Ritual",
-			"value": 4.0
+			"value": 4
 		},
 		{
 			"type": "Ritual",
-			"value": 4.0
+			"value": 4
 		},
 		{
 			"type": "Ritual",
-			"value": 3.0
+			"value": 3
 		},
 		{
 			"type": "Ritual",
-			"value": 3.0
+			"value": 3
 		},
 		{
 			"type": "Ritual",
-			"value": 3.0
+			"value": 3
 		},
 		{
 			"type": "Ritual",
-			"value": 3.0
+			"value": 3
 		},
 		{
 			"type": "Ritual",
-			"value": 1.0
+			"value": 1
 		},
 		{
 			"type": "Ritual",
-			"value": 1.0
+			"value": 1
 		},
 		{
 			"type": "Ritual",
-			"value": 1.0
+			"value": 1
 		},
 		{
 			"type": "Ritual",
-			"value": 1.0
+			"value": 1
 		},
 		{
 			"type": "Ritual",
-			"value": 1.0
+			"value": 1
 		},
 		{
 			"type": "Ritual",
-			"value": 1.0
+			"value": 1
 		},
 		{
 			"type": "Ritual",
-			"value": 2.0
+			"value": 2
 		},
 		{
 			"type": "Ritual",
-			"value": 2.0
+			"value": 2
 		},
 		{
 			"type": "Ritual",
-			"value": 2.0
+			"value": 2
 		},
 		{
 			"type": "Ritual",
-			"value": 2.0
+			"value": 2
 		},
 		{
-			"name": "Zytzr, Noble of Annihilation",
+			"name": "Zytzr, Cthonarch of Annihilation",
 			"noble_id": "zytzr_annihilation",
 			"type": "Noble"
 		},
@@ -121,67 +121,62 @@
 		},
 		{
 			"type": "Incantation",
-			"verb": "deluge",
-			"value": 3
+			"value": 3,
+			"verb": "deluge"
 		},
 		{
 			"type": "Incantation",
-			"verb": "deluge",
-			"value": 3
+			"value": 3,
+			"verb": "deluge"
 		},
 		{
 			"type": "Incantation",
-			"verb": "deluge",
-			"value": 3
+			"value": 3,
+			"verb": "deluge"
 		},
 		{
 			"type": "Incantation",
-			"value": 3.0,
+			"value": 3,
+			"verb": "deluge"
+		},
+		{
+			"type": "Incantation",
+			"value": 3,
 			"verb": "woe"
 		},
 		{
 			"type": "Incantation",
-			"value": 4.0,
+			"value": 4,
 			"verb": "woe"
 		},
 		{
 			"type": "Incantation",
-			"value": 4.0,
+			"value": 4,
 			"verb": "woe"
 		},
 		{
 			"type": "Incantation",
-			"value": 4.0,
+			"value": 4,
 			"verb": "woe"
 		},
 		{
 			"type": "Incantation",
-			"value": 4.0,
+			"value": 4,
 			"verb": "woe"
 		},
 		{
 			"type": "Incantation",
-			"value": 4.0,
+			"value": 4,
 			"verb": "dethrone"
 		},
 		{
 			"type": "Incantation",
-			"value": 4.0,
+			"value": 4,
 			"verb": "dethrone"
 		},
 		{
 			"type": "Incantation",
-			"value": 4.0,
-			"verb": "dethrone"
-		},
-		{
-			"type": "Incantation",
-			"value": 4.0,
-			"verb": "dethrone"
-		},
-		{
-			"type": "Incantation",
-			"value": 2.0,
+			"value": 2,
 			"verb": "seek"
 		},
 		{
@@ -189,71 +184,97 @@
 			"name": "Celadon, Ring of Annihilation",
 			"ring_id": "celadon_annihilation",
 			"type": "Ring"
+		},
+		{
+			"bird_id": "raven",
+			"cost": 4,
+			"name": "Raven",
+			"power": 3,
+			"type": "Bird"
 		}
 	],
 	"counts": {
-		"dethrones": 4.0,
-		"incantations": {
-			"burn_1": 0.0,
-			"burn_2": 0.0,
-			"burn_3": 0.0,
-			"burn_4": 0.0,
-			"dethrone_4": 0.0,
-			"insight_1": 0.0,
-			"insight_2": 0.0,
-			"insight_3": 0.0,
-			"insight_4": 0.0,
-			"revive_2": 0.0,
-			"seek_1": 0.0,
-			"seek_2": 1.0,
-			"seek_3": 0.0,
-			"seek_4": 0.0,
-			"woe_3": 1,
-			"woe_4": 4.0,
-			"wrath_0": 4.0,
-			"deluge_3": 3
-		},
-		"nobles": {
-			"aeoiu_rituals": 0.0,
-			"bndrr_incantation": 0.0,
-			"indrr_incantation": 0.0,
-			"krss_power": 0.0,
-			"rmrsk_emanation": 0.0,
-			"rndrr_incantation": 0.0,
-			"smrsk_occultation": 0.0,
-			"sndrr_incantation": 0.0,
-			"tmrsk_annihilation": 1.0,
-			"trss_power": 0.0,
-			"wndrr_incantation": 1.0,
-			"xytzr_emanation": 0.0,
-			"yrss_power": 0.0,
-			"yytzr_occultation": 0.0,
-			"zytzr_annihilation": 1.0
-		},
-		"rituals": {
-			"1": 6.0,
-			"2": 4.0,
-			"3": 4.0,
-			"4": 5.0
-		},
 		"birds": {
 			"eagle": 0,
 			"finch": 0,
 			"gull": 0,
 			"hawk": 0,
 			"kestrel": 0,
-			"raven": 0,
+			"raven": 1,
 			"shrike": 0,
 			"sparrow": 4,
 			"wren": 0
+		},
+		"incantations": {
+			"burn_1": 0,
+			"burn_2": 0,
+			"burn_3": 0,
+			"burn_4": 0,
+			"deluge_1": 0,
+			"deluge_2": 4,
+			"deluge_3": 0,
+			"dethrone_4": 2,
+			"flight_3": 0,
+			"insight_1": 0,
+			"insight_2": 0,
+			"insight_3": 0,
+			"insight_4": 0,
+			"renew_3": 0,
+			"revive_2": 0,
+			"seek_1": 0,
+			"seek_2": 1,
+			"tears_3": 0,
+			"void_0": 0,
+			"woe_3": 1,
+			"woe_4": 4,
+			"wrath_0": 0
+		},
+		"nobles": {
+			"aeoiu_rituals": 0,
+			"bndrr_incantation": 0,
+			"indrr_incantation": 0,
+			"krss_power": 0,
+			"rmrsk_emanation": 0,
+			"rndrr_incantation": 0,
+			"smrsk_occultation": 0,
+			"sndrr_incantation": 0,
+			"tmrsk_annihilation": 1,
+			"trss_power": 0,
+			"wndrr_incantation": 1,
+			"xytzr_emanation": 0,
+			"yrss_power": 0,
+			"yytzr_occultation": 0,
+			"zytzr_annihilation": 1
+		},
+		"rings": {
+			"celadon_annihilation": 1,
+			"cymbil_occultation": 0,
+			"serraf_nobles": 0,
+			"sinofia_feathers": 0,
+			"sybiline_emanation": 0
+		},
+		"rituals": {
+			"1": 6,
+			"2": 4,
+			"3": 4,
+			"4": 5
+		},
+		"temples": {
+			"delpha_oracles": 0,
+			"eyrie_feathers": 0,
+			"gotha_illness": 0,
+			"phaedra_illusion": 0,
+			"ytria_cycles": 0
 		}
 	},
 	"deck_name": "Annihilation",
 	"rules_snapshot": {
-		"max_ritual_copies": 9.0,
-		"non_ritual_target": 21.0,
-		"ritual_target": 19.0,
-		"total_cards": 40.0
+		"max_bird_copies": 4,
+		"max_ritual_copies": 9,
+		"non_ritual_target": 21,
+		"ritual_target": 19,
+		"total_cards_max": 50,
+		"total_cards_min": 40
 	},
-	"schema_version": 1.0
+	"schema_version": 1
 }

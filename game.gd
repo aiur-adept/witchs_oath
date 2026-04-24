@@ -1345,7 +1345,10 @@ func _begin_revive_hand_ui(hand_idx: int, n: int, sac_mids: Array, for_noble_mid
 		var b := Button.new()
 		var v := str(card.get("verb", ""))
 		var vv := int(card.get("value", 0))
-		b.text = "%s %d (crypt #%d)" % [v, vv, idx]
+		var shown := vv
+		if v.to_lower() == "deluge":
+			shown = maxi(vv - 1, 1)
+		b.text = "%s %d (crypt #%d)" % [v, shown, idx]
 		var capture := idx
 		b.pressed.connect(func() -> void:
 			_on_revive_crypt_chosen(capture)
@@ -5517,7 +5520,10 @@ func _on_hand_pressed(hand_idx: int) -> void:
 			if birds_t2.is_empty():
 				status_label.text = "No birds in your crypt to revive."
 				return
-		var sac_lbl := "Wrath" if verb == "wrath" else ("%s %d" % [verb, n])
+		var shown_n := n
+		if verb == "deluge":
+			shown_n = maxi(n - 1, 1)
+		var sac_lbl := "Wrath" if verb == "wrath" else ("%s %d" % [verb, shown_n])
 		_enter_sacrifice_mode(hand_idx, n_eff, sac_lbl)
 
 

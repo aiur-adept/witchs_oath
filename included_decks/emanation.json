@@ -146,11 +146,6 @@
 			"verb": "insight"
 		},
 		{
-			"type": "Incantation",
-			"value": 2,
-			"verb": "insight"
-		},
-		{
 			"name": "Rmrsk, Scion of Emanation",
 			"noble_id": "rmrsk_emanation",
 			"type": "Noble"
@@ -159,16 +154,6 @@
 			"name": "Sndrr, Noble of Incantation",
 			"noble_id": "sndrr_incantation",
 			"type": "Noble"
-		},
-		{
-			"type": "Incantation",
-			"value": 3,
-			"verb": "insight"
-		},
-		{
-			"type": "Incantation",
-			"value": 3,
-			"verb": "insight"
 		},
 		{
 			"type": "Incantation",
@@ -190,12 +175,33 @@
 			"name": "Indrr, Noble of Incantation",
 			"noble_id": "indrr_incantation",
 			"type": "Noble"
+		},
+		{
+			"bird_id": "finch",
+			"cost": 2,
+			"name": "Finch",
+			"power": 1,
+			"type": "Bird"
+		},
+		{
+			"bird_id": "finch",
+			"cost": 2,
+			"name": "Finch",
+			"power": 1,
+			"type": "Bird"
+		},
+		{
+			"bird_id": "finch",
+			"cost": 2,
+			"name": "Finch",
+			"power": 1,
+			"type": "Bird"
 		}
 	],
 	"counts": {
 		"birds": {
 			"eagle": 0,
-			"finch": 0,
+			"finch": 3,
 			"gull": 0,
 			"hawk": 0,
 			"kestrel": 0,
@@ -215,8 +221,8 @@
 			"dethrone_4": 0,
 			"flight_3": 0,
 			"insight_1": 0,
-			"insight_2": 4,
-			"insight_3": 4,
+			"insight_2": 3,
+			"insight_3": 2,
 			"insight_4": 0,
 			"renew_3": 0,
 			"revive_2": 0,

@@ -1829,7 +1829,7 @@ func execute_incantation_effect(p: int, verb: String, value: int, wrath_resolved
 				return "illegal"
 			var threshold := value - 1
 			var destroyed := _destroy_birds_with_power_at_most(threshold)
-			_log("Deluge %d destroys %d wild bird(s) with power %d or less, then unnests all surviving birds." % [value, destroyed, threshold])
+			_log("Deluge %d destroys %d wild bird(s) with power %d or less, then unnests all surviving birds." % [threshold, destroyed, threshold])
 			return "ok"
 		"tears":
 			var tidx := int(ctx.get("tears_crypt_idx", -1))

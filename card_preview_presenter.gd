@@ -427,6 +427,8 @@ static func card_title(card: Dictionary) -> String:
 		return "Void"
 	if vl == "wrath":
 		return "Wrath"
+	if vl == "deluge":
+		return "Deluge %d" % maxi(int(card.get("value", 0)) - 1, 1)
 	return "%s %d" % [verb.capitalize(), int(card.get("value", 0))]
 
 
@@ -479,7 +481,9 @@ static func card_rules_text(card: Dictionary) -> String:
 		"wrath":
 			return "Wrath: destroy 1 opponent ritual. From hand, sacrifice one of your rituals as cost; when cast via Revive, this sacrifice is not required."
 		"deluge":
-			return "Deluge %d: destroy all wild (non-nested) birds with power %d or less, then all nested birds become wild again." % [n, n - 1]
+			var shown := maxi(n - 1, 1)
+			var threshold := n - 1
+			return "Deluge %d: destroy all wild (non-nested) birds with power %d or less, then all nested birds become wild again." % [shown, threshold]
 		"tears":
 			return "Tears %d: return a Bird from your crypt to your field." % n
 		"flight":
