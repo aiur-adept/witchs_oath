@@ -1,6 +1,6 @@
-# Arcana Rules Reference (Set 1)
+# Witch's Oath Rules Reference (Set 1)
 
-This document defines the complete game rules for Arcana as currently implemented.
+This document defines the complete game rules for Witch's Oath as currently implemented.
 
 ## 1) Match Setup
 
