@@ -60,6 +60,12 @@ const BIG_TRIPLET := ["xytzr_emanation", "yytzr_occultation", "zytzr_annihilatio
 # Ritual-from-hand: fixed heuristic (not EA weights) — max match-power gain, then max printed value.
 const RITUAL_PLAY_SCORE_BASE := 10.0
 const RITUAL_PLAY_SCORE_PER_MP := 12.0
+const RITUAL_PLAY_NEXT_LANE_BONUS := 7.0
+const RITUAL_PLAY_OFFCURVE_PENALTY := 3.5
+const RITUAL_PLAY_SAC_SETUP_ENABLE := 10.0
+const RITUAL_PLAY_SAC_SETUP_PER_COST := 1.0
+const RITUAL_PLAY_SAC_SETUP_EFFECT_SCALE := 0.4
+const RITUAL_PLAY_SAC_SETUP_MAX := 28.0
 
 # -------------------------------------------------------------- weights
 var W_NOBLE_BASE: float = 60.0
@@ -532,7 +538,113 @@ func _enumerate_best(host: Node, snap: Dictionary) -> Variant:
 func score_ritual_play(card: Dictionary, snap: Dictionary) -> float:
 	var v := int(card.get("value", 0))
 	var dmp := _ritual_match_power_gain_if_played(snap, v)
-	return RITUAL_PLAY_SCORE_BASE + float(dmp) * RITUAL_PLAY_SCORE_PER_MP + float(v)
+	var progression_bonus := _ritual_progression_bonus(snap, v)
+	var offcurve_penalty := _ritual_offcurve_penalty(snap, v)
+	var sac_setup_bonus := _ritual_sacrifice_setup_bonus(snap, v)
+	return RITUAL_PLAY_SCORE_BASE + float(dmp) * RITUAL_PLAY_SCORE_PER_MP + progression_bonus - offcurve_penalty + sac_setup_bonus
+
+
+func _next_missing_lane(active_lanes: Array, max_lane: int = 4) -> int:
+	for lane in range(1, max_lane + 1):
+		if not _lane_in_set(active_lanes, lane):
+			return lane
+	return max_lane + 1
+
+
+func _missing_prereq_count(value: int, active_lanes: Array) -> int:
+	if value <= 1:
+		return 0
+	var miss := 0
+	for lane in range(1, value):
+		if not _lane_in_set(active_lanes, lane):
+			miss += 1
+	return miss
+
+
+func _ritual_progression_bonus(snap: Dictionary, value: int) -> float:
+	var active_lanes: Array = _active_lanes(snap.get("your_field", []) as Array, snap.get("your_nobles", []) as Array)
+	var next_lane := _next_missing_lane(active_lanes, 4)
+	if value == next_lane:
+		return RITUAL_PLAY_NEXT_LANE_BONUS
+	if value < next_lane:
+		return RITUAL_PLAY_NEXT_LANE_BONUS * 0.25
+	return 0.0
+
+
+func _ritual_offcurve_penalty(snap: Dictionary, value: int) -> float:
+	var active_lanes: Array = _active_lanes(snap.get("your_field", []) as Array, snap.get("your_nobles", []) as Array)
+	var missing := _missing_prereq_count(value, active_lanes)
+	return float(missing) * RITUAL_PLAY_OFFCURVE_PENALTY
+
+
+func _ritual_sacrifice_setup_bonus(snap: Dictionary, value: int) -> float:
+	var synthetic_field: Array = (snap.get("your_field", []) as Array).duplicate(true)
+	synthetic_field.append({"mid": -9992, "value": value})
+	var setup := _estimate_immediate_sac_setup_value(snap, synthetic_field)
+	return minf(setup, RITUAL_PLAY_SAC_SETUP_MAX)
+
+
+func _estimate_immediate_sac_setup_value(snap: Dictionary, field_for_eval: Array) -> float:
+	var hand: Array = snap.get("your_hand", []) as Array
+	var active_lanes: Array = _active_lanes(field_for_eval, snap.get("your_nobles", []) as Array)
+	var score := 0.0
+	for c in hand:
+		var cd := c as Dictionary
+		var kind := _card_kind(cd)
+		if kind == "noble":
+			var eff := _GameSnapshotUtils.noble_cost_for_id(str(cd.get("noble_id", "")))
+			if eff <= 0 or _lane_in_set(active_lanes, eff):
+				continue
+			if not _greedy_sac_min(field_for_eval, eff).is_empty():
+				score += RITUAL_PLAY_SAC_SETUP_ENABLE + float(eff) * RITUAL_PLAY_SAC_SETUP_PER_COST
+		elif kind == "temple":
+			var tcost := _GameSnapshotUtils.temple_cost_for_id(str(cd.get("temple_id", "")))
+			if not _greedy_sac_min(field_for_eval, tcost).is_empty():
+				score += RITUAL_PLAY_SAC_SETUP_ENABLE + float(tcost) * RITUAL_PLAY_SAC_SETUP_PER_COST
+		elif kind == "incantation":
+			var verb := str(cd.get("verb", "")).to_lower()
+			if verb == VERB_WRATH:
+				continue
+			var eff_i := int(cd.get("value", 0))
+			if _CardTraits.is_dethrone(cd):
+				eff_i = 4
+			if eff_i <= 0 or _lane_in_set(active_lanes, eff_i):
+				continue
+			if not _greedy_sac_min(field_for_eval, eff_i).is_empty():
+				var bonus := RITUAL_PLAY_SAC_SETUP_ENABLE + float(eff_i) * RITUAL_PLAY_SAC_SETUP_PER_COST
+				bonus += _incantation_tactical_proxy(snap, verb, int(cd.get("value", 0)))
+				score += bonus
+	return score
+
+
+func _incantation_tactical_proxy(snap: Dictionary, verb: String, val: int) -> float:
+	if verb == VERB_DETHRONE:
+		var opp_nobles: Array = snap.get("opp_nobles", []) as Array
+		if opp_nobles.is_empty():
+			return 0.0
+		var best_cost := 0
+		for n in opp_nobles:
+			best_cost = maxi(best_cost, int((n as Dictionary).get("cost", 0)))
+		return W_DETHRONE_BASE + float(best_cost) * W_DETHRONE_PER_COST
+	if verb == VERB_SEEK:
+		return (W_EFFECT_SEEK_BASE + float(val) * W_EFFECT_SEEK_VALUE) * RITUAL_PLAY_SAC_SETUP_EFFECT_SCALE
+	if verb == VERB_INSIGHT:
+		return (W_EFFECT_INSIGHT_BASE + float(val) * W_EFFECT_INSIGHT_VALUE) * RITUAL_PLAY_SAC_SETUP_EFFECT_SCALE
+	if verb == VERB_BURN:
+		return (W_EFFECT_BURN_BASE + float(val) * W_EFFECT_BURN_VALUE) * RITUAL_PLAY_SAC_SETUP_EFFECT_SCALE
+	if verb == VERB_WOE and int(snap.get("opp_hand", 0)) > 0:
+		return (W_EFFECT_WOE_BASE + float(maxi(0, val - 2)) * W_EFFECT_WOE_PER_DISCARD) * RITUAL_PLAY_SAC_SETUP_EFFECT_SCALE
+	if verb == VERB_DELUGE:
+		return W_EFFECT_DELUGE_BASE * RITUAL_PLAY_SAC_SETUP_EFFECT_SCALE
+	if verb == VERB_TEARS and not (snap.get("your_crypt_cards", []) as Array).is_empty():
+		return W_EFFECT_TEARS_BASE * RITUAL_PLAY_SAC_SETUP_EFFECT_SCALE
+	if verb == VERB_FLIGHT and not (snap.get("your_birds", []) as Array).is_empty():
+		return W_EFFECT_FLIGHT_BASE * RITUAL_PLAY_SAC_SETUP_EFFECT_SCALE
+	if verb == VERB_RENEW and not (snap.get("your_ritual_crypt_cards", []) as Array).is_empty():
+		return W_EFFECT_RENEW_BASE * RITUAL_PLAY_SAC_SETUP_EFFECT_SCALE
+	if verb == VERB_REVIVE and not (snap.get("your_crypt_cards", []) as Array).is_empty():
+		return W_EFFECT_REVIVE_BASE * RITUAL_PLAY_SAC_SETUP_EFFECT_SCALE
+	return 0.0
 
 
 func score_noble_play(card: Dictionary, _eff_cost: int, sac: Array, active_lanes: Array, snap: Dictionary = {}) -> Variant:

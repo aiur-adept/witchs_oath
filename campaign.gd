@@ -58,6 +58,7 @@ func _ready() -> void:
 	back_button.pressed.connect(_on_back_pressed)
 	campaign_deck_button.pressed.connect(_on_campaign_deck_button_pressed)
 	challenge_dialog.confirmed.connect(_on_challenge_confirmed)
+	_configure_confirmation_dialog(challenge_dialog, 520.0)
 	deck_picker_list.item_selected.connect(_on_deck_picker_item_selected)
 	deck_picker_list.item_activated.connect(_on_deck_picker_item_activated)
 	deck_picker_confirm_button.pressed.connect(_on_deck_picker_confirm_pressed)
@@ -73,6 +74,26 @@ func _ready() -> void:
 		_reload_campaign_state_for_selected_deck()
 	_build_track_ui()
 	_update_unlock_states()
+
+
+func _configure_confirmation_dialog(dialog: ConfirmationDialog, min_width: float) -> void:
+	if dialog == null:
+		return
+	dialog.title = ""
+	dialog.borderless = true
+	dialog.unresizable = true
+	dialog.min_size = Vector2(min_width, 0.0)
+	var body := dialog.get_label()
+	if body != null:
+		body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		body.custom_minimum_size.x = min_width - 56.0
+		body.clip_text = false
+	var ok_btn := dialog.get_ok_button()
+	if ok_btn != null:
+		ok_btn.custom_minimum_size.y = 44.0
+	var cancel_btn := dialog.get_cancel_button()
+	if cancel_btn != null:
+		cancel_btn.custom_minimum_size.y = 44.0
 
 
 func _build_track_ui() -> void:

@@ -18,7 +18,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.06, 0.06, 0.1, 1)
+color = Color(0.05, 0.055, 0.09, 1)
 
 [node name="Margin" type="MarginContainer" parent="."]
 layout_mode = 1
@@ -27,22 +27,22 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_constants/margin_left = 20
+theme_override_constants/margin_left = 26
 theme_override_constants/margin_top = 16
-theme_override_constants/margin_right = 20
+theme_override_constants/margin_right = 26
 theme_override_constants/margin_bottom = 16
 
 [node name="RootRow" type="HBoxContainer" parent="Margin"]
 layout_mode = 2
 size_flags_vertical = 3
-theme_override_constants/separation = 18
+theme_override_constants/separation = 26
 
 [node name="LogCol" type="VBoxContainer" parent="Margin/RootRow"]
 layout_mode = 2
 size_flags_horizontal = 3
-size_flags_stretch_ratio = 0.2
+size_flags_stretch_ratio = 0.382
 size_flags_vertical = 3
-theme_override_constants/separation = 8
+theme_override_constants/separation = 13
 
 [node name="StatusLabel" type="Label" parent="Margin/RootRow/LogCol"]
 unique_name_in_owner = true
@@ -128,13 +128,13 @@ text = "Exit"
 [node name="BoardCol" type="VBoxContainer" parent="Margin/RootRow"]
 layout_mode = 2
 size_flags_horizontal = 3
-size_flags_stretch_ratio = 0.8
+size_flags_stretch_ratio = 1.0
 size_flags_vertical = 3
-theme_override_constants/separation = 8
+theme_override_constants/separation = 13
 
 [node name="StatsRow" type="HBoxContainer" parent="Margin/RootRow/BoardCol"]
 layout_mode = 2
-theme_override_constants/separation = 12
+theme_override_constants/separation = 16
 
 [node name="YouStatsPanel" type="PanelContainer" parent="Margin/RootRow/BoardCol/StatsRow"]
 layout_mode = 2
@@ -160,7 +160,7 @@ text = "Opponent\nPower: 0\nHand: 0\nDeck: 0"
 
 [node name="StatsButtonsRow" type="HBoxContainer" parent="Margin/RootRow/BoardCol"]
 layout_mode = 2
-theme_override_constants/separation = 12
+theme_override_constants/separation = 16
 
 [node name="CryptButton" type="Button" parent="Margin/RootRow/BoardCol/StatsButtonsRow"]
 unique_name_in_owner = true
@@ -188,7 +188,7 @@ text = "Opponent abyss (0)"
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
-theme_override_constants/separation = 12
+theme_override_constants/separation = 16
 
 [node name="SacrificeHint" type="Label" parent="Margin/RootRow/BoardCol/SacrificeRow"]
 unique_name_in_owner = true
@@ -213,7 +213,7 @@ size_flags_vertical = 3
 
 [node name="OpponentArea" type="VBoxContainer" parent="Margin/RootRow/BoardCol"]
 layout_mode = 2
-theme_override_constants/separation = 6
+theme_override_constants/separation = 10
 
 [node name="OppFieldTitle" type="Label" parent="Margin/RootRow/BoardCol/OpponentArea"]
 layout_mode = 2
@@ -222,7 +222,7 @@ text = "Opponent field"
 [node name="OppFieldRow" type="HBoxContainer" parent="Margin/RootRow/BoardCol/OpponentArea"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 14
+theme_override_constants/separation = 16
 
 [node name="OppRitualsCol" type="VBoxContainer" parent="Margin/RootRow/BoardCol/OpponentArea/OppFieldRow"]
 layout_mode = 2
@@ -240,7 +240,7 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 0
-theme_override_constants/separation = 10
+theme_override_constants/separation = 13
 
 [node name="OppNoblesCol" type="VBoxContainer" parent="Margin/RootRow/BoardCol/OpponentArea/OppFieldRow"]
 layout_mode = 2
@@ -258,7 +258,7 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 0
-theme_override_constants/separation = 10
+theme_override_constants/separation = 13
 
 [node name="OppBirdsCol" type="VBoxContainer" parent="Margin/RootRow/BoardCol/OpponentArea/OppFieldRow"]
 layout_mode = 2
@@ -276,7 +276,7 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 0
-theme_override_constants/separation = 10
+theme_override_constants/separation = 13
 
 [node name="OppTemplesCol" type="VBoxContainer" parent="Margin/RootRow/BoardCol/OpponentArea/OppFieldRow"]
 layout_mode = 2
@@ -294,15 +294,15 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 0
-theme_override_constants/separation = 10
+theme_override_constants/separation = 13
 
 [node name="FieldRowsGap" type="Control" parent="Margin/RootRow/BoardCol"]
-custom_minimum_size = Vector2(0, 10)
+custom_minimum_size = Vector2(0, 16)
 layout_mode = 2
 
 [node name="PlayerArea" type="VBoxContainer" parent="Margin/RootRow/BoardCol"]
 layout_mode = 2
-theme_override_constants/separation = 6
+theme_override_constants/separation = 10
 
 [node name="YourFieldTitle" type="Label" parent="Margin/RootRow/BoardCol/PlayerArea"]
 layout_mode = 2
@@ -311,7 +311,7 @@ text = "Your field"
 [node name="YouFieldRow" type="HBoxContainer" parent="Margin/RootRow/BoardCol/PlayerArea"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 14
+theme_override_constants/separation = 16
 
 [node name="YouRitualsCol" type="VBoxContainer" parent="Margin/RootRow/BoardCol/PlayerArea/YouFieldRow"]
 layout_mode = 2
@@ -329,7 +329,7 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 0
-theme_override_constants/separation = 10
+theme_override_constants/separation = 13
 
 [node name="YouNoblesCol" type="VBoxContainer" parent="Margin/RootRow/BoardCol/PlayerArea/YouFieldRow"]
 layout_mode = 2
@@ -347,7 +347,7 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 0
-theme_override_constants/separation = 10
+theme_override_constants/separation = 13
 
 [node name="YouBirdsCol" type="VBoxContainer" parent="Margin/RootRow/BoardCol/PlayerArea/YouFieldRow"]
 layout_mode = 2
@@ -365,7 +365,7 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 0
-theme_override_constants/separation = 10
+theme_override_constants/separation = 13
 
 [node name="YouTemplesCol" type="VBoxContainer" parent="Margin/RootRow/BoardCol/PlayerArea/YouFieldRow"]
 layout_mode = 2
@@ -383,7 +383,7 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 0
-theme_override_constants/separation = 10
+theme_override_constants/separation = 13
 
 [node name="BoardFieldBottomSpacer" type="Control" parent="Margin/RootRow/BoardCol"]
 layout_mode = 2
@@ -392,11 +392,11 @@ size_flags_vertical = 3
 [node name="HandRow" type="HBoxContainer" parent="Margin/RootRow/BoardCol"]
 unique_name_in_owner = true
 layout_mode = 2
-theme_override_constants/separation = 6
+theme_override_constants/separation = 10
 
 [node name="ButtonsRow" type="HBoxContainer" parent="Margin/RootRow/BoardCol"]
 layout_mode = 2
-theme_override_constants/separation = 12
+theme_override_constants/separation = 16
 
 [node name="DiscardDrawButton" type="Button" parent="Margin/RootRow/BoardCol/ButtonsRow"]
 unique_name_in_owner = true
@@ -419,9 +419,9 @@ layout_mode = 1
 anchors_preset = 6
 anchor_top = 1.0
 anchor_bottom = 1.0
-offset_left = 20.0
-offset_top = -52.0
-offset_right = 170.0
+offset_left = 26.0
+offset_top = -58.0
+offset_right = 226.0
 offset_bottom = -16.0
 text = "Quit to menu"
 
@@ -456,23 +456,23 @@ grow_vertical = 2
 
 [node name="Panel" type="PanelContainer" parent="PauseOverlay/CenterContainer"]
 layout_mode = 2
-custom_minimum_size = Vector2(380, 180)
+custom_minimum_size = Vector2(418, 206)
 
 [node name="Margin" type="MarginContainer" parent="PauseOverlay/CenterContainer/Panel"]
 layout_mode = 2
-theme_override_constants/margin_left = 14
-theme_override_constants/margin_top = 14
-theme_override_constants/margin_right = 14
-theme_override_constants/margin_bottom = 14
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
 
 [node name="VBox" type="VBoxContainer" parent="PauseOverlay/CenterContainer/Panel/Margin"]
 layout_mode = 2
-theme_override_constants/separation = 12
+theme_override_constants/separation = 16
 
 [node name="Title" type="Label" parent="PauseOverlay/CenterContainer/Panel/Margin/VBox"]
 layout_mode = 2
 horizontal_alignment = 1
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 26
 text = "Paused"
 
 [node name="Body" type="Label" parent="PauseOverlay/CenterContainer/Panel/Margin/VBox"]
@@ -483,7 +483,7 @@ text = "Return to game, or quit to main menu."
 [node name="Buttons" type="HBoxContainer" parent="PauseOverlay/CenterContainer/Panel/Margin/VBox"]
 layout_mode = 2
 alignment = 1
-theme_override_constants/separation = 10
+theme_override_constants/separation = 13
 
 [node name="PauseReturnButton" type="Button" parent="PauseOverlay/CenterContainer/Panel/Margin/VBox/Buttons"]
 unique_name_in_owner = true
@@ -532,10 +532,10 @@ layout_mode = 1
 anchors_preset = 1
 anchor_left = 1.0
 anchor_right = 1.0
-offset_left = -58.0
+offset_left = -70.0
 offset_top = 16.0
 offset_right = -16.0
-offset_bottom = 58.0
+offset_bottom = 70.0
 grow_horizontal = 0
 tooltip_text = "Close"
 text = "X"

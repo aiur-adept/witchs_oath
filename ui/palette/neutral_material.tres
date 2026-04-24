@@ -1,0 +1,31 @@
+[gd_resource type="Resource" script_class="UIPalette" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://ui/palette/ui_palette.gd" id="1_palette"]
+
+[resource]
+script = ExtResource("1_palette")
+background = Color(0.095, 0.102, 0.116, 1)
+surface_low = Color(0.12, 0.13, 0.15, 1)
+surface = Color(0.145, 0.155, 0.178, 1)
+surface_high = Color(0.182, 0.194, 0.22, 1)
+outline = Color(0.34, 0.36, 0.4, 1)
+accent_gold = Color(0.7, 0.72, 0.78, 1)
+accent_gold_soft = Color(0.58, 0.61, 0.67, 1)
+accent_info = Color(0.47, 0.67, 0.88, 1)
+accent_success = Color(0.41, 0.77, 0.62, 1)
+accent_danger = Color(0.89, 0.43, 0.45, 1)
+text_primary = Color(0.93, 0.94, 0.97, 1)
+text_secondary = Color(0.75, 0.77, 0.82, 1)
+text_on_accent = Color(0.11, 0.12, 0.14, 1)
+heading_scale = 1.618
+spacing_xs = 6
+spacing_sm = 10
+spacing_md = 16
+spacing_lg = 26
+spacing_xl = 42
+radius_sm = 8
+radius_md = 13
+radius_lg = 21
+button_min_height = 50.0
+button_pad_x = 21.0
+button_pad_y = 13.0

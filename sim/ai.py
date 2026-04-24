@@ -78,6 +78,12 @@ def simple_mulligan(state: MatchState, pid: int) -> bool:
 
 RITUAL_PLAY_SCORE_BASE = 10.0
 RITUAL_PLAY_SCORE_PER_MP = 12.0
+RITUAL_PLAY_NEXT_LANE_BONUS = 7.0
+RITUAL_PLAY_OFFCURVE_PENALTY = 3.5
+RITUAL_PLAY_SAC_SETUP_ENABLE = 10.0
+RITUAL_PLAY_SAC_SETUP_PER_COST = 1.0
+RITUAL_PLAY_SAC_SETUP_EFFECT_SCALE = 0.4
+RITUAL_PLAY_SAC_SETUP_MAX = 28.0
 
 
 class GreedyAI:
@@ -492,7 +498,85 @@ class GreedyAI:
 
     def score_ritual_play(self, state: MatchState, card) -> float:
         dmp = self._ritual_match_power_gain_if_played(state, self.pid, card.value)
-        return float(RITUAL_PLAY_SCORE_BASE) + float(dmp) * float(RITUAL_PLAY_SCORE_PER_MP) + float(card.value)
+        progression_bonus = self._ritual_progression_bonus(state, self.pid, card.value)
+        offcurve_penalty = self._ritual_offcurve_penalty(state, self.pid, card.value)
+        sac_setup_bonus = self._ritual_sacrifice_setup_bonus(state, self.pid, card.value)
+        return (
+            float(RITUAL_PLAY_SCORE_BASE)
+            + float(dmp) * float(RITUAL_PLAY_SCORE_PER_MP)
+            + progression_bonus
+            - offcurve_penalty
+            + sac_setup_bonus
+        )
+
+    def _next_missing_lane(self, active: set[int], max_lane: int = 4) -> int:
+        for lane in range(1, max_lane + 1):
+            if lane not in active:
+                return lane
+        return max_lane + 1
+
+    def _missing_prereq_count(self, value: int, active: set[int]) -> int:
+        if value <= 1:
+            return 0
+        return sum(1 for lane in range(1, value) if lane not in active)
+
+    def _ritual_progression_bonus(self, state: MatchState, pid: int, value: int) -> float:
+        active = state.active_lanes(pid)
+        next_lane = self._next_missing_lane(active, 4)
+        if value == next_lane:
+            return RITUAL_PLAY_NEXT_LANE_BONUS
+        if value < next_lane:
+            return RITUAL_PLAY_NEXT_LANE_BONUS * 0.25
+        return 0.0
+
+    def _ritual_offcurve_penalty(self, state: MatchState, pid: int, value: int) -> float:
+        active = state.active_lanes(pid)
+        missing = self._missing_prereq_count(value, active)
+        return float(missing) * RITUAL_PLAY_OFFCURVE_PENALTY
+
+    def _ritual_sacrifice_setup_bonus(self, state: MatchState, pid: int, value: int) -> float:
+        p = state.players[pid]
+        synthetic = Ritual(mid=-1002, value=value)
+        p.field.append(synthetic)
+        try:
+            setup = self._estimate_immediate_sac_setup_value(state, pid)
+        finally:
+            p.field = [r for r in p.field if r.mid != synthetic.mid]
+        return min(setup, RITUAL_PLAY_SAC_SETUP_MAX)
+
+    def _estimate_immediate_sac_setup_value(self, state: MatchState, pid: int) -> float:
+        p = state.players[pid]
+        opp = state.players[state.opponent(pid)]
+        active = state.active_lanes(pid)
+        impact_by_mid = self._ritual_impact_by_mid(state, pid)
+        score = 0.0
+        for c in p.hand:
+            if c.kind is Kind.NOBLE:
+                eff = state.effective_noble_cost(pid, c.cost)
+                if eff <= 0 or eff in active:
+                    continue
+                if _ritual_combinations_for_value(p.field, eff, impact_by_mid) is not None:
+                    score += RITUAL_PLAY_SAC_SETUP_ENABLE + float(eff) * RITUAL_PLAY_SAC_SETUP_PER_COST
+            elif c.kind is Kind.TEMPLE:
+                if _minimal_sac_for_lane(p.field, c.cost, impact_by_mid) is not None:
+                    score += RITUAL_PLAY_SAC_SETUP_ENABLE + float(c.cost) * RITUAL_PLAY_SAC_SETUP_PER_COST
+            elif c.kind is Kind.INCANTATION:
+                if c.verb == VERB_WRATH:
+                    continue
+                eff = state.effective_incantation_cost(pid, c.verb, c.value)
+                if eff <= 0 or eff in active:
+                    continue
+                if _ritual_combinations_for_value(p.field, eff, impact_by_mid) is not None:
+                    bonus = RITUAL_PLAY_SAC_SETUP_ENABLE + float(eff) * RITUAL_PLAY_SAC_SETUP_PER_COST
+                    if c.verb == VERB_DETHRONE and opp.noble_field:
+                        target = max(opp.noble_field, key=lambda n: n.cost)
+                        bonus += self.W_DETHRONE_BASE + target.cost * self.W_DETHRONE_PER_COST
+                    else:
+                        eff_score = self._score_effect(state, pid, c.verb, c.value)
+                        if eff_score is not None:
+                            bonus += float(eff_score[0]) * RITUAL_PLAY_SAC_SETUP_EFFECT_SCALE
+                    score += bonus
+        return score
 
     def score_noble_play(self, state: MatchState, card, eff_cost: int, sac: list[int]) -> Optional[float]:
         score = self.W_NOBLE_BASE + card.cost * self.W_NOBLE_COST_BONUS

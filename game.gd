@@ -44,8 +44,13 @@ const HAND_CARD_BADGE_FONT_SIZE := 15
 const UI_BUTTON_MIN_HEIGHT := 48.0
 const UI_BUTTON_PAD_X := 18.0
 const UI_BUTTON_PAD_Y := 10.0
+const UI_PALETTE_PATH := "res://ui/palette/dark_arcane_gold.tres"
 var _bound_port: int = PORT_MIN
 var _deck_path: String = DEFAULT_DECK_PATH
+var _ui_palette: UIPalette
+var _ui_button_min_height := UI_BUTTON_MIN_HEIGHT
+var _ui_button_pad_x := UI_BUTTON_PAD_X
+var _ui_button_pad_y := UI_BUTTON_PAD_Y
 
 @onready var status_label: Label = %StatusLabel
 @onready var log_scroll: ScrollContainer = %LogScroll
@@ -89,6 +94,7 @@ var _deck_path: String = DEFAULT_DECK_PATH
 @onready var pause_quit_button: Button = %PauseQuitButton
 @onready var concede_confirm_dialog: ConfirmationDialog = %ConcedeConfirmDialog
 @onready var exit_confirm_dialog: ConfirmationDialog = %ExitConfirmDialog
+@onready var background_rect: ColorRect = $Background
 
 var _host: bool = false
 var _my_player: int = 0
@@ -426,13 +432,129 @@ func _yytzr_clear_bonus_state() -> void:
 	_yytzr_revive_renew_pick = false
 
 
+func _resolve_ui_palette() -> UIPalette:
+	var candidate := load(UI_PALETTE_PATH)
+	if candidate != null and candidate is UIPalette:
+		return candidate as UIPalette
+	return UIPalette.new()
+
+
+func _make_button_style(bg: Color, border: Color, radius: int, x_pad: float, y_pad: float) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = bg
+	style.border_color = border
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(radius)
+	style.content_margin_left = x_pad
+	style.content_margin_right = x_pad
+	style.content_margin_top = y_pad
+	style.content_margin_bottom = y_pad
+	return style
+
+
+func _apply_palette_to_theme(palette: UIPalette) -> void:
+	if palette == null:
+		return
+	var active_theme := theme
+	if active_theme == null:
+		active_theme = Theme.new()
+	else:
+		active_theme = active_theme.duplicate(true)
+	var radius_md := int(palette.radius_md)
+	var radius_sm := int(palette.radius_sm)
+	var pad_x := float(palette.button_pad_x)
+	var pad_y := float(palette.button_pad_y)
+	active_theme.set_stylebox("normal", "Button", _make_button_style(palette.surface_high, palette.outline, radius_md, pad_x, pad_y))
+	active_theme.set_stylebox("hover", "Button", _make_button_style(palette.surface_high.lightened(0.08), palette.accent_gold_soft, radius_md, pad_x, pad_y))
+	active_theme.set_stylebox("pressed", "Button", _make_button_style(palette.accent_gold, palette.text_on_accent, radius_md, pad_x, pad_y))
+	active_theme.set_stylebox("disabled", "Button", _make_button_style(palette.surface_low.darkened(0.12), palette.outline.darkened(0.2), radius_md, pad_x, pad_y))
+	var focus_style := StyleBoxFlat.new()
+	focus_style.draw_center = false
+	focus_style.set_border_width_all(2)
+	focus_style.set_corner_radius_all(radius_md)
+	focus_style.border_color = palette.accent_gold
+	active_theme.set_stylebox("focus", "Button", focus_style)
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = palette.surface_low
+	panel_style.border_color = palette.outline
+	panel_style.set_border_width_all(1)
+	panel_style.set_corner_radius_all(radius_md)
+	panel_style.shadow_color = Color(0.0, 0.0, 0.0, 0.35)
+	panel_style.shadow_size = 8
+	active_theme.set_stylebox("panel", "PanelContainer", panel_style)
+	active_theme.set_stylebox("panel", "PopupPanel", panel_style.duplicate())
+	var line_style := StyleBoxFlat.new()
+	line_style.bg_color = palette.surface
+	line_style.border_color = palette.outline
+	line_style.set_border_width_all(1)
+	line_style.set_corner_radius_all(radius_sm)
+	line_style.content_margin_left = float(palette.spacing_sm)
+	line_style.content_margin_right = float(palette.spacing_sm)
+	line_style.content_margin_top = float(palette.spacing_xs)
+	line_style.content_margin_bottom = float(palette.spacing_xs)
+	active_theme.set_stylebox("normal", "LineEdit", line_style)
+	active_theme.set_stylebox("read_only", "LineEdit", line_style.duplicate())
+	active_theme.set_stylebox("write", "LineEdit", line_style.duplicate())
+	active_theme.set_stylebox("focus", "LineEdit", focus_style.duplicate())
+	active_theme.set_color("font_color", "Label", palette.text_primary)
+	active_theme.set_color("default_color", "RichTextLabel", palette.text_primary)
+	active_theme.set_color("font_color", "Button", palette.text_primary)
+	active_theme.set_color("font_hover_color", "Button", palette.text_primary.lightened(0.08))
+	active_theme.set_color("font_pressed_color", "Button", palette.text_on_accent)
+	active_theme.set_color("font_hover_pressed_color", "Button", palette.text_on_accent)
+	active_theme.set_color("font_disabled_color", "Button", palette.text_secondary.darkened(0.12))
+	active_theme.set_color("font_color", "LineEdit", palette.text_primary)
+	active_theme.set_color("font_placeholder_color", "LineEdit", palette.text_secondary)
+	active_theme.set_color("caret_color", "LineEdit", palette.accent_gold)
+	active_theme.set_constant("separation", "HBoxContainer", int(palette.spacing_md))
+	active_theme.set_constant("separation", "VBoxContainer", int(palette.spacing_md))
+	active_theme.set_constant("h_separation", "GridContainer", int(palette.spacing_md))
+	active_theme.set_constant("v_separation", "GridContainer", int(palette.spacing_md))
+	theme = active_theme
+
+
+func _apply_palette_to_scene_accents(palette: UIPalette) -> void:
+	if palette == null:
+		return
+	background_rect.color = palette.background
+	you_stats_label.add_theme_color_override("default_color", palette.text_primary)
+	opp_stats_label.add_theme_color_override("default_color", palette.text_primary)
+	sacrifice_hint.add_theme_color_override("font_color", palette.accent_gold)
+
+
+func _configure_confirmation_dialog(dialog: ConfirmationDialog, min_width: float) -> void:
+	if dialog == null:
+		return
+	dialog.title = ""
+	dialog.borderless = true
+	dialog.unresizable = true
+	dialog.min_size = Vector2(min_width, 0.0)
+	var body := dialog.get_label()
+	if body != null:
+		body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		body.custom_minimum_size.x = min_width - 56.0
+		body.clip_text = false
+	var ok_btn := dialog.get_ok_button()
+	if ok_btn != null:
+		ok_btn.custom_minimum_size.y = 44.0
+	var cancel_btn := dialog.get_cancel_button()
+	if cancel_btn != null:
+		cancel_btn.custom_minimum_size.y = 44.0
+
+
 func _ready() -> void:
 	_deck_path = _resolve_selected_deck_path()
 	_ritual_field = _GameRitualFieldView.new(self)
+	_ui_palette = _resolve_ui_palette()
+	_ui_button_min_height = float(_ui_palette.button_min_height)
+	_ui_button_pad_x = float(_ui_palette.button_pad_x)
+	_ui_button_pad_y = float(_ui_palette.button_pad_y)
+	_apply_palette_to_theme(_ui_palette)
+	_apply_palette_to_scene_accents(_ui_palette)
 	set_multiplayer_authority(1)
 	status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status_label.clip_text = true
-	status_label.add_theme_font_size_override("font_size", int(round(float(status_label.get_theme_font_size("font_size", "Label")) * 1.618)))
+	status_label.add_theme_font_size_override("font_size", int(round(float(status_label.get_theme_font_size("font_size", "Label")) * float(_ui_palette.heading_scale))))
 	_build_insight_overlay()
 	_build_burn_woe_revive_overlays()
 	_build_discard_prompt_overlay()
@@ -464,6 +586,8 @@ func _ready() -> void:
 	pause_quit_button.pressed.connect(_on_pause_quit_pressed)
 	concede_confirm_dialog.confirmed.connect(_on_concede_confirmed)
 	exit_confirm_dialog.confirmed.connect(_on_exit_match_confirmed)
+	_configure_confirmation_dialog(concede_confirm_dialog, 500.0)
+	_configure_confirmation_dialog(exit_confirm_dialog, 500.0)
 	pause_overlay.visible = false
 	_apply_ui_button_padding(end_turn_button)
 	_apply_ui_button_padding(bird_fight_button)
@@ -489,10 +613,10 @@ func _ready() -> void:
 	how_to_play_close_button.custom_minimum_size = Vector2(42, 42)
 	how_to_play_close_button.add_theme_font_size_override("font_size", 20)
 	var left_panel_style := StyleBoxFlat.new()
-	left_panel_style.bg_color = Color(0, 0, 0, 1)
-	left_panel_style.border_color = Color(0.18, 0.18, 0.18, 1)
+	left_panel_style.bg_color = _ui_palette.surface_low
+	left_panel_style.border_color = _ui_palette.outline
 	left_panel_style.set_border_width_all(1)
-	left_panel_style.set_corner_radius_all(8)
+	left_panel_style.set_corner_radius_all(int(_ui_palette.radius_md))
 	left_action_expanded_panel.add_theme_stylebox_override("panel", left_panel_style)
 	_set_left_action_expanded(false)
 	crypt_button.mouse_entered.connect(_on_crypt_button_mouse_entered)
@@ -6355,16 +6479,16 @@ func _on_quit_to_menu_confirmed() -> void:
 func _apply_ui_button_padding(btn: Button) -> void:
 	if btn == null:
 		return
-	btn.custom_minimum_size.y = maxf(btn.custom_minimum_size.y, UI_BUTTON_MIN_HEIGHT)
+	btn.custom_minimum_size.y = maxf(btn.custom_minimum_size.y, _ui_button_min_height)
 	for style_name in ["normal", "hover", "pressed", "disabled", "focus"]:
 		var style := btn.get_theme_stylebox(style_name)
 		if style == null:
 			continue
 		var padded := style.duplicate()
-		padded.content_margin_left = maxf(padded.content_margin_left, UI_BUTTON_PAD_X)
-		padded.content_margin_right = maxf(padded.content_margin_right, UI_BUTTON_PAD_X)
-		padded.content_margin_top = maxf(padded.content_margin_top, UI_BUTTON_PAD_Y)
-		padded.content_margin_bottom = maxf(padded.content_margin_bottom, UI_BUTTON_PAD_Y)
+		padded.content_margin_left = maxf(padded.content_margin_left, _ui_button_pad_x)
+		padded.content_margin_right = maxf(padded.content_margin_right, _ui_button_pad_x)
+		padded.content_margin_top = maxf(padded.content_margin_top, _ui_button_pad_y)
+		padded.content_margin_bottom = maxf(padded.content_margin_bottom, _ui_button_pad_y)
 		btn.add_theme_stylebox_override(style_name, padded)
 
 
