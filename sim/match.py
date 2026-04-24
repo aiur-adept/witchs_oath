@@ -125,6 +125,8 @@ class MatchState:
         self.power_curve_p0: list[Optional[int]] = [None] * len(self.power_curve_markers)
         self.power_curve_p1: list[Optional[int]] = [None] * len(self.power_curve_markers)
         self.non_ritual_plays_from_hand: list[dict[str, int]] = [{}, {}]
+        self.incantation_plays: list[int] = [0, 0]
+        self.discard_for_draw_plays: list[int] = [0, 0]
 
     def mid(self) -> int:
         m = self._next_mid
@@ -563,6 +565,7 @@ class MatchState:
         if sac_mids:
             self._sacrifice(pid, sac_mids)
         card = p.hand.pop(hand_idx)
+        self.incantation_plays[pid] += 1
         self._note_non_ritual_play(pid, card)
         resolved = self._resolve_incantation_effect(pid, card, ctx)
         if resolved.get("to_abyss"):
@@ -599,6 +602,7 @@ class MatchState:
         if sac_mids:
             self._sacrifice(pid, sac_mids)
         p.hand.pop(hand_idx)
+        self.incantation_plays[pid] += 1
         self._note_non_ritual_play(pid, c)
         self._destroy_noble(self.opponent(pid), target_mid)
         p.crypt.append(c)
@@ -1160,6 +1164,7 @@ class MatchState:
             return
         p.crypt.append(p.hand.pop(hand_idx))
         p.discard_draw_used = True
+        self.discard_for_draw_plays[pid] += 1
         self._draw_n(pid, 1, can_lose=True)
         self._check_power_win()
 

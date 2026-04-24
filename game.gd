@@ -280,6 +280,9 @@ var _bird_assign_reset: Button
 var _bird_assign_cancel: Button
 var _bird_assign_remaining: int = 0
 var _bird_damage_assign: Dictionary = {}
+var _campaign_series_panel: PanelContainer
+var _campaign_series_label: Label
+var _campaign_force_return: bool = false
 
 
 func _read_play_mode_string() -> String:
@@ -435,6 +438,7 @@ func _ready() -> void:
 	_build_discard_prompt_overlay()
 	_build_hover_preview_panel()
 	_build_game_end_modal()
+	_build_campaign_series_ui()
 	_build_end_discard_modal()
 	_build_mulligan_bar()
 	_build_crypt_ui()
@@ -603,6 +607,8 @@ func _on_peer_connected(id: int) -> void:
 
 func _start_match() -> void:
 	_campaign_result_recorded = false
+	_campaign_force_return = false
+	_refresh_campaign_series_ui()
 	if _is_network_host_session():
 		_start_network_host_match()
 		return
@@ -1891,6 +1897,7 @@ func _apply_snap(snap: Dictionary) -> void:
 		bird_fight_button.disabled = true
 		bird_fight_button.visible = false
 		discard_draw_button.disabled = true
+		discard_draw_button.visible = false
 		_rebuild_hand(snap.get("your_hand", []))
 		_hide_end_discard_modal()
 		return
@@ -1938,10 +1945,13 @@ func _apply_snap(snap: Dictionary) -> void:
 	var your_fightable := _has_fightable_birds(snap.get("your_birds", []) as Array)
 	var opp_fightable := _has_fightable_birds(snap.get("opp_birds", []) as Array)
 	var bird_fight_unlocked := (not bool(snap.get("goldfish", false))) and mine and your_fightable and opp_fightable and not bool(snap.get("your_bird_fight_used", false))
+	var your_hand_cards := snap.get("your_hand", []) as Array
+	var discard_draw_unlocked := mine and not bool(snap.get("discard_draw_used", true)) and not your_hand_cards.is_empty() and not ui_block
 	bird_fight_button.visible = bird_fight_unlocked
 	bird_fight_button.disabled = (not bird_fight_unlocked) or ui_block
-	discard_draw_button.disabled = not mine or bool(snap.get("discard_draw_used", true)) or ui_block
-	_rebuild_hand(snap.get("your_hand", []))
+	discard_draw_button.visible = discard_draw_unlocked
+	discard_draw_button.disabled = not discard_draw_unlocked
+	_rebuild_hand(your_hand_cards)
 	if bool(snap.get("woe_pending_you_respond", false)):
 		_update_woe_discard_status()
 	elif _selecting_end_discard:
@@ -2230,6 +2240,8 @@ func _end_game_ui(snap: Dictionary) -> void:
 	_clear_insight_ui()
 	_hide_card_hover_preview()
 	_hide_end_discard_modal()
+	if _campaign_force_return:
+		return
 	if _game_end_overlay != null and _game_end_overlay.visible:
 		_show_game_end_modal(title, msg)
 		return
@@ -2310,18 +2322,25 @@ func _show_game_end_modal(title: String, body: String) -> void:
 	_game_end_title.text = title
 	_game_end_body.text = body
 	_game_end_overlay.visible = true
-	_game_end_play_again.disabled = false
-	if _is_network_client():
+	_game_end_play_again.visible = not _campaign_force_return
+	_game_end_play_again.disabled = _campaign_force_return
+	if _campaign_force_return:
+		_game_end_main_menu.text = "Back to Campaign"
+	elif _is_network_client():
 		_game_end_play_again.text = "Play Again (request host)"
+		_game_end_main_menu.text = "Main Menu"
 	else:
 		_game_end_play_again.text = "Play Again"
+		_game_end_main_menu.text = "Main Menu"
 
 
 func _hide_game_end_modal() -> void:
 	if _game_end_overlay != null:
 		_game_end_overlay.visible = false
 		_game_end_play_again.disabled = false
+		_game_end_play_again.visible = true
 		_game_end_play_again.text = "Play Again"
+		_game_end_main_menu.text = "Main Menu"
 
 
 func _build_end_discard_modal() -> void:
@@ -2902,6 +2921,8 @@ func _on_end_discard_confirm_pressed() -> void:
 
 
 func _on_game_end_play_again_pressed() -> void:
+	if _campaign_force_return:
+		return
 	if _is_network_client():
 		_game_end_play_again.disabled = true
 		_game_end_play_again.text = "Waiting for host..."
@@ -2911,6 +2932,11 @@ func _on_game_end_play_again_pressed() -> void:
 
 
 func _on_game_end_main_menu_pressed() -> void:
+	if _campaign_force_return:
+		if multiplayer.multiplayer_peer != null:
+			multiplayer.multiplayer_peer = null
+		get_tree().change_scene_to_file("res://campaign.tscn")
+		return
 	_on_quit_to_menu_confirmed()
 
 
@@ -2953,15 +2979,93 @@ func _try_record_campaign_progress(winner: int, you: int) -> void:
 	if wins >= 2:
 		_store_campaign_completed_for_key(deck_key, completed + 1)
 		_clear_campaign_series_for_key(deck_key)
+		_campaign_force_return = true
+		var challenge_name := IncludedDecks.list_row_text(IncludedDecks.token(challenger_slug))
+		_show_game_end_modal("Challenge Complete", "You won the best-of-3 vs %s (%d-%d).\nReturning to campaign." % [challenge_name, wins, losses])
 		return
 	if losses >= 2:
 		wins = 0
 		losses = 0
+		_campaign_force_return = true
+		var challenge_name_loss := IncludedDecks.list_row_text(IncludedDecks.token(challenger_slug))
+		_show_game_end_modal("Challenge Failed", "You lost the best-of-3 vs %s (1-2).\nReturning to campaign." % [challenge_name_loss])
+		_clear_campaign_series_for_key(deck_key)
+		_refresh_campaign_series_ui()
+		return
 	_store_campaign_series_for_key(deck_key, {
 		"slug": challenger_slug,
 		"wins": wins,
 		"losses": losses
 	})
+	_refresh_campaign_series_ui()
+
+
+func _build_campaign_series_ui() -> void:
+	_campaign_series_panel = PanelContainer.new()
+	_campaign_series_panel.name = "CampaignSeriesPanel"
+	_campaign_series_panel.anchor_left = 0.5
+	_campaign_series_panel.anchor_right = 0.5
+	_campaign_series_panel.anchor_top = 0.0
+	_campaign_series_panel.anchor_bottom = 0.0
+	_campaign_series_panel.offset_left = -230
+	_campaign_series_panel.offset_right = 230
+	_campaign_series_panel.offset_top = 12
+	_campaign_series_panel.offset_bottom = 52
+	_campaign_series_panel.visible = false
+	_campaign_series_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_campaign_series_panel.z_index = 80
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.08, 0.09, 0.12, 0.94)
+	sb.border_color = Color(0.66, 0.72, 0.86, 0.95)
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(10)
+	_campaign_series_panel.add_theme_stylebox_override("panel", sb)
+	add_child(_campaign_series_panel)
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 10)
+	margin.add_theme_constant_override("margin_right", 10)
+	margin.add_theme_constant_override("margin_top", 6)
+	margin.add_theme_constant_override("margin_bottom", 6)
+	_campaign_series_panel.add_child(margin)
+	_campaign_series_label = Label.new()
+	_campaign_series_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_campaign_series_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_campaign_series_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	margin.add_child(_campaign_series_label)
+	_refresh_campaign_series_ui()
+
+
+func _refresh_campaign_series_ui() -> void:
+	if _campaign_series_panel == null or _campaign_series_label == null:
+		return
+	if _read_play_mode_string() != "campaign":
+		_campaign_series_panel.visible = false
+		return
+	if not FileAccess.file_exists(CAMPAIGN_CHALLENGER_FILE):
+		_campaign_series_panel.visible = false
+		return
+	var chf := FileAccess.open(CAMPAIGN_CHALLENGER_FILE, FileAccess.READ)
+	if chf == null:
+		_campaign_series_panel.visible = false
+		return
+	var challenger_slug := chf.get_as_text().strip_edges()
+	if challenger_slug.is_empty():
+		_campaign_series_panel.visible = false
+		return
+	var player_deck_path := _read_campaign_player_deck_path()
+	var deck_key := _campaign_deck_key(player_deck_path)
+	if deck_key.is_empty():
+		_campaign_series_panel.visible = false
+		return
+	var wins := 0
+	var losses := 0
+	var series := _load_campaign_series_for_key(deck_key)
+	if str(series.get("slug", "")) == challenger_slug:
+		wins = int(series.get("wins", 0))
+		losses = int(series.get("losses", 0))
+	var challenge_name := IncludedDecks.list_row_text(IncludedDecks.token(challenger_slug))
+	_campaign_series_label.text = "Campaign BO3 vs %s  •  Record: %d-%d" % [challenge_name, wins, losses]
+	_campaign_series_panel.visible = true
 
 
 func _read_campaign_player_deck_path() -> String:
@@ -3867,7 +3971,7 @@ func _start_bird_fight_from_mid(initial_mid: int) -> void:
 		_bird_attack_selected[initial_mid] = true
 	_bird_defender_mid = -1
 	sacrifice_row.visible = true
-	sacrifice_confirm_button.text = "Select target"
+	sacrifice_confirm_button.text = "Select your birds to fight"
 	sacrifice_cancel_button.text = "Cancel"
 	sacrifice_hint.text = "Bird fight: choose one or more of your birds to attack."
 	_update_inc_modal_ui()
@@ -5250,7 +5354,6 @@ func _on_hand_pressed(hand_idx: int) -> void:
 		return
 	if _mode_discard_draw:
 		_mode_discard_draw = false
-		discard_draw_button.text = "Discard for draw (once)"
 		if _is_network_client():
 			submit_discard_draw.rpc_id(1, hand_idx)
 		else:
@@ -6143,7 +6246,6 @@ func _on_discard_draw_pressed() -> void:
 		_cancel_discard_draw_mode()
 		return
 	_mode_discard_draw = true
-	discard_draw_button.text = "Cancel"
 	status_label.text = "Click a card to discard for draw."
 	if not _last_snap.is_empty():
 		_rebuild_hand(_last_snap.get("your_hand", []))
@@ -6153,7 +6255,6 @@ func _cancel_discard_draw_mode() -> void:
 	if not _mode_discard_draw:
 		return
 	_mode_discard_draw = false
-	discard_draw_button.text = "Discard for draw (once)"
 	if not _last_snap.is_empty():
 		_apply_snap(_last_snap)
 

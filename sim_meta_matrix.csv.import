@@ -1,0 +1,17 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://bg0luctokeewv"
+
+[deps]
+
+files=["res://sim_meta_matrix.ritual.translation", "res://sim_meta_matrix.occultation.translation", "res://sim_meta_matrix.annihilation.translation", "res://sim_meta_matrix.emanation.translation", "res://sim_meta_matrix.bird.translation", "res://sim_meta_matrix.void.translation"]
+
+source_file="res://sim_meta_matrix.csv"
+dest_files=["res://sim_meta_matrix.ritual.translation", "res://sim_meta_matrix.occultation.translation", "res://sim_meta_matrix.annihilation.translation", "res://sim_meta_matrix.emanation.translation", "res://sim_meta_matrix.bird.translation", "res://sim_meta_matrix.void.translation"]
+
+[params]
+
+compress=true
+delimiter=0

@@ -51,6 +51,12 @@ def _empty_bucket() -> dict[str, Any]:
         "p0_end_temples_sum": 0,
         "p0_end_rituals_sum": 0,
         "p0_non_ritual_plays_all_games": {},
+        "p0_incant_plays_sum": 0,
+        "p1_incant_plays_sum": 0,
+        "p0_discard_draws_sum": 0,
+        "p1_discard_draws_sum": 0,
+        "p0_wins_by_power": 0,
+        "p1_wins_by_power": 0,
     }
 
 
@@ -107,6 +113,10 @@ def _play_one_game(p0_deck_cards, p1_deck_cards, rng: random.Random,
         "p0_end_birds": len(p0.bird_field),
         "p0_end_temples": len(p0.temple_field),
         "p0_end_rituals": len(p0.field),
+        "p0_incant_plays": state.incantation_plays[0],
+        "p1_incant_plays": state.incantation_plays[1],
+        "p0_discard_draws": state.discard_for_draw_plays[0],
+        "p1_discard_draws": state.discard_for_draw_plays[1],
     }
 
 
@@ -148,6 +158,14 @@ def _record_result(bucket: dict[str, Any], res: dict[str, Any]) -> None:
     acc_all = bucket["p0_non_ritual_plays_all_games"]
     for lab, n in (res.get("p0_non_ritual_plays") or {}).items():
         acc_all[lab] = acc_all.get(lab, 0) + n
+    bucket["p0_incant_plays_sum"] += res["p0_incant_plays"]
+    bucket["p1_incant_plays_sum"] += res["p1_incant_plays"]
+    bucket["p0_discard_draws_sum"] += res["p0_discard_draws"]
+    bucket["p1_discard_draws_sum"] += res["p1_discard_draws"]
+    if w == 0 and reason == "power_win":
+        bucket["p0_wins_by_power"] += 1
+    if w == 1 and reason == "power_win":
+        bucket["p1_wins_by_power"] += 1
 
 
 def run_shard(args: tuple[Any, ...]) -> dict[str, dict[str, Any]]:
@@ -188,6 +206,8 @@ def _validate_invariants(agg: dict[str, dict[str, Any]], expected_total: int) ->
         for i in range(len(POWER_CURVE_MARKERS)):
             assert b["power_curve_p0_count"][i] <= g
             assert b["power_curve_p1_count"][i] <= g
+        assert b["p0_wins_by_power"] <= b["p0_wins"]
+        assert b["p1_wins_by_power"] <= b["p1_wins"]
         total_games += g
     assert total_games == expected_total, f"global game count mismatch: {total_games} vs {expected_total}"
 

@@ -404,9 +404,12 @@ func make_bird_card(bird: Dictionary, ours: bool) -> Control:
 		var snap: Dictionary = game._last_snap
 		var mine := int(snap.get("current", -1)) == int(snap.get("you", -2))
 		can_start_nest = mine and game._temple_field_input_ok() and game._has_nest_action_available(snap)
-	if is_attack_pick and game._bird_attack_selected.has(mid):
+	if is_attack_pick:
 		sb.set_border_width_all(3)
-		sb.border_color = Color(0.05, 0.05, 0.05)
+		sb.border_color = Color(0.36, 0.86, 0.72)
+		if game._bird_attack_selected.has(mid):
+			sb.set_border_width_all(4)
+			sb.border_color = Color(0.12, 0.96, 0.78)
 	if is_target_pick and game._bird_defender_mid == mid:
 		sb.set_border_width_all(3)
 		sb.border_color = Color(1.0, 0.58, 0.58)

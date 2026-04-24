@@ -13,7 +13,11 @@ Usage:
     # Trained weights from data/pilot_weights.json (per slug when present)
     python -m sim.meta --runs 100000 --seed 42 --use-saved-weights [--weights PATH]
 
-Common flags: ``--workers N``, ``--games-out``.
+Common flags: ``--workers N``, ``--games-out``, ``--gameplay-out``.
+
+``--gameplay-out`` writes per-deck P1 focal stats (pooled over all P0) with
+IQR / Tukey outlier flags for incantations, discard-to-draw, 20+ power route
+wins, etc.
 
 This reuses ``sim.run.run_shard`` (multiprocess shards per P0 slug) so the
 per-game pilot / mulligan / invariant plumbing is identical to the CLI
@@ -24,11 +28,13 @@ from __future__ import annotations
 
 import argparse
 import csv
+import math
 import multiprocessing as mp
 import os
+import statistics
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from .decks import included_deck_slugs
 from .pilot_weights import default_pilot_weights_path
@@ -68,9 +74,190 @@ def _cell_expected_mp_p1(bucket: dict[str, Any]) -> tuple[float, int]:
     return (pts / g, g)
 
 
+def _pool_p1_focal(
+    slugs: list[str], all_agg: dict[str, dict[str, dict[str, Any]]], col_slug: str
+) -> dict[str, Any] | None:
+    gtot = 0
+    exp_pts = 0.0
+    turns = 0
+    p1_inc = 0
+    p1_dd = 0
+    p1_wins = 0
+    p1_wbp = 0
+    p1_psum = 0
+    er: dict[str, int] = {}
+    for row_slug in slugs:
+        b = all_agg[row_slug].get(col_slug)
+        if b is None or b["games"] == 0:
+            continue
+        g = b["games"]
+        gtot += g
+        mp, _ = _cell_expected_mp_p1(b)
+        exp_pts += mp * g
+        turns += b["turns_sum"]
+        p1_inc += b["p1_incant_plays_sum"]
+        p1_dd += b["p1_discard_draws_sum"]
+        p1_wins += b["p1_wins"]
+        p1_wbp += b["p1_wins_by_power"]
+        p1_psum += b["p1_power_sum"]
+        for k, v in b["end_reason_counts"].items():
+            er[k] = er.get(k, 0) + v
+    if gtot == 0:
+        return None
+    exp = exp_pts / gtot
+    return {
+        "games": gtot,
+        "exp_mp_p1": exp,
+        "avg_turns": turns / gtot,
+        "p1_incant_per_game": p1_inc / gtot,
+        "p1_discard_draw_per_game": p1_dd / gtot,
+        "p1_incant_per_turn": (p1_inc / turns) if turns > 0 else 0.0,
+        "p1_win_rate": p1_wins / gtot,
+        "p1_wins_20p_share": (p1_wbp / p1_wins) if p1_wins > 0 else 0.0,
+        "games_ended_power_rule": er.get("power_win", 0) / gtot,
+        "games_ended_deck_out": er.get("deck_out", 0) / gtot,
+        "games_ended_turn_cap": er.get("turn_cap", 0) / gtot,
+        "avg_p1_final_power": p1_psum / gtot,
+    }
+
+
+def _tukey_fences(values: list[float]) -> tuple[float, float, float, float, float, float] | None:
+    xs = [x for x in values if not math.isnan(x)]
+    if len(xs) < 2:
+        return None
+    qs = statistics.quantiles(xs, n=4, method="inclusive")
+    q1, q2, q3 = qs[0], qs[1], qs[2]
+    iqr = q3 - q1
+    return (q1, q2, q3, iqr, q1 - 1.5 * iqr, q3 + 1.5 * iqr)
+
+
+def _outlier_flag(
+    v: float,
+    fences: tuple[float, float, float, float, float, float] | None,
+) -> bool:
+    if fences is None or math.isnan(v):
+        return False
+    _, _, _, _, lo, hi = fences
+    return v < lo or v > hi
+
+
+def _iqr_by_metric(
+    per_deck: list[tuple[str, dict[str, Any]]],
+) -> dict[str, tuple[float, float, float, float, float, float] | None]:
+    out: dict[str, tuple[float, float, float, float, float, float] | None] = {}
+    spec: list[tuple[str, Callable[[dict[str, Any]], float]]] = [
+        ("p1_incant_per_game", lambda r: r["p1_incant_per_game"]),
+        ("p1_discard_draw_per_game", lambda r: r["p1_discard_draw_per_game"]),
+        ("p1_wins_20p_share", lambda r: r["p1_wins_20p_share"]),
+        ("games_ended_power_rule", lambda r: r["games_ended_power_rule"]),
+        ("exp_mp_p1", lambda r: r["exp_mp_p1"]),
+        ("avg_p1_final_power", lambda r: r["avg_p1_final_power"]),
+        ("p1_incant_per_turn", lambda r: r["p1_incant_per_turn"]),
+        ("avg_turns", lambda r: r["avg_turns"]),
+    ]
+    for name, f in spec:
+        vals = [f(r) for _, r in per_deck]
+        out[name] = _tukey_fences(vals)
+    return out
+
+
+def _print_gameplay_section(
+    slugs: list[str],
+    all_agg: dict[str, dict[str, dict[str, Any]]],
+) -> tuple[
+    list[tuple[str, dict[str, Any]]], dict[str, tuple[float, float, float, float, float, float] | None]
+]:
+    per_deck: list[tuple[str, dict[str, Any]]] = []
+    for col in slugs:
+        rowd = _pool_p1_focal(slugs, all_agg, col)
+        if rowd is not None:
+            per_deck.append((col, rowd))
+    if not per_deck:
+        return per_deck, {}
+    fences = _iqr_by_metric(per_deck)
+    print()
+    print("--- P1 focal gameplay (pooled over all P0 opponents; 20+ power wins = end_reason power_win) ---")
+    for key, t in sorted(fences.items(), key=lambda kv: kv[0]):
+        f = t
+        if f is None:
+            print(f"  {key}: IQR n/a (need >=2 distinct decks)")
+        else:
+            q1, q2, q3, iqr, lo, hi = f
+            print(
+                f"  {key}:  Q1={q1:.4f}  Q2={q2:.4f}  Q3={q3:.4f}  "
+                f"IQR={iqr:.4f}  fences=[{lo:.4f}, {hi:.4f}]"
+            )
+    w = max(len(s) for s, _ in per_deck) + 2
+    mkeys = list(fences.keys())
+    print()
+    print(
+        f"{'slug':{w}s}  {'G':>8s}  {'expMP':>8s}  "
+        f"{'inc/g':>8s}  {'dd/g':>8s}  {'inc/turn':>8s}  "
+        f"{'20+p|P1W':>9s}  {'pwrG':>7s}  "
+        f"{'avgP1P':>8s}  {'TURN':>7s}  outlier"
+    )
+    ocols = mkeys
+    for slug, r in sorted(per_deck, key=lambda x: -x[1]["exp_mp_p1"]):
+        oset = {k for k in ocols if _outlier_flag(r.get(k, float("nan")), fences.get(k))}
+        oflag = ",".join(sorted(oset)) if oset else ""
+        print(
+            f"{slug:{w}s}  {r['games']:8d}  {r['exp_mp_p1']:8.3f}  "
+            f"{r['p1_incant_per_game']:8.3f}  {r['p1_discard_draw_per_game']:8.3f}  {r['p1_incant_per_turn']:8.3f}  "
+            f"{r['p1_wins_20p_share']*100:8.1f}%  {r['games_ended_power_rule']*100:6.1f}%  "
+            f"{r['avg_p1_final_power']:8.2f}  {r['avg_turns']:7.2f}  {oflag or '-'}"
+        )
+    for h in ("void_temples", "bird_flock"):
+        p = next(((s, d) for s, d in per_deck if s == h), None)
+        if p is None:
+            continue
+        s, r = p
+        oset = {k for k in ocols if _outlier_flag(r.get(k, float("nan")), fences.get(k))}
+        print()
+        print(f"  (highlight) {s}:  expMP {r['exp_mp_p1']:.3f}  "
+              f"incant/game {r['p1_incant_per_game']:.3f}  "
+              f"discard-draw/game {r['p1_discard_draw_per_game']:.3f}  "
+              f"P1 win share 20+ route {r['p1_wins_20p_share']*100:.1f}%  "
+              f"games end power rule {r['games_ended_power_rule']*100:.1f}%  "
+              f"outlier metrics: {', '.join(sorted(oset)) or 'none'}")
+    return per_deck, fences
+
+
+def _write_gameplay_csv(
+    path: Path, per_deck: list[tuple[str, dict[str, Any]]],
+    fences: dict[str, tuple[float, float, float, float, float, float] | None],
+) -> None:
+    if not per_deck:
+        return
+    fkeys = sorted(f for f in (fences or {}))
+    with path.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(
+            [
+                "slug", "games", "exp_mp_p1", "p1_incant_per_game", "p1_discard_draw_per_game",
+                "p1_incant_per_turn", "p1_win_rate", "p1_wins_20p_power_share", "games_ended_power_rule_rate",
+                "games_ended_deck_out_rate", "games_ended_turn_cap_rate", "avg_p1_final_power", "avg_turns",
+            ]
+            + [f"outlier__{k}" for k in fkeys]
+        )
+        for slug, r in per_deck:
+            out = {k: _outlier_flag(r.get(k, float("nan")), fences.get(k)) for k in fkeys}
+            w.writerow(
+                [
+                    slug, r["games"],
+                    f"{r['exp_mp_p1']:.6f}", f"{r['p1_incant_per_game']:.6f}",
+                    f"{r['p1_discard_draw_per_game']:.6f}", f"{r['p1_incant_per_turn']:.6f}",
+                    f"{r['p1_win_rate']:.6f}", f"{r['p1_wins_20p_share']:.6f}", f"{r['games_ended_power_rule']:.6f}",
+                    f"{r['games_ended_deck_out']:.6f}", f"{r['games_ended_turn_cap']:.6f}",
+                    f"{r['avg_p1_final_power']:.6f}", f"{r['avg_turns']:.6f}",
+                ]
+                + [str(out[k]) for k in fkeys]
+            )
+
+
 def run_meta(runs_per_deck: int, seed: int, workers: int,
              out_path: Path,
              games_out_path: Path | None = None,
+             gameplay_out_path: Path | None = None,
              weights_path_str: str = "",
              use_saved_weights: bool = False) -> None:
     slugs = included_deck_slugs()
@@ -119,6 +306,10 @@ def run_meta(runs_per_deck: int, seed: int, workers: int,
         print(f"Wrote sample-size matrix: {games_out_path}")
 
     _print_summary_table(slugs, all_agg)
+    per_deck, fence_map = _print_gameplay_section(slugs, all_agg)
+    if gameplay_out_path is not None and per_deck:
+        _write_gameplay_csv(gameplay_out_path, per_deck, fence_map)
+        print(f"Wrote gameplay summary: {gameplay_out_path}")
 
 
 def _print_summary_table(slugs: list[str],
@@ -156,6 +347,8 @@ def main() -> None:
                     help="output CSV path")
     ap.add_argument("--games-out", type=str, default="",
                     help="optional: write a second CSV with per-cell sample sizes")
+    ap.add_argument("--gameplay-out", type=str, default="",
+                    help="optional: write P1 focal gameplay + outlier flags (CSV)")
     ap.add_argument(
         "--use-saved-weights",
         action="store_true",
@@ -170,6 +363,7 @@ def main() -> None:
     workers = max(1, min(workers, args.runs))
     out_path = Path(args.out)
     games_out_path = Path(args.games_out) if args.games_out else None
+    gameplay_out_path = Path(args.gameplay_out) if args.gameplay_out else None
     weights_path_str = ""
     if args.use_saved_weights:
         wp = Path(args.weights) if args.weights else default_pilot_weights_path()
@@ -177,6 +371,7 @@ def main() -> None:
     run_meta(
         args.runs, args.seed, workers, out_path,
         games_out_path,
+        gameplay_out_path,
         weights_path_str, args.use_saved_weights,
     )
 
